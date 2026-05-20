@@ -105,11 +105,18 @@ function resetLogin(): void {
     </section>
 
     <aside class="right-rail" aria-label="侧边功能入口">
-      <img class="side-menu-art" src="./assets/login-side-menu-v12.png" alt="" aria-hidden="true" />
-      <button class="rail-hotspot rail-hotspot-a" type="button" aria-label="谕言" @click="comingSoon"></button>
-      <button class="rail-hotspot rail-hotspot-b" type="button" aria-label="客服" @click="comingSoon"></button>
-      <button class="rail-hotspot rail-hotspot-c" type="button" aria-label="公告" @click="comingSoon"></button>
-      <button class="rail-hotspot rail-hotspot-d" type="button" aria-label="修复" @click="comingSoon"></button>
+      <button type="button" aria-label="谕言" @click="comingSoon">
+        <img src="./assets/rail-prophecy-v13.png" alt="谕言" />
+      </button>
+      <button type="button" aria-label="客服" @click="comingSoon">
+        <img src="./assets/rail-service-v13.png" alt="客服" />
+      </button>
+      <button type="button" aria-label="公告" @click="comingSoon">
+        <img src="./assets/rail-notice-v13.png" alt="公告" />
+      </button>
+      <button type="button" aria-label="修复" @click="comingSoon">
+        <img src="./assets/rail-repair-v13.png" alt="修复" />
+      </button>
     </aside>
 
     <div v-if="loginDialogOpen && !isLoggedIn" class="login-dialog-layer" @click.self="closeLoginDialog">
