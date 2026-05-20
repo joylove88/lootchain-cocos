@@ -1,0 +1,14 @@
+{
+  "name": "lootchain-cocos",
+  "description": "LootChain Cocos Creator player client.",
+  "type": "module",
+  "scripts": {
+    "check:layout": "node ./scripts/check-layout.mjs"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "creator": {
+    "version": "3.8.8"
+  },
+  "uuid": "a70f3e41-cac8-4a38-ba57-8d0723b24e66"
+}

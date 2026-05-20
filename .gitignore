@@ -1,0 +1,13 @@
+library/
+local/
+temp/
+build/
+profiles/
+node_modules/
+dist/
+web-vue/dist/
+web-vue/screenshots/
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
