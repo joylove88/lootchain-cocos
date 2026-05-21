@@ -106,16 +106,20 @@ function resetLogin(): void {
 
     <aside class="right-rail" aria-label="侧边功能入口">
       <button type="button" aria-label="谕言" @click="comingSoon">
-        <img src="./assets/rail-prophecy-v13.png" alt="谕言" />
+        <img src="./assets/rail-prophecy-icon-v15.png" alt="" aria-hidden="true" />
+        <span>谕言</span>
       </button>
       <button type="button" aria-label="客服" @click="comingSoon">
-        <img src="./assets/rail-service-v13.png" alt="客服" />
+        <img src="./assets/rail-service-icon-v15.png" alt="" aria-hidden="true" />
+        <span>客服</span>
       </button>
       <button type="button" aria-label="公告" @click="comingSoon">
-        <img src="./assets/rail-notice-v13.png" alt="公告" />
+        <img src="./assets/rail-notice-icon-v15.png" alt="" aria-hidden="true" />
+        <span>公告</span>
       </button>
       <button type="button" aria-label="修复" @click="comingSoon">
-        <img src="./assets/rail-repair-v13.png" alt="修复" />
+        <img src="./assets/rail-repair-icon-v15.png" alt="" aria-hidden="true" />
+        <span>修复</span>
       </button>
     </aside>
 

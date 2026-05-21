@@ -532,19 +532,19 @@ input {
   position: absolute;
   bottom: clamp(5.9rem, 12vh, 8.4rem);
   left: 50%;
-  width: min(40rem, 46vw);
+  width: min(29rem, 35vw);
   transform: translateX(-50%);
 }
 
 .main-login-button {
-  height: clamp(4.25rem, 8vh, 5.65rem);
+  height: clamp(5.65rem, 10.8vh, 7.4rem);
   margin-top: 0;
 }
 
 .login-button.primary.main-login-button {
   border: 0;
   color: #f0deba;
-  background: url("./assets/login-button-main-v12.png") center center / 100% 100% no-repeat;
+  background: url("./assets/login-button-main-v14.png") center center / 100% 100% no-repeat;
   box-shadow: none;
   text-shadow:
     0 1px 2px rgba(0, 0, 0, 0.95),
@@ -778,12 +778,13 @@ input {
   right: clamp(0.85rem, 2vw, 2.1rem);
   z-index: 6;
   display: grid;
-  gap: clamp(0.62rem, 1.75vh, 1rem);
-  width: clamp(4.4rem, 5.3vw, 6.2rem);
+  gap: clamp(0.3rem, 1vh, 0.62rem);
+  width: clamp(4.1rem, 4.8vw, 5.4rem);
 }
 
 .right-rail button {
-  display: block;
+  display: grid;
+  place-items: center;
   width: 100%;
   border: 0;
   padding: 0;
@@ -796,11 +797,23 @@ input {
 
 .right-rail img {
   display: block;
-  width: 100%;
+  width: clamp(2.2rem, 2.7vw, 3.15rem);
   height: auto;
   filter:
-    drop-shadow(0 0 10px rgba(246, 196, 92, 0.2))
+    drop-shadow(0 0 8px rgba(246, 196, 92, 0.28))
     drop-shadow(0 6px 12px rgba(0, 0, 0, 0.76));
+  pointer-events: none;
+}
+
+.right-rail span {
+  margin-top: 0.12rem;
+  color: #e5c97d;
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  font-size: clamp(0.82rem, 1.05vw, 1rem);
+  line-height: 1.08;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.95),
+    0 0 8px rgba(246, 196, 92, 0.24);
   pointer-events: none;
 }
 
@@ -1341,6 +1354,10 @@ input {
   .login-button {
     height: 3.05rem;
     margin-top: 0.56rem;
+  }
+
+  .main-login-button {
+    height: clamp(5.15rem, 10.2vh, 6.4rem);
   }
 
   .dev-config,
