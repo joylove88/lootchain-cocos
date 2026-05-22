@@ -12,6 +12,7 @@ const required = [
   'docs/api-contract.md',
   'docs/web-h5-build.md',
   'docs/art-vfx-pipeline.md',
+  'docs/login-vfx-final-plan.md',
 ];
 
 let ok = true;

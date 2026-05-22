@@ -30,7 +30,7 @@ interface EffectNode {
 interface EffectLayout {
   width: number;
   height: number;
-  h5: boolean;
+  compact: boolean;
 }
 
 function rgba(red: number, green: number, blue: number, alpha = 255): Color {
@@ -68,15 +68,15 @@ export class LootChainLoginEffectLayer extends Component {
     const rootTransform = root.getComponent(UITransform) ?? root.addComponent(UITransform);
     rootTransform.setContentSize(new Size(layout.width, layout.height));
 
-    const topCoreY = layout.height / 2 - (layout.h5 ? 58 : 46);
-    const gemY = layout.height / 2 - (layout.h5 ? 250 : 320);
+    const topCoreY = layout.height / 2 - (layout.compact ? 58 : 46);
+    const gemY = layout.height / 2 - (layout.compact ? 250 : 320);
     this.addCloud('CloudBackA', -layout.width * 0.18, layout.height * 0.32, layout.width * 0.76, layout.height * 0.2, 54, 0.18, 0.08);
     this.addCloud('CloudBackB', layout.width * 0.22, layout.height * 0.29, layout.width * 0.64, layout.height * 0.18, 42, 0.14, 2.1);
-    this.addAbyssOrb(0, topCoreY, layout.h5 ? 108 : 132);
-    this.addBeam(0, topCoreY - (layout.h5 ? 210 : 275), layout.h5 ? 4 : 5, layout.h5 ? 470 : 640);
-    this.addGemAura(0, gemY, layout.h5 ? 70 : 95);
-    this.addFireCluster(-Math.min(layout.width * 0.19, 320), -layout.height / 2 + (layout.h5 ? 54 : 84), layout.h5 ? 0.72 : 0.95, -1);
-    this.addFireCluster(Math.min(layout.width * 0.19, 320), -layout.height / 2 + (layout.h5 ? 54 : 84), layout.h5 ? 0.72 : 0.95, 1);
+    this.addAbyssOrb(0, topCoreY, layout.compact ? 108 : 132);
+    this.addBeam(0, topCoreY - (layout.compact ? 210 : 275), layout.compact ? 4 : 5, layout.compact ? 470 : 640);
+    this.addGemAura(0, gemY, layout.compact ? 70 : 95);
+    this.addFireCluster(-Math.min(layout.width * 0.19, 320), -layout.height / 2 + (layout.compact ? 54 : 84), layout.compact ? 0.72 : 0.95, -1);
+    this.addFireCluster(Math.min(layout.width * 0.19, 320), -layout.height / 2 + (layout.compact ? 54 : 84), layout.compact ? 0.72 : 0.95, 1);
     this.addEmbers(layout);
   }
 
@@ -233,7 +233,7 @@ export class LootChainLoginEffectLayer extends Component {
   }
 
   private addEmbers(layout: EffectLayout): void {
-    const count = layout.h5 ? 28 : 48;
+    const count = layout.compact ? 28 : 48;
     for (let index = 0; index < count; index += 1) {
       const x = -layout.width * 0.44 + ((index * 73) % Math.floor(layout.width * 0.88));
       const y = -layout.height / 2 - 20 - (index % 5) * 8;
@@ -291,13 +291,13 @@ export class LootChainLoginEffectLayer extends Component {
     return {
       width,
       height,
-      h5: width <= 760 || height > width * 1.12,
+      compact: width <= 900 || height > width * 1.12,
     };
   }
 
   private makeLayoutKey(): string {
     const layout = this.resolveLayout();
-    return `${layout.width}x${layout.height}:${layout.h5 ? 'h5' : 'web'}`;
+    return `${layout.width}x${layout.height}:${layout.compact ? 'compact' : 'desktop'}`;
   }
 
   private clampOpacity(value: number): number {

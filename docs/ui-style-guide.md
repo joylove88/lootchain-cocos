@@ -2,17 +2,18 @@
 
 你现在是 LootChain：永夜圣契 项目的资深游戏前端、UI 美术总监、暗黑魔幻游戏视觉设计师。
 
-当前技术分工：
+## 当前技术分工
 
-- Vue/HTML/CSS 负责登录、大厅、背包、英雄、抽卡等非战斗 Web/H5 UI。
-- Cocos Creator 保留为后续战斗场景、技能表现、Boss 镜头和实时战斗承载。
-- 第一阶段登录验收以 `web-vue` 为准，不再以 Cocos 场景 UI 作为验收入口。
+- 第一阶段登录页完全由 Cocos Creator 实现。
+- 登录页内容包括背景、动态特效、Logo、按钮、弹框、输入框、协议、状态提示和接口联调。
+- 不再使用 HTML、Vue、CSS、H5 或 `web-vue` 作为登录验收入口。
+- `web-vue` 仅保留历史实验记录；除非用户明确要求，不再修改。
 
 ## 当前阶段
 
-第一阶段只交付登录页。
+第一阶段只交付 Cocos 登录页。
 
-- 当前验收目标：玩家能在 Web/H5 Vue 登录页完成 dev-login。
+- 当前验收目标：玩家能在 Cocos 预览中完成 dev-login。
 - 当前 UI 参考：`docs/ui-reference/dragonheir/ui/login.png`。
 - 下一阶段目标：登录验收通过后再制作大厅。
 - 下一阶段 UI 参考：`docs/ui-reference/dragonheir/ui/lobby.png`。
@@ -21,11 +22,9 @@
 
 ## 项目主题
 
-游戏名称：
-LootChain：永夜圣契
+游戏名称：LootChain：永夜圣契
 
-英文：
-LootChain: Covenant of Eternal Night
+英文：LootChain: Covenant of Eternal Night
 
 世界观关键词：
 
@@ -48,13 +47,14 @@ LootChain: Covenant of Eternal Night
 必须具备：
 
 - 暗黑神殿或永夜城堡纵深背景，不允许纯灰背景。
-- 画面中心上方有深渊红核心、魔法阵、锁链或符文能量。
-- 主标题使用黑金史诗风，显示 `LootChain` 和 `Covenant of Eternal Night`。
+- 画面中心上方有深渊红核心、魔法阵、锁链、黑金巨龙或符文能量。
+- 中央宝石和天空特效由 Cocos 场景粒子、序列帧或 shader 承载。
+- 左上 Logo 使用黑金史诗风，显示 LootChain 品牌。
+- 主界面只保留一个位于宝石下方的账号登录按钮，避免遮挡宝石。
+- 点击账号登录后在 Cocos 内弹出账号/密码登录框。
 - 登录区域使用黑金金属框、深色半透明底、金色描边和微弱红色光晕。
-- 登录按钮有金属描边、Hover 亮边、Press 缩放。
 - 右侧可保留“谕言 / 客服 / 公告 / 修复”等竖向占位入口，但不得开放真实业务功能。
-- 状态提示必须清晰，不与输入框、按钮、标题重叠。
-- Web 桌面与 H5 窄屏都必须可读、可点击、无文字溢出。
+- 状态提示必须清晰，不与输入框、按钮、背景核心视觉重叠。
 
 禁止：
 
@@ -64,16 +64,25 @@ LootChain: Covenant of Eternal Night
 - 亮色卡通风。
 - Q 版手游风。
 - 提前显示大厅、抽卡、英雄、背包等非登录阶段入口。
+- 使用 HTML/Vue/CSS/H5 承载登录验收。
 
 ## 第一阶段登录交互
 
 登录页允许出现的交互：
 
-- API 地址输入，默认 `http://localhost:8081`。
-- User ID 输入，默认 `1`。
+- 账号 / 邮箱输入。
+- 密码输入。
+- 协议勾选。
 - 登录按钮，调用 `POST /api/player/auth/dev-login`。
+- 第三方登录占位图标，只提示暂未开放。
 - 登录成功状态展示。
 - 登录失败时展示实际请求 URL 和错误信息。
+
+当前 dev-login 规则：
+
+- 账号输入为数字时按 User ID 调用 dev-login。
+- 非数字账号/邮箱暂用默认 `userId=1` 做本地验收兜底。
+- 正式账号/邮箱/钱包登录等待后端接口后再接入。
 
 登录成功后的第一阶段状态：
 
@@ -114,33 +123,24 @@ LootChain: Covenant of Eternal Night
 - 状态蓝色：`#7FD6FF`
 - 错误红色：`#FF6B7C`
 
-## Vue Web/H5 实现要求
-
-- 第一阶段优先修改 `web-vue/src/App.vue`、`web-vue/src/styles.css` 和 `web-vue/src/api/**`。
-- 使用静态高质量背景、CSS 渐变、遮罩、伪元素和少量低频动画保持暗黑神殿氛围。
-- Vue 登录页不得再保留全屏 Canvas 2D 粒子/火焰循环；高频红光、火焰、灰烬、宝石漂浮等动态特效迁移到 Cocos 特效层或正式美术序列帧/粒子资源。
-- 不复制原游戏素材、Logo、角色、图标和截图。
-- 保持桌面 Web 与手机 H5 同源实现，窄屏不得出现标题、按钮、状态文字溢出。
-- 不破坏现有 API SDK、token 存储和 `Result<T>` 解包逻辑。
-- 不新增经济写操作入口。
-- 所有按钮必须支持 Hover / Press 状态。
-- 登录验收通过前不显示大厅、抽卡、英雄、背包等入口。
-
 ## Cocos 实现要求
 
-- Cocos Creator 后续主要承载战斗相关 UI、技能表现、Boss 镜头、站位和场景。
-- 登录页可使用独立 Cocos 特效层承载云层、深渊红核心、光束、宝石光晕、火焰、灰烬等动态效果，但登录按钮和接口联调仍以 Vue Web/H5 为准。
-- 已预置 `assets/scripts/scenes/LootChainLoginEffectLayer.ts` 作为登录特效层 V1 原型。
-- 后续 Cocos 资源仍要保持节点命名清晰，方便替换 AI 生成图片资源。
-- 保持 FPS 稳定，不引入大量重资源。
-- Spine、龙骨、序列帧、粒子、shader 可在后续资源到位后接入；龙骨接入前需先确认 Cocos Creator 3.8.8 运行时/插件兼容性。
+- 优先修改 `assets/main.scene`、`assets/scripts/scenes/**`、`assets/resources/login-bg/**`。
+- 登录页 UI 由 `LootChainGameRoot` 承载。
+- 背景和动态特效由 Cocos 场景节点、粒子、序列帧、Spine/龙骨或 shader 承载。
+- 不再让 `LootChainGameRoot` 绘制旧的程序化黑底、旧宝石和旧神殿剪影，避免遮挡 Cocos 场景美术。
+- 所有按钮必须支持 Hover / Press 状态。
+- 不破坏现有 API SDK、token 存储和 `Result<T>` 解包逻辑。
+- 不新增经济写操作入口。
+- Spine、龙骨、序列帧、粒子、shader 可在资源到位后接入；龙骨接入前需先确认 Cocos Creator 3.8.8 运行时/插件兼容性。
 
 ## 第一阶段验收标准
 
-- Vue 登录页不再是灰色简陋界面。
-- 视觉严格走暗黑魔幻、黑金、深渊红、哥特神殿方向。
-- Web 桌面和 H5 窄屏布局不重叠。
-- 点击登录实际请求 `POST http://localhost:8081/api/player/auth/dev-login`。
+- Cocos 预览打开后能看到完整暗黑魔幻登录页。
+- 主界面没有 HTML/Vue/CSS/H5 登录层。
+- 主界面只开放账号登录按钮和右侧占位入口。
+- 点击账号登录后出现 Cocos 内弹框，包含账号/邮箱、密码、第三方登录占位图标和协议勾选。
+- 点击进入游戏实际请求 `POST http://localhost:8081/api/player/auth/dev-login`。
 - 后端返回 `code=0` 后显示登录成功/验收通过状态。
 - 本阶段未开放大厅、抽卡、英雄、背包等功能入口。
 - 未修改概率、消耗、保底、奖励、USDT 审核、资金池释放或 EX 获取规则。

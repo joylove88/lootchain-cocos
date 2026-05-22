@@ -17,6 +17,5 @@ export const AppConfig = {
   apiBaseUrl: resolveDefaultApiBaseUrl(),
   defaultDevUserId: 1,
   requestTimeoutMs: 15000,
-  supportedTargets: ['web-desktop', 'h5'] as const,
-  enableWriteActions: false,
+  supportedTargets: ['cocos-web'] as const,
 };
