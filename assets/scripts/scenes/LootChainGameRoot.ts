@@ -56,6 +56,10 @@ const UI_ASSETS = {
   ] satisfies RailButtonAsset[],
 };
 
+const SHOW_LOGIN_BRAND = false;
+const SHOW_RIGHT_RAIL = false;
+const USE_IMAGE_LOGIN_BUTTON = false;
+
 @ccclass('LootChainGameRoot')
 export class LootChainGameRoot extends Component {
   @property(SpriteFrame)
@@ -107,30 +111,42 @@ export class LootChainGameRoot extends Component {
   private renderLogin(): void {
     this.currentView = 'login';
     const layout = this.renderBase();
-    this.renderLoginBrand(layout);
-    this.renderRightRail(layout);
+    if (SHOW_LOGIN_BRAND) {
+      this.renderLoginBrand(layout);
+    }
+    if (SHOW_RIGHT_RAIL) {
+      this.renderRightRail(layout);
+    }
     const buttonWidth = Math.min(660, Math.max(520, layout.contentWidth * 0.5));
     const buttonHeight = Math.round(buttonWidth * 0.244);
-    this.addImageButton(
-      'MainAccountLoginButton',
-      UI_ASSETS.mainButton,
-      '账号登录',
-      0,
-      -layout.height * 0.31,
-      () => this.renderLoginDialog(),
-      layout,
-      buttonWidth,
-      buttonHeight,
-      Math.max(28, layout.bodyFont + 10),
-    );
+    if (USE_IMAGE_LOGIN_BUTTON) {
+      this.addImageButton(
+        'MainAccountLoginButton',
+        UI_ASSETS.mainButton,
+        '账号登录',
+        0,
+        -layout.height * 0.31,
+        () => this.renderLoginDialog(),
+        layout,
+        buttonWidth,
+        buttonHeight,
+        Math.max(28, layout.bodyFont + 10),
+      );
+    } else {
+      this.addGoldButton('账号登录', 0, -layout.height * 0.31, () => this.renderLoginDialog(), layout, Math.min(430, layout.contentWidth * 0.42), 64);
+    }
     this.addStatus('等待圣契召唤。', layout);
   }
 
   private renderLoginDialog(): void {
     this.currentView = 'loginDialog';
     const layout = this.renderBase();
-    this.renderLoginBrand(layout);
-    this.renderRightRail(layout);
+    if (SHOW_LOGIN_BRAND) {
+      this.renderLoginBrand(layout);
+    }
+    if (SHOW_RIGHT_RAIL) {
+      this.renderRightRail(layout);
+    }
     this.addRect('DialogDim', 0, 0, layout.width, layout.height, rgba(0, 0, 0, 88));
 
     const panelWidth = Math.min(620, layout.contentWidth * 0.7);
@@ -155,8 +171,12 @@ export class LootChainGameRoot extends Component {
   private renderLoginAccepted(): void {
     this.currentView = 'loginAccepted';
     const layout = this.renderBase();
-    this.renderLoginBrand(layout);
-    this.renderRightRail(layout);
+    if (SHOW_LOGIN_BRAND) {
+      this.renderLoginBrand(layout);
+    }
+    if (SHOW_RIGHT_RAIL) {
+      this.renderRightRail(layout);
+    }
 
     const panelWidth = Math.min(560, layout.contentWidth * 0.62);
     this.addBeveledPanel('LoginAcceptedPanel', 0, -18, panelWidth, 250, rgba(12, 10, 12, 218), rgba(214, 177, 94, 230), 18);
@@ -549,12 +569,18 @@ export class LootChainGameRoot extends Component {
   }
 
   private preloadUiSprites(): void {
-    if (this.logoFrame && this.mainButtonFrame && this.rightRailFrames.length >= UI_ASSETS.rightRail.length) {
+    if (!SHOW_LOGIN_BRAND && !SHOW_RIGHT_RAIL && !USE_IMAGE_LOGIN_BUTTON) {
       return;
     }
-    this.requestSpriteFrame(UI_ASSETS.logo);
-    this.requestSpriteFrame(UI_ASSETS.mainButton);
-    UI_ASSETS.rightRail.forEach((asset) => this.requestSpriteFrame(asset.path));
+    if (SHOW_LOGIN_BRAND && !this.logoFrame) {
+      this.requestSpriteFrame(UI_ASSETS.logo);
+    }
+    if (USE_IMAGE_LOGIN_BUTTON && !this.mainButtonFrame) {
+      this.requestSpriteFrame(UI_ASSETS.mainButton);
+    }
+    if (SHOW_RIGHT_RAIL && this.rightRailFrames.length < UI_ASSETS.rightRail.length) {
+      UI_ASSETS.rightRail.forEach((asset) => this.requestSpriteFrame(asset.path));
+    }
   }
 
   private requestSpriteFrame(path: string): void {
