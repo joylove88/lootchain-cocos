@@ -1,0 +1,64 @@
+{
+  "canvas": {
+    "width": 2048,
+    "height": 1152,
+    "format": "PNG RGBA"
+  },
+  "blend_order_back_to_front": [
+    {
+      "file": "01_back_outer_storm_wall_clouds.png",
+      "blend": "normal",
+      "opacity": 1.0
+    },
+    {
+      "file": "11_reference_style_outer_ceiling_cloud_ridges.png",
+      "blend": "normal",
+      "opacity": 0.75
+    },
+    {
+      "file": "02_outer_spiral_cloud_mass.png",
+      "blend": "normal",
+      "opacity": 1.0
+    },
+    {
+      "file": "10_reference_style_mid_cloud_ridges.png",
+      "blend": "normal",
+      "opacity": 0.75
+    },
+    {
+      "file": "03_middle_turbulent_spiral_band.png",
+      "blend": "normal",
+      "opacity": 1.0
+    },
+    {
+      "file": "09_reference_style_inner_cloud_ridges.png",
+      "blend": "normal",
+      "opacity": 0.7
+    },
+    {
+      "file": "04_inner_eye_rim_clouds.png",
+      "blend": "normal",
+      "opacity": 1.0
+    },
+    {
+      "file": "05_front_edge_wisps_and_smoke.png",
+      "blend": "normal",
+      "opacity": 0.9
+    },
+    {
+      "file": "06_gray_ridge_highlights_screen.png",
+      "blend": "screen/additive",
+      "opacity": 0.75
+    },
+    {
+      "file": "07_crimson_veins_additive.png",
+      "blend": "additive/linear_dodge",
+      "opacity": 0.9
+    },
+    {
+      "file": "08_core_void_shadow_optional.png",
+      "blend": "normal",
+      "opacity": 0.85
+    }
+  ]
+}
