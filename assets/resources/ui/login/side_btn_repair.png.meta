@@ -8,6 +8,98 @@
     ".png"
   ],
   "subMetas": {
+    "f9941": {
+      "importer": "sprite-frame",
+      "uuid": "37460cf5-bf44-4a68-8c1a-89e665ed2a2e@f9941",
+      "displayName": "side_btn_repair",
+      "id": "f9941",
+      "name": "spriteFrame",
+      "userData": {
+        "trimThreshold": 1,
+        "rotated": false,
+        "offsetX": -9.5,
+        "offsetY": 22,
+        "trimX": 209,
+        "trimY": 179,
+        "width": 817,
+        "height": 852,
+        "rawWidth": 1254,
+        "rawHeight": 1254,
+        "borderTop": 0,
+        "borderBottom": 0,
+        "borderLeft": 0,
+        "borderRight": 0,
+        "packable": true,
+        "pixelsToUnit": 100,
+        "pivotX": 0.5,
+        "pivotY": 0.5,
+        "meshType": 0,
+        "vertices": {
+          "rawPosition": [
+            -408.5,
+            -426,
+            0,
+            408.5,
+            -426,
+            0,
+            -408.5,
+            426,
+            0,
+            408.5,
+            426,
+            0
+          ],
+          "indexes": [
+            0,
+            1,
+            2,
+            2,
+            1,
+            3
+          ],
+          "uv": [
+            209,
+            1075,
+            1026,
+            1075,
+            209,
+            223,
+            1026,
+            223
+          ],
+          "nuv": [
+            0.16666666666666666,
+            0.17783094098883573,
+            0.8181818181818182,
+            0.17783094098883573,
+            0.16666666666666666,
+            0.8572567783094099,
+            0.8181818181818182,
+            0.8572567783094099
+          ],
+          "minPos": [
+            -408.5,
+            -426,
+            0
+          ],
+          "maxPos": [
+            408.5,
+            426,
+            0
+          ]
+        },
+        "isUuid": true,
+        "imageUuidOrDatabaseUri": "37460cf5-bf44-4a68-8c1a-89e665ed2a2e@6c48a",
+        "atlasUuid": "",
+        "trimType": "auto"
+      },
+      "ver": "1.0.12",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    },
     "6c48a": {
       "importer": "texture",
       "uuid": "37460cf5-bf44-4a68-8c1a-89e665ed2a2e@6c48a",
@@ -34,7 +126,7 @@
     }
   },
   "userData": {
-    "type": "texture",
+    "type": "sprite-frame",
     "fixAlphaTransparencyArtifacts": false,
     "hasAlpha": true,
     "redirect": "37460cf5-bf44-4a68-8c1a-89e665ed2a2e@6c48a"

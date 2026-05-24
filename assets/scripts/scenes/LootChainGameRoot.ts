@@ -30,15 +30,33 @@ function rgba(red: number, green: number, blue: number, alpha = 255): Color {
   return new Color(red, green, blue, alpha);
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
 interface UiLayout {
   width: number;
   height: number;
+  stageWidth: number;
+  stageHeight: number;
+  stageLeft: number;
+  stageRight: number;
+  stageTop: number;
+  stageBottom: number;
+  uiScale: number;
   contentWidth: number;
   topY: number;
   inputHeight: number;
   buttonHeight: number;
   statusWidth: number;
   bodyFont: number;
+}
+
+interface StageBounds {
+  width: number;
+  height: number;
+  centerX: number;
+  centerY: number;
 }
 
 interface RailButtonAsset {
@@ -61,6 +79,11 @@ const SHOW_LOGIN_BRAND = true;
 const SHOW_RIGHT_RAIL = true;
 const USE_IMAGE_LOGIN_BUTTON = true;
 const SHOW_DIALOG_THIRD_PARTY_LOGIN = false;
+const LOGIN_REFERENCE_WIDTH = 1920;
+const LOGIN_REFERENCE_HEIGHT = 1080;
+const LOGIN_STAGE_NODE_NAMES = ['BG_Main', 'FG_Architecture'] as const;
+const MIN_VISIBLE_WIDTH = 320;
+const MIN_VISIBLE_HEIGHT = 180;
 
 @ccclass('LootChainGameRoot')
 export class LootChainGameRoot extends Component {
@@ -119,9 +142,9 @@ export class LootChainGameRoot extends Component {
     if (SHOW_RIGHT_RAIL) {
       this.renderRightRail(layout);
     }
-    const buttonWidth = Math.min(450, Math.max(340, layout.contentWidth * 0.34));
+    const buttonWidth = clamp(layout.contentWidth * 0.34, 300 * layout.uiScale, 450 * layout.uiScale);
     const buttonHeight = Math.round(buttonWidth * 0.23);
-    const buttonY = -layout.height * 0.38;
+    const buttonY = layout.stageBottom + Math.max(26 * layout.uiScale, layout.stageHeight * 0.04) + buttonHeight / 2;
     if (USE_IMAGE_LOGIN_BUTTON) {
       this.addImageButton(
         'MainAccountLoginButton',
@@ -133,10 +156,10 @@ export class LootChainGameRoot extends Component {
         layout,
         buttonWidth,
         buttonHeight,
-        Math.max(24, layout.bodyFont + 7),
+        Math.max(18 * layout.uiScale, layout.bodyFont + 7 * layout.uiScale),
       );
     } else {
-      this.addGoldButton('账号登录', 0, buttonY, () => this.renderLoginDialog(), layout, Math.min(320, layout.contentWidth * 0.3), 48);
+      this.addGoldButton('账号登录', 0, buttonY, () => this.renderLoginDialog(), layout, Math.min(320 * layout.uiScale, layout.contentWidth * 0.3), 48 * layout.uiScale);
     }
     this.addStatus('等待圣契召唤。', layout);
   }
@@ -152,24 +175,24 @@ export class LootChainGameRoot extends Component {
     }
     this.addRect('DialogDim', 0, 0, layout.width, layout.height, rgba(0, 0, 0, 88));
 
-    const panelWidth = Math.min(620, layout.contentWidth * 0.7);
-    const panelHeight = 430;
-    const panelY = -layout.height * 0.08;
-    const inputWidth = Math.min(430, panelWidth - 130);
-    this.addBeveledPanel('LoginDialogPanel', 0, panelY, panelWidth, panelHeight, rgba(10, 8, 9, 226), rgba(214, 177, 94, 230), 18);
-    this.addLabel('账号登录', 0, panelY + 168, 30, rgba(245, 210, 122), new Size(panelWidth - 80, 46));
+    const panelWidth = Math.min(620 * layout.uiScale, layout.contentWidth * 0.7);
+    const panelHeight = 430 * layout.uiScale;
+    const panelY = -layout.stageHeight * 0.08;
+    const inputWidth = Math.min(430 * layout.uiScale, panelWidth - 130 * layout.uiScale);
+    this.addBeveledPanel('LoginDialogPanel', 0, panelY, panelWidth, panelHeight, rgba(10, 8, 9, 226), rgba(214, 177, 94, 230), 18 * layout.uiScale);
+    this.addLabel('账号登录', 0, panelY + 168 * layout.uiScale, 30 * layout.uiScale, rgba(245, 210, 122), new Size(panelWidth - 80 * layout.uiScale, 46 * layout.uiScale));
 
-    this.addLabel('账号 / 邮箱', 0, panelY + 102, 17, rgba(215, 210, 198), new Size(inputWidth, 28));
-    this.accountInput = this.addFramedEditBox(String(AppConfig.defaultDevUserId), 0, panelY + 62, inputWidth, layout);
-    this.addLabel('密码', 0, panelY + 12, 17, rgba(215, 210, 198), new Size(inputWidth, 28));
-    this.passwordInput = this.addFramedEditBox('', 0, panelY - 28, inputWidth, layout);
+    this.addLabel('账号 / 邮箱', 0, panelY + 102 * layout.uiScale, 17 * layout.uiScale, rgba(215, 210, 198), new Size(inputWidth, 28 * layout.uiScale));
+    this.accountInput = this.addFramedEditBox(String(AppConfig.defaultDevUserId), 0, panelY + 62 * layout.uiScale, inputWidth, layout);
+    this.addLabel('密码', 0, panelY + 12 * layout.uiScale, 17 * layout.uiScale, rgba(215, 210, 198), new Size(inputWidth, 28 * layout.uiScale));
+    this.passwordInput = this.addFramedEditBox('', 0, panelY - 28 * layout.uiScale, inputWidth, layout);
 
-    this.addGoldButton('进入游戏', 0, panelY - 96, () => this.run(() => this.login()), layout, Math.min(360, inputWidth), 54);
+    this.addGoldButton('进入游戏', 0, panelY - 96 * layout.uiScale, () => this.run(() => this.login()), layout, Math.min(360 * layout.uiScale, inputWidth), 54 * layout.uiScale);
     if (SHOW_DIALOG_THIRD_PARTY_LOGIN) {
-      this.renderThirdPartyLogin(panelY - 154, layout);
+      this.renderThirdPartyLogin(panelY - 154 * layout.uiScale, layout);
     }
-    this.renderAgreement(SHOW_DIALOG_THIRD_PARTY_LOGIN ? panelY - 202 : panelY - 164, layout);
-    this.addButton('返回', -panelWidth / 2 + 68, panelY + panelHeight / 2 - 42, () => this.renderLogin(), layout, 92, 38);
+    this.renderAgreement(SHOW_DIALOG_THIRD_PARTY_LOGIN ? panelY - 202 * layout.uiScale : panelY - 164 * layout.uiScale, layout);
+    this.addButton('返回', -panelWidth / 2 + 68 * layout.uiScale, panelY + panelHeight / 2 - 42 * layout.uiScale, () => this.renderLogin(), layout, 92 * layout.uiScale, 38 * layout.uiScale);
     this.addStatus('当前阶段只接入 dev-login；账号为数字时作为 User ID。', layout);
   }
 
@@ -183,15 +206,15 @@ export class LootChainGameRoot extends Component {
       this.renderRightRail(layout);
     }
 
-    const panelWidth = Math.min(560, layout.contentWidth * 0.62);
-    this.addBeveledPanel('LoginAcceptedPanel', 0, -18, panelWidth, 250, rgba(12, 10, 12, 218), rgba(214, 177, 94, 230), 18);
-    this.addLabel('登录验收通过', 0, 48, 34, rgba(245, 210, 122), new Size(panelWidth - 56, 58));
-    this.addLabel(`Token: ${this.lastTokenName || 'player-token'}`, 0, -6, 18, rgba(127, 214, 255), new Size(panelWidth - 80, 36));
-    this.addGoldButton('重新登录', 0, -76, () => {
+    const panelWidth = Math.min(560 * layout.uiScale, layout.contentWidth * 0.62);
+    this.addBeveledPanel('LoginAcceptedPanel', 0, -18 * layout.uiScale, panelWidth, 250 * layout.uiScale, rgba(12, 10, 12, 218), rgba(214, 177, 94, 230), 18 * layout.uiScale);
+    this.addLabel('登录验收通过', 0, 48 * layout.uiScale, 34 * layout.uiScale, rgba(245, 210, 122), new Size(panelWidth - 56 * layout.uiScale, 58 * layout.uiScale));
+    this.addLabel(`Token: ${this.lastTokenName || 'player-token'}`, 0, -6 * layout.uiScale, 18 * layout.uiScale, rgba(127, 214, 255), new Size(panelWidth - 80 * layout.uiScale, 36 * layout.uiScale));
+    this.addGoldButton('重新登录', 0, -76 * layout.uiScale, () => {
       this.api.auth.logout();
       this.lastTokenName = '';
       this.renderLogin();
-    }, layout, Math.min(300, panelWidth - 90), 52);
+    }, layout, Math.min(300 * layout.uiScale, panelWidth - 90 * layout.uiScale), 52 * layout.uiScale);
     this.addStatus('第一阶段只完成登录验收；大厅等功能下一阶段再进入。', layout);
   }
 
@@ -205,10 +228,12 @@ export class LootChainGameRoot extends Component {
   }
 
   private renderLoginBrand(layout: UiLayout): void {
-    const logoWidth = Math.min(360, Math.max(280, layout.width * 0.18));
+    const logoWidth = clamp(layout.stageWidth * 0.23, 210 * layout.uiScale, 320 * layout.uiScale);
     const logoHeight = Math.round(logoWidth * 0.51);
-    const logoX = -layout.width / 2 + logoWidth / 2 + Math.max(96, layout.width * 0.06);
-    const logoY = layout.height / 2 - logoHeight / 2 - Math.max(28, layout.height * 0.04);
+    const logoInsetX = Math.max(28 * layout.uiScale, layout.stageWidth * 0.035);
+    const logoInsetY = Math.max(18 * layout.uiScale, layout.stageHeight * 0.035);
+    const logoX = layout.stageLeft + logoInsetX + logoWidth / 2;
+    const logoY = layout.stageTop - logoInsetY - logoHeight / 2;
     if (!this.addSprite('LoginLogo', UI_ASSETS.logo, logoX, logoY, logoWidth, logoHeight)) {
       this.addLabel('LOOTCHAIN', logoX, logoY + 22, 46, rgba(245, 210, 122), new Size(450, 62));
       this.addLabel('SILENT GODS', logoX, logoY - 30, 17, rgba(214, 177, 94), new Size(390, 28));
@@ -216,31 +241,36 @@ export class LootChainGameRoot extends Component {
   }
 
   private renderRightRail(layout: UiLayout): void {
-    const x = layout.width / 2 - Math.max(132, layout.width * 0.075);
-    const yStart = layout.height / 2 - Math.max(116, layout.height * 0.14);
+    const railWidth = 76 * layout.uiScale;
+    const railHeight = 74 * layout.uiScale;
+    const railInsetX = Math.max(20 * layout.uiScale, layout.stageWidth * 0.02);
+    const railInsetY = Math.max(32 * layout.uiScale, layout.stageHeight * 0.045);
+    const x = layout.stageRight - railInsetX - railWidth / 2;
+    const yStart = layout.stageTop - railInsetY - railHeight / 2;
+    const railGap = 84 * layout.uiScale;
     UI_ASSETS.rightRail.forEach((asset, index) => {
-      this.addRailImageButton(asset, x, yStart - index * 84, layout);
+      this.addRailImageButton(asset, x, yStart - index * railGap, layout);
     });
   }
 
   private renderThirdPartyLogin(y: number, layout: UiLayout): void {
-    this.addLabel('其他登录方式', 0, y + 30, 16, rgba(214, 177, 94), new Size(260, 28));
+    this.addLabel('其他登录方式', 0, y + 30 * layout.uiScale, 16 * layout.uiScale, rgba(214, 177, 94), new Size(260 * layout.uiScale, 28 * layout.uiScale));
     const labels = ['G', 'A', 'D', 'X'];
-    const gap = 68;
+    const gap = 68 * layout.uiScale;
     labels.forEach((label, index) => {
       const x = (index - (labels.length - 1) / 2) * gap;
-      this.addDiamondButton(label, x, y - 8, () => this.setStatus('第三方登录暂未开放。'), layout);
+      this.addDiamondButton(label, x, y - 8 * layout.uiScale, () => this.setStatus('第三方登录暂未开放。'), layout);
     });
   }
 
   private renderAgreement(y: number, layout: UiLayout): void {
-    const boxSize = 24;
-    const x = -152;
+    const boxSize = 24 * layout.uiScale;
+    const x = -152 * layout.uiScale;
     this.addButton(this.agreementAccepted ? '✓' : '', x, y, () => {
       this.agreementAccepted = !this.agreementAccepted;
       this.renderLoginDialog();
     }, layout, boxSize, boxSize);
-    this.addLabel('我已阅读并同意《用户协议》和《隐私政策》', 54, y, 16, rgba(215, 210, 198), new Size(430, 34));
+    this.addLabel('我已阅读并同意《用户协议》和《隐私政策》', 54 * layout.uiScale, y, 16 * layout.uiScale, rgba(215, 210, 198), new Size(430 * layout.uiScale, 34 * layout.uiScale));
   }
 
   private async login(): Promise<void> {
@@ -273,7 +303,8 @@ export class LootChainGameRoot extends Component {
 
   private addStatus(text: string, layout?: UiLayout): void {
     const currentLayout = layout ?? this.resolveLayout();
-    this.statusLabel = this.addLabel(text, 0, -currentLayout.height / 2 + 30, currentLayout.bodyFont, rgba(127, 214, 255), new Size(currentLayout.statusWidth, 48));
+    const statusY = currentLayout.stageBottom + Math.max(18 * currentLayout.uiScale, currentLayout.stageHeight * 0.025);
+    this.statusLabel = this.addLabel(text, 0, statusY, currentLayout.bodyFont, rgba(127, 214, 255), new Size(currentLayout.statusWidth, 48 * currentLayout.uiScale));
   }
 
   private setStatus(text: string): void {
@@ -392,7 +423,7 @@ export class LootChainGameRoot extends Component {
     const frame = this.resolveUiSpriteFrame(assetPath);
     if (!frame) {
       this.requestSpriteFrame(assetPath);
-      return this.addGoldButton(text, x, y, callback, layout, Math.min(width * 0.74, layout.contentWidth * 0.52), Math.min(height * 0.56, 72));
+      return this.addGoldButton(text, x, y, callback, layout, Math.min(width * 0.74, layout.contentWidth * 0.52), Math.min(height * 0.56, 72 * layout.uiScale));
     }
 
     const node = this.createUiNode(name);
@@ -408,28 +439,31 @@ export class LootChainGameRoot extends Component {
     this.applyImageButtonFeedback(node);
 
     const iconScale = Math.max(0.5, Math.min(0.62, fontSize / 46));
-    this.addAccountGlyph(node, -54, -1, iconScale);
-    this.addChildLabel(node, 'Label', text, 22, 0, fontSize, rgba(235, 213, 166), new Size(width * 0.58, height * 0.52));
+    this.addAccountGlyph(node, -54 * layout.uiScale, -1 * layout.uiScale, iconScale);
+    this.addChildLabel(node, 'Label', text, 22 * layout.uiScale, 0, fontSize, rgba(235, 213, 166), new Size(width * 0.58, height * 0.52));
     return button;
   }
 
   private addRailImageButton(asset: RailButtonAsset, x: number, y: number, layout: UiLayout): Button {
+    const railWidth = 76 * layout.uiScale;
+    const railHeight = 74 * layout.uiScale;
+    const iconSize = 46 * layout.uiScale;
     const node = this.createUiNode(`Rail_${asset.label}`);
     node.setPosition(new Vec3(x, y, 0));
-    node.addComponent(UITransform).setContentSize(new Size(76, 74));
+    node.addComponent(UITransform).setContentSize(new Size(railWidth, railHeight));
     const button = node.addComponent(Button);
     node.on(Button.EventType.CLICK, () => this.setStatus('该入口为登录页占位，当前阶段暂未开放。'), this);
     this.applyImageButtonFeedback(node);
 
-    if (!this.addSprite('Icon', asset.path, 0, 15, 46, 46, node)) {
+    if (!this.addSprite('Icon', asset.path, 0, 15 * layout.uiScale, iconSize, iconSize, node)) {
       this.addDiamondButton('', x, y + 14, () => this.setStatus('该入口为登录页占位，当前阶段暂未开放。'), layout);
     }
-    this.addChildLabel(node, 'Label', asset.label, 0, -27, 18, rgba(229, 196, 122), new Size(72, 28));
+    this.addChildLabel(node, 'Label', asset.label, 0, -27 * layout.uiScale, Math.max(13, 18 * layout.uiScale), rgba(229, 196, 122), new Size(72 * layout.uiScale, 28 * layout.uiScale));
     return button;
   }
 
   private addDiamondButton(text: string, x: number, y: number, callback: () => void, layout: UiLayout): Button {
-    const size = 48;
+    const size = 48 * layout.uiScale;
     const node = this.createUiNode(`Diamond_${text}`);
     node.setPosition(new Vec3(x, y, 0));
     node.angle = 45;
@@ -711,19 +745,68 @@ export class LootChainGameRoot extends Component {
 
   private resolveLayout(): UiLayout {
     const visibleSize = this.visibleSize();
-    const width = Math.max(960, visibleSize.width);
-    const height = Math.max(540, visibleSize.height);
-    const contentWidth = Math.min(width - 120, 1100);
+    const width = Math.max(MIN_VISIBLE_WIDTH, visibleSize.width);
+    const height = Math.max(MIN_VISIBLE_HEIGHT, visibleSize.height);
+    const stage = this.resolveStageBounds(width, height);
+    const stageWidth = stage.width;
+    const stageHeight = stage.height;
+    const uiScale = Math.min(1, stageWidth / LOGIN_REFERENCE_WIDTH, stageHeight / LOGIN_REFERENCE_HEIGHT);
+    const stageLeft = stage.centerX - stageWidth / 2;
+    const stageRight = stage.centerX + stageWidth / 2;
+    const stageTop = stage.centerY + stageHeight / 2;
+    const stageBottom = stage.centerY - stageHeight / 2;
+    const horizontalPadding = Math.max(40 * uiScale, stageWidth * 0.04);
+    const contentWidth = Math.max(260 * uiScale, stageWidth - horizontalPadding * 2);
     return {
       width,
       height,
+      stageWidth,
+      stageHeight,
+      stageLeft,
+      stageRight,
+      stageTop,
+      stageBottom,
+      uiScale,
       contentWidth,
-      topY: height / 2 - 48,
-      inputHeight: 46,
-      buttonHeight: 48,
-      statusWidth: Math.min(contentWidth, 760),
-      bodyFont: 18,
+      topY: stageTop - 48 * uiScale,
+      inputHeight: 46 * uiScale,
+      buttonHeight: 48 * uiScale,
+      statusWidth: Math.min(contentWidth, 760 * uiScale),
+      bodyFont: Math.max(13, 18 * uiScale),
     };
+  }
+
+  private resolveStageBounds(visibleWidth: number, visibleHeight: number): StageBounds {
+    const stageNode = this.findStageNode();
+    const transform = stageNode?.getComponent(UITransform);
+    if (stageNode && transform) {
+      const nodeScale = stageNode.scale;
+      const contentSize = transform.contentSize;
+      const stageWidth = Math.min(visibleWidth, Math.abs(contentSize.width * nodeScale.x));
+      const stageHeight = Math.min(visibleHeight, Math.abs(contentSize.height * nodeScale.y));
+      return {
+        width: Math.max(MIN_VISIBLE_WIDTH, stageWidth),
+        height: Math.max(MIN_VISIBLE_HEIGHT, stageHeight),
+        centerX: stageNode.position.x,
+        centerY: stageNode.position.y,
+      };
+    }
+    return {
+      width: visibleWidth,
+      height: visibleHeight,
+      centerX: 0,
+      centerY: 0,
+    };
+  }
+
+  private findStageNode(): Node | null {
+    for (const name of LOGIN_STAGE_NODE_NAMES) {
+      const stageNode = this.node.getChildByName(name);
+      if (stageNode?.activeInHierarchy) {
+        return stageNode;
+      }
+    }
+    return null;
   }
 
   private applyRootSize(layout: UiLayout): void {
@@ -732,12 +815,17 @@ export class LootChainGameRoot extends Component {
   }
 
   private visibleSize(): Size {
+    const size = view.getVisibleSize();
+    const width = Math.round(size.width || 0);
+    const height = Math.round(size.height || 0);
+    if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+      return new Size(width, height);
+    }
     const runtimeSize = this.runtimeWindowSize();
     if (runtimeSize) {
       return runtimeSize;
     }
-    const size = view.getVisibleSize();
-    return new Size(Math.max(960, Math.round(size.width || 1280)), Math.max(540, Math.round(size.height || 720)));
+    return new Size(LOGIN_REFERENCE_WIDTH, LOGIN_REFERENCE_HEIGHT);
   }
 
   private runtimeWindowSize(): Size | null {
@@ -745,7 +833,7 @@ export class LootChainGameRoot extends Component {
     const width = Math.round(runtime.innerWidth || 0);
     const height = Math.round(runtime.innerHeight || 0);
     if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
-      return new Size(Math.max(960, width), Math.max(540, height));
+      return new Size(width, height);
     }
     return null;
   }

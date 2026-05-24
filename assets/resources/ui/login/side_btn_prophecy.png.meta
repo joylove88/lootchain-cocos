@@ -8,6 +8,98 @@
     ".png"
   ],
   "subMetas": {
+    "f9941": {
+      "importer": "sprite-frame",
+      "uuid": "41c48ca7-200d-4527-8832-5327862db6fd@f9941",
+      "displayName": "side_btn_prophecy",
+      "id": "f9941",
+      "name": "spriteFrame",
+      "userData": {
+        "trimThreshold": 1,
+        "rotated": false,
+        "offsetX": 1.5,
+        "offsetY": 1.5,
+        "trimX": 324,
+        "trimY": 83,
+        "width": 609,
+        "height": 1085,
+        "rawWidth": 1254,
+        "rawHeight": 1254,
+        "borderTop": 0,
+        "borderBottom": 0,
+        "borderLeft": 0,
+        "borderRight": 0,
+        "packable": true,
+        "pixelsToUnit": 100,
+        "pivotX": 0.5,
+        "pivotY": 0.5,
+        "meshType": 0,
+        "vertices": {
+          "rawPosition": [
+            -304.5,
+            -542.5,
+            0,
+            304.5,
+            -542.5,
+            0,
+            -304.5,
+            542.5,
+            0,
+            304.5,
+            542.5,
+            0
+          ],
+          "indexes": [
+            0,
+            1,
+            2,
+            2,
+            1,
+            3
+          ],
+          "uv": [
+            324,
+            1171,
+            933,
+            1171,
+            324,
+            86,
+            933,
+            86
+          ],
+          "nuv": [
+            0.2583732057416268,
+            0.0685805422647528,
+            0.7440191387559809,
+            0.0685805422647528,
+            0.2583732057416268,
+            0.9338118022328549,
+            0.7440191387559809,
+            0.9338118022328549
+          ],
+          "minPos": [
+            -304.5,
+            -542.5,
+            0
+          ],
+          "maxPos": [
+            304.5,
+            542.5,
+            0
+          ]
+        },
+        "isUuid": true,
+        "imageUuidOrDatabaseUri": "41c48ca7-200d-4527-8832-5327862db6fd@6c48a",
+        "atlasUuid": "",
+        "trimType": "auto"
+      },
+      "ver": "1.0.12",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    },
     "6c48a": {
       "importer": "texture",
       "uuid": "41c48ca7-200d-4527-8832-5327862db6fd@6c48a",
@@ -34,7 +126,7 @@
     }
   },
   "userData": {
-    "type": "texture",
+    "type": "sprite-frame",
     "fixAlphaTransparencyArtifacts": false,
     "hasAlpha": true,
     "redirect": "41c48ca7-200d-4527-8832-5327862db6fd@6c48a"
