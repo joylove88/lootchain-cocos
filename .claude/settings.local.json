@@ -10,7 +10,11 @@
       "Bash(git pull *)",
       "Bash(git fetch *)",
       "Bash(git commit *)",
-      "Bash(git config *)"
+      "Bash(git config *)",
+      "Bash(Remove-Item *)",
+      "Bash(dir /a \"D:\\\\business\\\\project\\\\lootchain-cocos\\\\assets\\\\resources\\\\login-bg\\\\*.mp4\" \"D:\\\\business\\\\project\\\\lootchain-cocos\\\\assets\\\\resources\\\\login-bg\\\\*.jpg\")",
+      "Bash(git lfs *)",
+      "Bash(git rm *)"
     ]
   }
 }
