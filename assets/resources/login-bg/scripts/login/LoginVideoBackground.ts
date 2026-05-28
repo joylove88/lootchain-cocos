@@ -1,11 +1,29 @@
 import {
     _decorator,
     Component,
+    resources,
+    Size,
+    Sprite,
+    SpriteFrame,
+    sys,
+    Texture2D,
+    UITransform,
     VideoPlayer,
-    UIOpacity
+    VideoClip,
+    UIOpacity,
+    view,
+    input,
+    Input
 } from 'cc';
 
 const { ccclass, property } = _decorator;
+
+type LoginBackgroundMode = 'pc' | 'h5';
+
+const PC_VIDEO_PATH = 'login-bg/login_bg_loop_1080p';
+const PC_POSTER_PATH = 'login-bg/login_bg_first';
+const H5_VIDEO_PATH = 'login-bg-h5/login_bg_loop';
+const H5_POSTER_PATH = 'login-bg-h5/login_bg_poster';
 
 @ccclass('LoginVideoBackground')
 export class LoginVideoBackground extends Component {
@@ -19,14 +37,13 @@ export class LoginVideoBackground extends Component {
     @property
     fadeDuration = 0.4;
 
-    @property
-    videoVolume = 0.1;
-
-    @property
-    videoMuted = false;
-
     private fadeTimer = 0;
     private fadingPoster = false;
+    private posterHidden = false;
+    private playRequested = false;
+    private activeMode: LoginBackgroundMode | null = null;
+    private assetLoadTicket = 0;
+    private layoutCheckTimer = 0;
 
     onLoad() {
         if (!this.video) {
@@ -38,28 +55,66 @@ export class LoginVideoBackground extends Component {
             return;
         }
 
-        this.video.mute = this.videoMuted;
-        this.video.volume = this.videoMuted ? 0 : this.videoVolume;
+        // 背景视频只负责画面，必须静音，避免浏览器自动播放拦截
+        this.video.mute = true;
+        this.video.volume = 0;
         this.video.loop = true;
         this.video.playOnAwake = false;
 
+        if (this.posterOpacity) {
+            this.posterOpacity.opacity = 255;
+        }
+
+        this.applyResponsiveBackground(true);
+
         this.video.node.on(VideoPlayer.EventType.READY_TO_PLAY, this.onVideoReady, this);
+        this.video.node.on(VideoPlayer.EventType.PLAYING, this.onVideoPlaying, this);
         this.video.node.on(VideoPlayer.EventType.COMPLETED, this.onVideoCompleted, this);
         this.video.node.on(VideoPlayer.EventType.ERROR, this.onVideoError, this);
+
+        // 浏览器如果拦截了自动播放，用户点击页面后再补一次 play
+        input.on(Input.EventType.MOUSE_DOWN, this.tryPlayVideo, this);
+        input.on(Input.EventType.TOUCH_START, this.tryPlayVideo, this);
     }
 
     start() {
         this.scheduleOnce(() => {
-            this.video?.play();
+            this.tryPlayVideo();
         }, 0.1);
+
+        // 兜底：1 秒后如果还没开始播放，再试一次
+        this.scheduleOnce(() => {
+            if (!this.posterHidden) {
+                this.tryPlayVideo();
+            }
+        }, 1.0);
+    }
+
+    private tryPlayVideo() {
+        if (!this.video) return;
+
+        try {
+            this.video.mute = true;
+            this.video.volume = 0;
+
+            if (!this.playRequested) {
+                this.playRequested = true;
+            }
+
+            this.video.play();
+        } catch (err) {
+            console.warn('[LoginVideoBackground] play failed:', err);
+        }
     }
 
     private onVideoReady() {
-        if (!this.video) return;
+        // ready 只代表能播，不代表已经真的在播放
+        this.tryPlayVideo();
+    }
 
-        this.video.mute = this.videoMuted;
-        this.video.volume = this.videoMuted ? 0 : this.videoVolume;
-        this.video.play();
+    private onVideoPlaying() {
+        // 真正开始播放后，再淡出首帧图
+        if (this.posterHidden) return;
 
         this.fadeTimer = 0;
         this.fadingPoster = true;
@@ -68,19 +123,31 @@ export class LoginVideoBackground extends Component {
     private onVideoCompleted() {
         if (!this.video) return;
 
-        this.video.currentTime = 0;
-        this.video.play();
+        // loop=true 理论上会自动循环，这里兜底
+        try {
+            this.video.currentTime = 0;
+            this.video.play();
+        } catch (err) {
+            console.warn('[LoginVideoBackground] replay failed:', err);
+        }
     }
 
     private onVideoError() {
         console.error('[LoginVideoBackground] video error');
 
+        // 视频出错就保留 poster，别让用户看黑屏
         if (this.posterOpacity) {
             this.posterOpacity.opacity = 255;
         }
     }
 
     update(dt: number) {
+        this.layoutCheckTimer += dt;
+        if (this.layoutCheckTimer >= 0.5) {
+            this.layoutCheckTimer = 0;
+            this.applyResponsiveBackground(false);
+        }
+
         if (!this.fadingPoster || !this.posterOpacity) return;
 
         this.fadeTimer += dt;
@@ -91,14 +158,113 @@ export class LoginVideoBackground extends Component {
         if (t >= 1) {
             this.posterOpacity.opacity = 0;
             this.fadingPoster = false;
+            this.posterHidden = true;
         }
     }
 
     onDestroy() {
+        if (this.video) {
+            this.video.node.off(VideoPlayer.EventType.READY_TO_PLAY, this.onVideoReady, this);
+            this.video.node.off(VideoPlayer.EventType.PLAYING, this.onVideoPlaying, this);
+            this.video.node.off(VideoPlayer.EventType.COMPLETED, this.onVideoCompleted, this);
+            this.video.node.off(VideoPlayer.EventType.ERROR, this.onVideoError, this);
+        }
+
+        input.off(Input.EventType.MOUSE_DOWN, this.tryPlayVideo, this);
+        input.off(Input.EventType.TOUCH_START, this.tryPlayVideo, this);
+    }
+
+    private applyResponsiveBackground(force: boolean) {
+        const mode = this.resolveBackgroundMode();
+        this.applyBackgroundSize();
+
+        if (!force && mode === this.activeMode) {
+            return;
+        }
+
+        this.activeMode = mode;
+        this.posterHidden = false;
+        this.fadingPoster = false;
+        this.fadeTimer = 0;
+
+        if (this.posterOpacity) {
+            this.posterOpacity.opacity = 255;
+        }
+
+        const ticket = ++this.assetLoadTicket;
+        const videoPath = mode === 'h5' ? H5_VIDEO_PATH : PC_VIDEO_PATH;
+        const posterPath = mode === 'h5' ? H5_POSTER_PATH : PC_POSTER_PATH;
+
+        this.loadPoster(posterPath, ticket);
+        this.loadVideoClip(videoPath, ticket);
+    }
+
+    private resolveBackgroundMode(): LoginBackgroundMode {
+        const visibleSize = view.getVisibleSize();
+        const isPortrait = visibleSize.height > visibleSize.width;
+        return sys.isMobile || isPortrait ? 'h5' : 'pc';
+    }
+
+    private applyBackgroundSize() {
+        const visibleSize = view.getVisibleSize();
+        const contentSize = new Size(Math.max(1, visibleSize.width), Math.max(1, visibleSize.height));
+        this.video?.node.getComponent(UITransform)?.setContentSize(contentSize);
+        this.posterOpacity?.node.getComponent(UITransform)?.setContentSize(contentSize);
+    }
+
+    private loadVideoClip(path: string, ticket: number) {
         if (!this.video) return;
 
-        this.video.node.off(VideoPlayer.EventType.READY_TO_PLAY, this.onVideoReady, this);
-        this.video.node.off(VideoPlayer.EventType.COMPLETED, this.onVideoCompleted, this);
-        this.video.node.off(VideoPlayer.EventType.ERROR, this.onVideoError, this);
+        try {
+            this.video.stop();
+            this.video.clip = null;
+        } catch (err) {
+            console.warn('[LoginVideoBackground] stop before switch failed:', err);
+        }
+
+        resources.load(path, VideoClip, (error, clip) => {
+            if (ticket !== this.assetLoadTicket || !this.video) {
+                return;
+            }
+
+            if (error || !clip) {
+                console.error(`[LoginVideoBackground] video load failed: ${path}`, error);
+                return;
+            }
+
+            this.video.clip = clip;
+            this.tryPlayVideo();
+        });
+    }
+
+    private loadPoster(path: string, ticket: number) {
+        const posterSprite = this.posterOpacity?.node.getComponent(Sprite);
+        if (!posterSprite) return;
+
+        resources.load(`${path}/spriteFrame`, SpriteFrame, (spriteError, spriteFrame) => {
+            if (ticket !== this.assetLoadTicket) {
+                return;
+            }
+
+            if (!spriteError && spriteFrame) {
+                posterSprite.spriteFrame = spriteFrame;
+                return;
+            }
+
+            resources.load(`${path}/texture`, Texture2D, (textureError, texture) => {
+                if (ticket !== this.assetLoadTicket) {
+                    return;
+                }
+
+                if (textureError || !texture) {
+                    console.error(`[LoginVideoBackground] poster load failed: ${path}`, textureError || spriteError);
+                    return;
+                }
+
+                const runtimeSpriteFrame = new SpriteFrame();
+                runtimeSpriteFrame.texture = texture;
+                posterSprite.spriteFrame = runtimeSpriteFrame;
+            });
+        });
     }
 }

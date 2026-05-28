@@ -39,4 +39,4 @@ POST http://localhost:8081/api/player/auth/dev-login
 3. 点击主界面“账号登录”。
 4. 在 Cocos 弹框内输入账号；数字账号会作为本地 `User ID`。
 5. 点击“进入游戏”，确认请求命中 `/api/player/auth/dev-login` 并返回 `code=0`。
-6. 场景显示登录成功或登录验收通过状态。
+6. 场景进入资源加载进度页，加载完成后切换到大厅背景界面。

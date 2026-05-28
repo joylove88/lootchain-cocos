@@ -11,8 +11,11 @@ import {
   Size,
   Sprite,
   SpriteFrame,
+  Texture2D,
   UITransform,
   Vec3,
+  VideoClip,
+  VideoPlayer,
   view,
 } from 'cc';
 import { AppConfig } from '../app/AppConfig';
@@ -24,7 +27,7 @@ const { ccclass, property } = _decorator;
 type AsyncAction = () => Promise<void>;
 type ButtonVisualState = 'hover' | 'normal' | 'pressed';
 type CursorDocument = { body?: { style?: { cursor: string } } };
-type ViewName = 'login' | 'loginDialog' | 'loginAccepted';
+type ViewName = 'login' | 'loginDialog' | 'loading' | 'lobby';
 
 function rgba(red: number, green: number, blue: number, alpha = 255): Color {
   return new Color(red, green, blue, alpha);
@@ -78,10 +81,12 @@ const UI_ASSETS = {
 const SHOW_LOGIN_BRAND = true;
 const SHOW_RIGHT_RAIL = true;
 const USE_IMAGE_LOGIN_BUTTON = true;
-const SHOW_DIALOG_THIRD_PARTY_LOGIN = false;
+const SHOW_DIALOG_THIRD_PARTY_LOGIN = true;
 const LOGIN_REFERENCE_WIDTH = 1920;
 const LOGIN_REFERENCE_HEIGHT = 1080;
 const LOGIN_STAGE_NODE_NAMES = ['BG_Main', 'FG_Architecture'] as const;
+const LOBBY_VIDEO_PATH = 'lobby/lobby_bg_loop';
+const LOBBY_POSTER_PATH = 'lobby/lobby_bg_poster';
 const MIN_VISIBLE_WIDTH = 320;
 const MIN_VISIBLE_HEIGHT = 180;
 
@@ -107,9 +112,17 @@ export class LootChainGameRoot extends Component {
   private layoutKey = '';
   private lastTokenName = '';
   private agreementAccepted = true;
+  private loadingProgress = 0;
+  private loadingMessage = '准备进入游戏...';
+  private loadingError = '';
+  private resourceLoadTicket = 0;
+  private lobbyPosterFrame: SpriteFrame | null = null;
+  private lobbyVideoClip: VideoClip | null = null;
 
   start(): void {
-    this.currentView = this.api.tokenStore.isLoggedIn() ? 'loginAccepted' : 'login';
+    // 登录验收必须从真实点击开始，避免历史 token 让预览直接进入通过态。
+    this.api.auth.logout();
+    this.currentView = 'login';
     this.preloadUiSprites();
     this.renderCurrentView();
   }
@@ -122,8 +135,12 @@ export class LootChainGameRoot extends Component {
   }
 
   private renderCurrentView(): void {
-    if (this.currentView === 'loginAccepted') {
-      this.renderLoginAccepted();
+    if (this.currentView === 'lobby') {
+      this.renderLobby();
+      return;
+    }
+    if (this.currentView === 'loading') {
+      this.renderLoading();
       return;
     }
     if (this.currentView === 'loginDialog') {
@@ -161,7 +178,7 @@ export class LootChainGameRoot extends Component {
     } else {
       this.addGoldButton('账号登录', 0, buttonY, () => this.renderLoginDialog(), layout, Math.min(320 * layout.uiScale, layout.contentWidth * 0.3), 48 * layout.uiScale);
     }
-    this.addStatus('等待圣契召唤。', layout);
+    this.addStatus('等待圣契召唤。', layout, buttonY + buttonHeight / 2 + 28 * layout.uiScale);
   }
 
   private renderLoginDialog(): void {
@@ -176,46 +193,61 @@ export class LootChainGameRoot extends Component {
     this.addRect('DialogDim', 0, 0, layout.width, layout.height, rgba(0, 0, 0, 88));
 
     const panelWidth = Math.min(620 * layout.uiScale, layout.contentWidth * 0.7);
-    const panelHeight = 430 * layout.uiScale;
+    const panelHeight = (SHOW_DIALOG_THIRD_PARTY_LOGIN ? 560 : 430) * layout.uiScale;
     const panelY = -layout.stageHeight * 0.08;
     const inputWidth = Math.min(430 * layout.uiScale, panelWidth - 130 * layout.uiScale);
     this.addBeveledPanel('LoginDialogPanel', 0, panelY, panelWidth, panelHeight, rgba(10, 8, 9, 226), rgba(214, 177, 94, 230), 18 * layout.uiScale);
-    this.addLabel('账号登录', 0, panelY + 168 * layout.uiScale, 30 * layout.uiScale, rgba(245, 210, 122), new Size(panelWidth - 80 * layout.uiScale, 46 * layout.uiScale));
+    const titleY = panelY + (SHOW_DIALOG_THIRD_PARTY_LOGIN ? 210 : 168) * layout.uiScale;
+    const accountLabelY = panelY + (SHOW_DIALOG_THIRD_PARTY_LOGIN ? 138 : 102) * layout.uiScale;
+    const accountInputY = panelY + (SHOW_DIALOG_THIRD_PARTY_LOGIN ? 98 : 62) * layout.uiScale;
+    const passwordLabelY = panelY + (SHOW_DIALOG_THIRD_PARTY_LOGIN ? 48 : 12) * layout.uiScale;
+    const passwordInputY = panelY + (SHOW_DIALOG_THIRD_PARTY_LOGIN ? 8 : -28) * layout.uiScale;
+    const enterButtonY = panelY + (SHOW_DIALOG_THIRD_PARTY_LOGIN ? -70 : -96) * layout.uiScale;
+    const thirdPartyY = panelY - 162 * layout.uiScale;
+    const agreementY = SHOW_DIALOG_THIRD_PARTY_LOGIN ? panelY - 226 * layout.uiScale : panelY - 164 * layout.uiScale;
+    this.addLabel('账号登录', 0, titleY, 30 * layout.uiScale, rgba(245, 210, 122), new Size(panelWidth - 80 * layout.uiScale, 46 * layout.uiScale));
 
-    this.addLabel('账号 / 邮箱', 0, panelY + 102 * layout.uiScale, 17 * layout.uiScale, rgba(215, 210, 198), new Size(inputWidth, 28 * layout.uiScale));
-    this.accountInput = this.addFramedEditBox(String(AppConfig.defaultDevUserId), 0, panelY + 62 * layout.uiScale, inputWidth, layout);
-    this.addLabel('密码', 0, panelY + 12 * layout.uiScale, 17 * layout.uiScale, rgba(215, 210, 198), new Size(inputWidth, 28 * layout.uiScale));
-    this.passwordInput = this.addFramedEditBox('', 0, panelY - 28 * layout.uiScale, inputWidth, layout);
+    this.addLabel('账号 / 邮箱', 0, accountLabelY, 17 * layout.uiScale, rgba(215, 210, 198), new Size(inputWidth, 28 * layout.uiScale));
+    this.accountInput = this.addFramedEditBox(String(AppConfig.defaultDevUserId), 0, accountInputY, inputWidth, layout);
+    this.addLabel('密码', 0, passwordLabelY, 17 * layout.uiScale, rgba(215, 210, 198), new Size(inputWidth, 28 * layout.uiScale));
+    this.passwordInput = this.addFramedEditBox('', 0, passwordInputY, inputWidth, layout, true);
 
-    this.addGoldButton('进入游戏', 0, panelY - 96 * layout.uiScale, () => this.run(() => this.login()), layout, Math.min(360 * layout.uiScale, inputWidth), 54 * layout.uiScale);
+    this.addGoldButton('进入游戏', 0, enterButtonY, () => this.run(() => this.login()), layout, Math.min(360 * layout.uiScale, inputWidth), 54 * layout.uiScale);
     if (SHOW_DIALOG_THIRD_PARTY_LOGIN) {
-      this.renderThirdPartyLogin(panelY - 154 * layout.uiScale, layout);
+      this.renderThirdPartyLogin(thirdPartyY, layout);
     }
-    this.renderAgreement(SHOW_DIALOG_THIRD_PARTY_LOGIN ? panelY - 202 * layout.uiScale : panelY - 164 * layout.uiScale, layout);
+    this.renderAgreement(agreementY, layout);
     this.addButton('返回', -panelWidth / 2 + 68 * layout.uiScale, panelY + panelHeight / 2 - 42 * layout.uiScale, () => this.renderLogin(), layout, 92 * layout.uiScale, 38 * layout.uiScale);
     this.addStatus('当前阶段只接入 dev-login；账号为数字时作为 User ID。', layout);
   }
 
-  private renderLoginAccepted(): void {
-    this.currentView = 'loginAccepted';
+  private renderLoading(): void {
+    this.currentView = 'loading';
     const layout = this.renderBase();
-    if (SHOW_LOGIN_BRAND) {
-      this.renderLoginBrand(layout);
-    }
-    if (SHOW_RIGHT_RAIL) {
-      this.renderRightRail(layout);
-    }
 
-    const panelWidth = Math.min(560 * layout.uiScale, layout.contentWidth * 0.62);
-    this.addBeveledPanel('LoginAcceptedPanel', 0, -18 * layout.uiScale, panelWidth, 250 * layout.uiScale, rgba(12, 10, 12, 218), rgba(214, 177, 94, 230), 18 * layout.uiScale);
-    this.addLabel('登录验收通过', 0, 48 * layout.uiScale, 34 * layout.uiScale, rgba(245, 210, 122), new Size(panelWidth - 56 * layout.uiScale, 58 * layout.uiScale));
-    this.addLabel(`Token: ${this.lastTokenName || 'player-token'}`, 0, -6 * layout.uiScale, 18 * layout.uiScale, rgba(127, 214, 255), new Size(panelWidth - 80 * layout.uiScale, 36 * layout.uiScale));
-    this.addGoldButton('重新登录', 0, -76 * layout.uiScale, () => {
-      this.api.auth.logout();
-      this.lastTokenName = '';
-      this.renderLogin();
-    }, layout, Math.min(300 * layout.uiScale, panelWidth - 90 * layout.uiScale), 52 * layout.uiScale);
-    this.addStatus('第一阶段只完成登录验收；大厅等功能下一阶段再进入。', layout);
+    this.addRect('LoadingMask', 0, 0, layout.width, layout.height, rgba(3, 3, 5, 210));
+    const panelWidth = Math.min(660 * layout.uiScale, layout.contentWidth * 0.72);
+    const panelHeight = 260 * layout.uiScale;
+    this.addBeveledPanel('LoadingPanel', 0, -12 * layout.uiScale, panelWidth, panelHeight, rgba(10, 8, 10, 232), rgba(214, 177, 94, 230), 18 * layout.uiScale);
+    this.addLabel('资源加载中', 0, 62 * layout.uiScale, 32 * layout.uiScale, rgba(245, 210, 122), new Size(panelWidth - 70 * layout.uiScale, 54 * layout.uiScale));
+    this.addLabel(this.loadingError || this.loadingMessage, 0, 14 * layout.uiScale, 17 * layout.uiScale, this.loadingError ? rgba(255, 107, 124) : rgba(215, 210, 198), new Size(panelWidth - 96 * layout.uiScale, 42 * layout.uiScale));
+    this.addProgressBar(0, -36 * layout.uiScale, panelWidth - 120 * layout.uiScale, 20 * layout.uiScale, clamp(this.loadingProgress, 0, 1));
+    this.addLabel(`${Math.round(clamp(this.loadingProgress, 0, 1) * 100)}%`, 0, -76 * layout.uiScale, 18 * layout.uiScale, rgba(127, 214, 255), new Size(panelWidth - 110 * layout.uiScale, 34 * layout.uiScale));
+    if (this.loadingError) {
+      this.addGoldButton('重试加载', 0, -116 * layout.uiScale, () => this.startLobbyLoading(), layout, Math.min(260 * layout.uiScale, panelWidth - 130 * layout.uiScale), 46 * layout.uiScale);
+    }
+  }
+
+  private renderLobby(): void {
+    this.currentView = 'lobby';
+    const layout = this.renderBase();
+    this.renderLobbyBackground(layout);
+    this.renderLoginBrand(layout);
+
+    const headerWidth = Math.min(520 * layout.uiScale, layout.contentWidth * 0.5);
+    this.addBeveledPanel('LobbyStatusPanel', 0, layout.stageBottom + 74 * layout.uiScale, headerWidth, 92 * layout.uiScale, rgba(8, 7, 9, 170), rgba(185, 138, 58, 175), 14 * layout.uiScale);
+    this.addLabel('圣契大厅', 0, layout.stageBottom + 94 * layout.uiScale, 28 * layout.uiScale, rgba(245, 210, 122), new Size(headerWidth - 50 * layout.uiScale, 38 * layout.uiScale));
+    this.addLabel('资源准备完成，等待后续大厅功能阶段接入。', 0, layout.stageBottom + 58 * layout.uiScale, 16 * layout.uiScale, rgba(215, 210, 198), new Size(headerWidth - 60 * layout.uiScale, 30 * layout.uiScale));
   }
 
   private renderBase(): UiLayout {
@@ -273,6 +305,39 @@ export class LootChainGameRoot extends Component {
     this.addLabel('我已阅读并同意《用户协议》和《隐私政策》', 54 * layout.uiScale, y, 16 * layout.uiScale, rgba(215, 210, 198), new Size(430 * layout.uiScale, 34 * layout.uiScale));
   }
 
+  private renderLobbyBackground(layout: UiLayout): void {
+    if (this.lobbyPosterFrame) {
+      const posterNode = this.createUiNode('Lobby_BG_Poster');
+      posterNode.setPosition(Vec3.ZERO);
+      posterNode.addComponent(UITransform).setContentSize(new Size(layout.width, layout.height));
+      const poster = posterNode.addComponent(Sprite);
+      poster.type = Sprite.Type.SIMPLE;
+      poster.sizeMode = Sprite.SizeMode.CUSTOM;
+      poster.spriteFrame = this.lobbyPosterFrame;
+    } else {
+      this.addRect('Lobby_BG_Fallback', 0, 0, layout.width, layout.height, rgba(5, 4, 7, 255));
+    }
+
+    if (!this.lobbyVideoClip) {
+      return;
+    }
+
+    const videoNode = this.createUiNode('Lobby_BG_Video');
+    videoNode.setPosition(Vec3.ZERO);
+    videoNode.addComponent(UITransform).setContentSize(new Size(layout.width, layout.height));
+    const video = videoNode.addComponent(VideoPlayer);
+    video.clip = this.lobbyVideoClip;
+    video.mute = true;
+    video.volume = 0;
+    video.loop = true;
+    video.playOnAwake = false;
+    try {
+      video.play();
+    } catch (error) {
+      console.warn('[LootChain] lobby background video play failed:', error);
+    }
+  }
+
   private async login(): Promise<void> {
     if (!this.agreementAccepted) {
       this.setStatus('请先同意用户协议和隐私政策。');
@@ -286,11 +351,94 @@ export class LootChainGameRoot extends Component {
     try {
       const token = await this.api.auth.devLogin(userId);
       this.lastTokenName = token.tokenName;
-      this.renderLoginAccepted();
-      this.setStatus(`登录成功：${token.tokenName}`);
+      this.startLobbyLoading();
     } catch (error) {
       this.setStatus(this.formatApiError(error, AppConfig.apiBaseUrl));
     }
+  }
+
+  private startLobbyLoading(): void {
+    const ticket = ++this.resourceLoadTicket;
+    this.loadingProgress = 0.04;
+    this.loadingMessage = `登录成功：${this.lastTokenName || 'player-token'}，准备资源清单...`;
+    this.loadingError = '';
+    this.currentView = 'loading';
+    this.renderLoading();
+    this.loadLobbyResources(ticket).catch((error: unknown) => {
+      if (ticket !== this.resourceLoadTicket) {
+        return;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      this.loadingProgress = 0;
+      this.loadingError = `资源加载失败：${message}`;
+      this.renderLoading();
+    });
+  }
+
+  private async loadLobbyResources(ticket: number): Promise<void> {
+    await this.setLoadingProgress(ticket, 0.16, '检查大厅背景资源...');
+    this.lobbyPosterFrame = await this.loadSpriteFrameResource(LOBBY_POSTER_PATH);
+    await this.setLoadingProgress(ticket, 0.48, '大厅首帧准备完成，加载动态背景...');
+    this.lobbyVideoClip = await this.loadVideoClipResource(LOBBY_VIDEO_PATH);
+    await this.setLoadingProgress(ticket, 0.82, '大厅动态背景准备完成，整理界面状态...');
+    await this.setLoadingProgress(ticket, 1, '资源加载完成，进入圣契大厅...');
+    if (ticket !== this.resourceLoadTicket) {
+      return;
+    }
+    this.currentView = 'lobby';
+    this.renderLobby();
+  }
+
+  private async setLoadingProgress(ticket: number, progress: number, message: string): Promise<void> {
+    if (ticket !== this.resourceLoadTicket) {
+      return;
+    }
+    this.loadingProgress = progress;
+    this.loadingMessage = message;
+    this.loadingError = '';
+    if (this.currentView === 'loading') {
+      this.renderLoading();
+    }
+    await this.delay(80);
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+  }
+
+  private loadVideoClipResource(path: string): Promise<VideoClip> {
+    return new Promise((resolve, reject) => {
+      resources.load(path, VideoClip, (error, clip) => {
+        if (error || !clip) {
+          reject(error ?? new Error(`video clip not found: ${path}`));
+          return;
+        }
+        resolve(clip);
+      });
+    });
+  }
+
+  private loadSpriteFrameResource(path: string): Promise<SpriteFrame> {
+    return new Promise((resolve, reject) => {
+      resources.load(`${path}/spriteFrame`, SpriteFrame, (spriteError, spriteFrame) => {
+        if (!spriteError && spriteFrame) {
+          resolve(spriteFrame);
+          return;
+        }
+
+        resources.load(`${path}/texture`, Texture2D, (textureError, texture) => {
+          if (textureError || !texture) {
+            reject(textureError ?? spriteError ?? new Error(`sprite frame not found: ${path}`));
+            return;
+          }
+          const runtimeSpriteFrame = new SpriteFrame();
+          runtimeSpriteFrame.texture = texture;
+          resolve(runtimeSpriteFrame);
+        });
+      });
+    });
   }
 
   private resolveDevUserId(account: string): number {
@@ -301,9 +449,9 @@ export class LootChainGameRoot extends Component {
     return AppConfig.defaultDevUserId;
   }
 
-  private addStatus(text: string, layout?: UiLayout): void {
+  private addStatus(text: string, layout?: UiLayout, y?: number): void {
     const currentLayout = layout ?? this.resolveLayout();
-    const statusY = currentLayout.stageBottom + Math.max(18 * currentLayout.uiScale, currentLayout.stageHeight * 0.025);
+    const statusY = y ?? currentLayout.stageBottom + Math.max(18 * currentLayout.uiScale, currentLayout.stageHeight * 0.025);
     this.statusLabel = this.addLabel(text, 0, statusY, currentLayout.bodyFont, rgba(127, 214, 255), new Size(currentLayout.statusWidth, 48 * currentLayout.uiScale));
   }
 
@@ -331,7 +479,7 @@ export class LootChainGameRoot extends Component {
     return label;
   }
 
-  private addEditBox(initialText: string, x: number, y: number, width: number, layout?: UiLayout): EditBox {
+  private addEditBox(initialText: string, x: number, y: number, width: number, layout?: UiLayout, password = false): EditBox {
     const currentLayout = layout ?? this.resolveLayout();
     const node = this.createUiNode('EditBox');
     node.setPosition(new Vec3(x, y, 0));
@@ -339,6 +487,9 @@ export class LootChainGameRoot extends Component {
     const editBox = node.addComponent(EditBox);
     editBox.maxLength = 256;
     editBox.placeholder = '';
+    if (password) {
+      editBox.inputFlag = EditBox.InputFlag.PASSWORD;
+    }
 
     const textNode = new Node('TextLabel');
     textNode.layer = node.layer;
@@ -370,12 +521,26 @@ export class LootChainGameRoot extends Component {
     editBox.textLabel = textLabel;
     editBox.placeholderLabel = placeholderLabel;
     editBox.string = initialText;
+    if (password) {
+      editBox.inputFlag = EditBox.InputFlag.PASSWORD;
+      this.applyPasswordMask(editBox, textLabel);
+    }
     return editBox;
   }
 
-  private addFramedEditBox(initialText: string, x: number, y: number, width: number, layout: UiLayout): EditBox {
+  private applyPasswordMask(editBox: EditBox, textLabel: Label): void {
+    const mask = () => {
+      textLabel.string = '*'.repeat(editBox.string.length);
+    };
+    mask();
+    editBox.node.on(EditBox.EventType.TEXT_CHANGED, mask, this);
+    editBox.node.on(EditBox.EventType.EDITING_DID_ENDED, mask, this);
+    editBox.node.on(EditBox.EventType.EDITING_RETURN, mask, this);
+  }
+
+  private addFramedEditBox(initialText: string, x: number, y: number, width: number, layout: UiLayout, password = false): EditBox {
     this.addBeveledPanel('InputFrame', x, y, width + 28, layout.inputHeight + 8, rgba(8, 7, 9, 220), rgba(185, 138, 58, 190), 8);
-    return this.addEditBox(initialText, x, y, width, layout);
+    return this.addEditBox(initialText, x, y, width, layout, password);
   }
 
   private addButton(text: string, x: number, y: number, callback: () => void, layout?: UiLayout, width?: number, height?: number): Button {
@@ -578,6 +743,26 @@ export class LootChainGameRoot extends Component {
     this.traceBeveledRect(graphics, width, height, bevel);
     graphics.stroke();
     return graphics;
+  }
+
+  private addProgressBar(x: number, y: number, width: number, height: number, progress: number): void {
+    const background = this.addRect('LoadingProgressTrack', x, y, width, height, rgba(8, 7, 9, 236), rgba(185, 138, 58, 210), 2);
+    background.lineWidth = 2;
+    const fillWidth = Math.max(0, width * clamp(progress, 0, 1));
+    if (fillWidth <= 0) {
+      return;
+    }
+    const fillNode = this.createUiNode('LoadingProgressFill');
+    fillNode.setPosition(new Vec3(x - width / 2 + fillWidth / 2, y, 0));
+    fillNode.addComponent(UITransform).setContentSize(new Size(fillWidth, height - 6));
+    const fill = fillNode.addComponent(Graphics);
+    fill.fillColor = rgba(201, 39, 61, 230);
+    fill.rect(-fillWidth / 2, -(height - 6) / 2, fillWidth, height - 6);
+    fill.fill();
+    fill.strokeColor = rgba(245, 210, 122, 180);
+    fill.lineWidth = 1;
+    fill.rect(-fillWidth / 2, -(height - 6) / 2, fillWidth, height - 6);
+    fill.stroke();
   }
 
   private applyButtonVisual(node: Node, width: number, height: number): void {

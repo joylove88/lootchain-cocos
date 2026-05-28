@@ -426,7 +426,7 @@
     "_priority": 1073741824,
     "_fov": 45,
     "_fovAxis": 0,
-    "_orthoHeight": 540,
+    "_orthoHeight": 686.6574965612105,
     "_near": 1,
     "_far": 2000,
     "_color": {
@@ -721,9 +721,9 @@
       "__uuid__": "324a503f-d7b4-4cbb-ac16-0930dae5cd51",
       "__expectedType__": "cc.VideoClip"
     },
-    "_playOnAwake": true,
-    "_volume": 1,
-    "_mute": false,
+    "_playOnAwake": false,
+    "_volume": 0,
+    "_mute": true,
     "_playbackRate": 1,
     "_loop": true,
     "_fullScreenOnAwake": false,
@@ -749,8 +749,6 @@
       "__id__": 13
     },
     "fadeDuration": 0.4,
-    "videoVolume": 0.4,
-    "videoMuted": false,
     "_id": "d6ym41vRFI9bdmiixBqpJf"
   },
   {
@@ -1713,7 +1711,7 @@
       "r": 255,
       "g": 40,
       "b": 50,
-      "a": 90
+      "a": 30
     },
     "_startColorVar": {
       "__type__": "cc.Color",
@@ -1783,7 +1781,7 @@
         "__id__": 63
       }
     ],
-    "_active": true,
+    "_active": false,
     "_components": [
       {
         "__id__": 68
@@ -3056,7 +3054,7 @@
       "__id__": 70
     },
     "_children": [],
-    "_active": true,
+    "_active": false,
     "_components": [
       {
         "__id__": 72
@@ -14952,7 +14950,7 @@
         "__id__": 381
       }
     ],
-    "_active": false,
+    "_active": true,
     "_components": [
       {
         "__id__": 386
