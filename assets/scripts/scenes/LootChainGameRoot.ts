@@ -21,6 +21,7 @@ import {
 import { AppConfig } from '../app/AppConfig';
 import { lootChainApi, LootChainApi } from '../api/LootChainApi';
 import { ApiError } from '../net/HttpClient';
+import type { PlayerLobbyProfileVO } from '../types/PlayerTypes';
 
 const { ccclass, property } = _decorator;
 
@@ -46,6 +47,14 @@ interface UiLayout {
   stageRight: number;
   stageTop: number;
   stageBottom: number;
+  safeLeft: number;
+  safeRight: number;
+  safeTop: number;
+  safeBottom: number;
+  safeWidth: number;
+  safeHeight: number;
+  safeInsetX: number;
+  safeInsetY: number;
   uiScale: number;
   contentWidth: number;
   topY: number;
@@ -70,6 +79,7 @@ interface RailButtonAsset {
 const UI_ASSETS = {
   logo: 'ui/login/login_logo/spriteFrame',
   mainButton: 'ui/login/login_button_main/spriteFrame',
+  lobbyPlayerInfoPanel: 'ui/lobby/lobby_player_info_panel/spriteFrame',
   rightRail: [
     { label: '谕言', path: 'ui/login/side_btn_prophecy/spriteFrame' },
     { label: '客服', path: 'ui/login/side_btn_service/spriteFrame' },
@@ -87,6 +97,10 @@ const LOGIN_REFERENCE_HEIGHT = 1080;
 const LOGIN_STAGE_NODE_NAMES = ['BG_Main', 'FG_Architecture'] as const;
 const LOBBY_VIDEO_PATH = 'lobby/lobby_bg_loop';
 const LOBBY_POSTER_PATH = 'lobby/lobby_bg_poster';
+const USE_LOBBY_NATIVE_VIDEO_BACKGROUND = false;
+const LOBBY_PLAYER_INFO_PANEL_ASPECT = 1600 / 577;
+const LOBBY_PROFILE_SERVER_NAME = '本地开发服';
+const LOBBY_PROFILE_PLACEHOLDER = '-';
 const MIN_VISIBLE_WIDTH = 320;
 const MIN_VISIBLE_HEIGHT = 180;
 
@@ -118,6 +132,11 @@ export class LootChainGameRoot extends Component {
   private resourceLoadTicket = 0;
   private lobbyPosterFrame: SpriteFrame | null = null;
   private lobbyVideoClip: VideoClip | null = null;
+  private lobbyProfile: PlayerLobbyProfileVO | null = null;
+  private lobbyProfileOpen = false;
+  private lobbyProfileLoading = false;
+  private lobbyProfileError = '';
+  private lastDevUserId = AppConfig.defaultDevUserId;
 
   start(): void {
     // 登录验收必须从真实点击开始，避免历史 token 让预览直接进入通过态。
@@ -159,15 +178,16 @@ export class LootChainGameRoot extends Component {
     if (SHOW_RIGHT_RAIL) {
       this.renderRightRail(layout);
     }
+    const centerX = (layout.stageLeft + layout.stageRight) / 2;
     const buttonWidth = clamp(layout.contentWidth * 0.34, 300 * layout.uiScale, 450 * layout.uiScale);
     const buttonHeight = Math.round(buttonWidth * 0.23);
-    const buttonY = layout.stageBottom + Math.max(26 * layout.uiScale, layout.stageHeight * 0.04) + buttonHeight / 2;
+    const buttonY = layout.safeBottom + Math.max(12 * layout.uiScale, layout.safeHeight * 0.02) + buttonHeight / 2;
     if (USE_IMAGE_LOGIN_BUTTON) {
       this.addImageButton(
         'MainAccountLoginButton',
         UI_ASSETS.mainButton,
         '账号登录',
-        0,
+        centerX,
         buttonY,
         () => this.renderLoginDialog(),
         layout,
@@ -176,7 +196,7 @@ export class LootChainGameRoot extends Component {
         Math.max(18 * layout.uiScale, layout.bodyFont + 7 * layout.uiScale),
       );
     } else {
-      this.addGoldButton('账号登录', 0, buttonY, () => this.renderLoginDialog(), layout, Math.min(320 * layout.uiScale, layout.contentWidth * 0.3), 48 * layout.uiScale);
+      this.addGoldButton('账号登录', centerX, buttonY, () => this.renderLoginDialog(), layout, Math.min(320 * layout.uiScale, layout.contentWidth * 0.3), 48 * layout.uiScale);
     }
     this.addStatus('等待圣契召唤。', layout, buttonY + buttonHeight / 2 + 28 * layout.uiScale);
   }
@@ -192,11 +212,13 @@ export class LootChainGameRoot extends Component {
     }
     this.addRect('DialogDim', 0, 0, layout.width, layout.height, rgba(0, 0, 0, 88));
 
+    const centerX = (layout.stageLeft + layout.stageRight) / 2;
+    const centerY = (layout.stageTop + layout.stageBottom) / 2;
     const panelWidth = Math.min(620 * layout.uiScale, layout.contentWidth * 0.7);
     const panelHeight = (SHOW_DIALOG_THIRD_PARTY_LOGIN ? 560 : 430) * layout.uiScale;
-    const panelY = -layout.stageHeight * 0.08;
+    const panelY = centerY - layout.stageHeight * 0.08;
     const inputWidth = Math.min(430 * layout.uiScale, panelWidth - 130 * layout.uiScale);
-    this.addBeveledPanel('LoginDialogPanel', 0, panelY, panelWidth, panelHeight, rgba(10, 8, 9, 226), rgba(214, 177, 94, 230), 18 * layout.uiScale);
+    this.addBeveledPanel('LoginDialogPanel', centerX, panelY, panelWidth, panelHeight, rgba(10, 8, 9, 226), rgba(214, 177, 94, 230), 18 * layout.uiScale);
     const titleY = panelY + (SHOW_DIALOG_THIRD_PARTY_LOGIN ? 210 : 168) * layout.uiScale;
     const accountLabelY = panelY + (SHOW_DIALOG_THIRD_PARTY_LOGIN ? 138 : 102) * layout.uiScale;
     const accountInputY = panelY + (SHOW_DIALOG_THIRD_PARTY_LOGIN ? 98 : 62) * layout.uiScale;
@@ -205,36 +227,39 @@ export class LootChainGameRoot extends Component {
     const enterButtonY = panelY + (SHOW_DIALOG_THIRD_PARTY_LOGIN ? -70 : -96) * layout.uiScale;
     const thirdPartyY = panelY - 162 * layout.uiScale;
     const agreementY = SHOW_DIALOG_THIRD_PARTY_LOGIN ? panelY - 226 * layout.uiScale : panelY - 164 * layout.uiScale;
-    this.addLabel('账号登录', 0, titleY, 30 * layout.uiScale, rgba(245, 210, 122), new Size(panelWidth - 80 * layout.uiScale, 46 * layout.uiScale));
+    this.addLabel('账号登录', centerX, titleY, 30 * layout.uiScale, rgba(245, 210, 122), new Size(panelWidth - 80 * layout.uiScale, 46 * layout.uiScale));
 
-    this.addLabel('账号 / 邮箱', 0, accountLabelY, 17 * layout.uiScale, rgba(215, 210, 198), new Size(inputWidth, 28 * layout.uiScale));
-    this.accountInput = this.addFramedEditBox(String(AppConfig.defaultDevUserId), 0, accountInputY, inputWidth, layout);
-    this.addLabel('密码', 0, passwordLabelY, 17 * layout.uiScale, rgba(215, 210, 198), new Size(inputWidth, 28 * layout.uiScale));
-    this.passwordInput = this.addFramedEditBox('', 0, passwordInputY, inputWidth, layout, true);
+    this.addLabel('账号 / 邮箱', centerX, accountLabelY, 17 * layout.uiScale, rgba(215, 210, 198), new Size(inputWidth, 28 * layout.uiScale));
+    this.accountInput = this.addFramedEditBox(String(AppConfig.defaultDevUserId), centerX, accountInputY, inputWidth, layout);
+    this.addLabel('密码', centerX, passwordLabelY, 17 * layout.uiScale, rgba(215, 210, 198), new Size(inputWidth, 28 * layout.uiScale));
+    this.passwordInput = this.addFramedEditBox('', centerX, passwordInputY, inputWidth, layout, true);
 
-    this.addGoldButton('进入游戏', 0, enterButtonY, () => this.run(() => this.login()), layout, Math.min(360 * layout.uiScale, inputWidth), 54 * layout.uiScale);
+    this.addGoldButton('进入游戏', centerX, enterButtonY, () => this.run(() => this.login()), layout, Math.min(360 * layout.uiScale, inputWidth), 54 * layout.uiScale);
     if (SHOW_DIALOG_THIRD_PARTY_LOGIN) {
-      this.renderThirdPartyLogin(thirdPartyY, layout);
+      this.renderThirdPartyLogin(thirdPartyY, layout, centerX);
     }
-    this.renderAgreement(agreementY, layout);
-    this.addButton('返回', -panelWidth / 2 + 68 * layout.uiScale, panelY + panelHeight / 2 - 42 * layout.uiScale, () => this.renderLogin(), layout, 92 * layout.uiScale, 38 * layout.uiScale);
+    this.renderAgreement(agreementY, layout, centerX);
+    this.addButton('返回', centerX - panelWidth / 2 + 68 * layout.uiScale, panelY + panelHeight / 2 - 42 * layout.uiScale, () => this.renderLogin(), layout, 92 * layout.uiScale, 38 * layout.uiScale);
     this.addStatus('当前阶段只接入 dev-login；账号为数字时作为 User ID。', layout);
   }
 
   private renderLoading(): void {
     this.currentView = 'loading';
     const layout = this.renderBase();
+    const centerX = (layout.stageLeft + layout.stageRight) / 2;
+    const centerY = (layout.stageTop + layout.stageBottom) / 2;
 
     this.addRect('LoadingMask', 0, 0, layout.width, layout.height, rgba(3, 3, 5, 210));
     const panelWidth = Math.min(660 * layout.uiScale, layout.contentWidth * 0.72);
     const panelHeight = 260 * layout.uiScale;
-    this.addBeveledPanel('LoadingPanel', 0, -12 * layout.uiScale, panelWidth, panelHeight, rgba(10, 8, 10, 232), rgba(214, 177, 94, 230), 18 * layout.uiScale);
-    this.addLabel('资源加载中', 0, 62 * layout.uiScale, 32 * layout.uiScale, rgba(245, 210, 122), new Size(panelWidth - 70 * layout.uiScale, 54 * layout.uiScale));
-    this.addLabel(this.loadingError || this.loadingMessage, 0, 14 * layout.uiScale, 17 * layout.uiScale, this.loadingError ? rgba(255, 107, 124) : rgba(215, 210, 198), new Size(panelWidth - 96 * layout.uiScale, 42 * layout.uiScale));
-    this.addProgressBar(0, -36 * layout.uiScale, panelWidth - 120 * layout.uiScale, 20 * layout.uiScale, clamp(this.loadingProgress, 0, 1));
-    this.addLabel(`${Math.round(clamp(this.loadingProgress, 0, 1) * 100)}%`, 0, -76 * layout.uiScale, 18 * layout.uiScale, rgba(127, 214, 255), new Size(panelWidth - 110 * layout.uiScale, 34 * layout.uiScale));
+    const panelY = centerY - 12 * layout.uiScale;
+    this.addBeveledPanel('LoadingPanel', centerX, panelY, panelWidth, panelHeight, rgba(10, 8, 10, 232), rgba(214, 177, 94, 230), 18 * layout.uiScale);
+    this.addLabel('资源加载中', centerX, panelY + 74 * layout.uiScale, 32 * layout.uiScale, rgba(245, 210, 122), new Size(panelWidth - 70 * layout.uiScale, 54 * layout.uiScale));
+    this.addLabel(this.loadingError || this.loadingMessage, centerX, panelY + 26 * layout.uiScale, 17 * layout.uiScale, this.loadingError ? rgba(255, 107, 124) : rgba(215, 210, 198), new Size(panelWidth - 96 * layout.uiScale, 42 * layout.uiScale));
+    this.addProgressBar(centerX, panelY - 24 * layout.uiScale, panelWidth - 120 * layout.uiScale, 20 * layout.uiScale, clamp(this.loadingProgress, 0, 1));
+    this.addLabel(`${Math.round(clamp(this.loadingProgress, 0, 1) * 100)}%`, centerX, panelY - 64 * layout.uiScale, 18 * layout.uiScale, rgba(127, 214, 255), new Size(panelWidth - 110 * layout.uiScale, 34 * layout.uiScale));
     if (this.loadingError) {
-      this.addGoldButton('重试加载', 0, -116 * layout.uiScale, () => this.startLobbyLoading(), layout, Math.min(260 * layout.uiScale, panelWidth - 130 * layout.uiScale), 46 * layout.uiScale);
+      this.addGoldButton('重试加载', centerX, panelY - 104 * layout.uiScale, () => this.startLobbyLoading(), layout, Math.min(260 * layout.uiScale, panelWidth - 130 * layout.uiScale), 46 * layout.uiScale);
     }
   }
 
@@ -242,12 +267,409 @@ export class LootChainGameRoot extends Component {
     this.currentView = 'lobby';
     const layout = this.renderBase();
     this.renderLobbyBackground(layout);
-    this.renderLoginBrand(layout);
+    this.renderLobbyHud(layout);
+    if (this.lobbyProfileOpen) {
+      this.renderPlayerProfileDialog(layout);
+    }
+  }
 
-    const headerWidth = Math.min(520 * layout.uiScale, layout.contentWidth * 0.5);
-    this.addBeveledPanel('LobbyStatusPanel', 0, layout.stageBottom + 74 * layout.uiScale, headerWidth, 92 * layout.uiScale, rgba(8, 7, 9, 170), rgba(185, 138, 58, 175), 14 * layout.uiScale);
-    this.addLabel('圣契大厅', 0, layout.stageBottom + 94 * layout.uiScale, 28 * layout.uiScale, rgba(245, 210, 122), new Size(headerWidth - 50 * layout.uiScale, 38 * layout.uiScale));
-    this.addLabel('资源准备完成，等待后续大厅功能阶段接入。', 0, layout.stageBottom + 58 * layout.uiScale, 16 * layout.uiScale, rgba(215, 210, 198), new Size(headerWidth - 60 * layout.uiScale, 30 * layout.uiScale));
+  private renderLobbyHud(layout: UiLayout): void {
+    this.renderLobbyPlayerInfo(layout);
+  }
+
+  private renderLobbyPlayerInfo(layout: UiLayout): void {
+    const profile = this.currentLobbyProfile();
+    const baseHudScale = this.lobbyHudScale(layout);
+    let panelWidth = Math.min(
+      clamp(layout.stageWidth * 0.23, 330 * baseHudScale, 390 * baseHudScale),
+      layout.safeWidth,
+    );
+    let panelHeight = panelWidth / LOBBY_PLAYER_INFO_PANEL_ASPECT;
+    const maxPanelHeight = layout.safeHeight * 0.5;
+    if (panelHeight > maxPanelHeight) {
+      panelHeight = maxPanelHeight;
+      panelWidth = panelHeight * LOBBY_PLAYER_INFO_PANEL_ASPECT;
+    }
+    const hudScale = panelWidth / 390;
+    const x = layout.safeLeft + panelWidth / 2;
+    const y = layout.safeTop - panelHeight / 2;
+    const panel = this.createUiNode('LobbyPlayerInfoButton');
+    panel.setPosition(new Vec3(x, y, 0));
+    panel.addComponent(UITransform).setContentSize(new Size(panelWidth, panelHeight));
+    if (!this.addSprite('LobbyPlayerInfoArt', UI_ASSETS.lobbyPlayerInfoPanel, 0, 0, panelWidth, panelHeight, panel)) {
+      this.drawLobbyPlayerInfoFrame(panel, panelWidth, panelHeight, hudScale);
+    }
+    panel.addComponent(Button);
+    panel.on(Button.EventType.CLICK, () => this.openPlayerProfileDialog(), this);
+    this.applyImageButtonFeedback(panel);
+
+    const textX = -panelWidth / 2 + 132 * hudScale;
+    const textWidth = Math.max(120 * hudScale, panelWidth - 162 * hudScale);
+    this.addChildLabel(
+      panel,
+      'LobbyPlayerLevel',
+      `Lv.${profile.playerLevel}`,
+      textX,
+      40 * hudScale,
+      18 * hudScale,
+      rgba(226, 201, 145),
+      new Size(textWidth, 25 * hudScale),
+      Label.HorizontalAlign.LEFT,
+    );
+    this.addChildLabel(
+      panel,
+      'LobbyPlayerName',
+      profile.displayName,
+      textX,
+      14 * hudScale,
+      24 * hudScale,
+      rgba(250, 226, 164),
+      new Size(textWidth, 32 * hudScale),
+      Label.HorizontalAlign.LEFT,
+    );
+    this.addLobbyNameSigil(panel, textX + Math.min(142 * hudScale, textWidth - 18 * hudScale), 16 * hudScale, hudScale);
+    this.addChildLabel(
+      panel,
+      'LobbyPlayerPower',
+      `战力 ${this.formatInteger(profile.combatPower)}`,
+      textX,
+      -18 * hudScale,
+      19 * hudScale,
+      rgba(224, 190, 112),
+      new Size(textWidth, 28 * hudScale),
+      Label.HorizontalAlign.LEFT,
+    );
+    this.addLobbyPowerUnderline(panel, textX + textWidth * 0.44, -38 * hudScale, Math.min(textWidth * 0.92, 210 * hudScale), hudScale);
+    this.addChildLabel(
+      panel,
+      'LobbyPlayerExpBadge',
+      'EXP',
+      -panelWidth / 2 + 63 * hudScale,
+      -panelHeight / 2 + 22 * hudScale,
+      13 * hudScale,
+      rgba(245, 210, 122),
+      new Size(44 * hudScale, 18 * hudScale),
+    );
+
+  }
+
+  private renderPlayerProfileDialog(layout: UiLayout): void {
+    const profile = this.currentLobbyProfile();
+    const dim = this.addRect('LobbyProfileDim', 0, 0, layout.width, layout.height, rgba(0, 0, 0, 126));
+    dim.node.addComponent(Button);
+    dim.node.on(Button.EventType.CLICK, () => this.closePlayerProfileDialog(), this);
+
+    const panelWidth = Math.min(840 * layout.uiScale, Math.max(260 * layout.uiScale, layout.safeWidth - 24 * layout.uiScale));
+    const panelHeight = Math.min(620 * layout.uiScale, Math.max(280 * layout.uiScale, layout.safeHeight - 24 * layout.uiScale));
+    const panelX = (layout.stageLeft + layout.stageRight) / 2;
+    const panelY = (layout.stageTop + layout.stageBottom) / 2;
+    const panel = this.addBeveledPanelNode(
+      'LobbyProfilePanel',
+      panelX,
+      panelY,
+      panelWidth,
+      panelHeight,
+      rgba(8, 7, 10, 238),
+      rgba(215, 170, 82, 238),
+      20 * layout.uiScale,
+    );
+    panel.addComponent(Button);
+
+    this.addChildLabel(
+      panel,
+      'LobbyProfileTitle',
+      '玩家资料',
+      0,
+      panelHeight / 2 - 46 * layout.uiScale,
+      Math.max(18, 30 * layout.uiScale),
+      rgba(245, 210, 122),
+      new Size(panelWidth - 160 * layout.uiScale, 46 * layout.uiScale),
+    );
+
+    const closeSize = 42 * layout.uiScale;
+    const closeNode = new Node('LobbyProfileCloseButton');
+    closeNode.layer = this.node.layer;
+    panel.addChild(closeNode);
+    closeNode.setPosition(new Vec3(panelWidth / 2 - 38 * layout.uiScale, panelHeight / 2 - 36 * layout.uiScale, 0));
+    closeNode.addComponent(UITransform).setContentSize(new Size(closeSize, closeSize));
+    const closeGraphics = closeNode.addComponent(Graphics);
+    this.drawButtonFrame(closeGraphics, closeSize, closeSize, 'normal');
+    closeNode.addComponent(Button);
+    closeNode.on(Button.EventType.CLICK, () => this.closePlayerProfileDialog(), this);
+    this.applyPointerCursor(closeNode);
+    this.addChildLabel(closeNode, 'Label', 'X', 0, 1 * layout.uiScale, Math.max(15, 20 * layout.uiScale), rgba(245, 210, 122), new Size(closeSize, closeSize));
+
+    const avatarSize = 126 * layout.uiScale;
+    const avatarX = -panelWidth / 2 + 118 * layout.uiScale;
+    const avatarY = panelHeight / 2 - 132 * layout.uiScale;
+    this.addLobbyAvatar(panel, avatarX, avatarY, avatarSize, profile.displayName);
+    this.addChildLabel(
+      panel,
+      'LobbyProfileName',
+      profile.displayName,
+      avatarX + 96 * layout.uiScale,
+      avatarY + 30 * layout.uiScale,
+      Math.max(17, 28 * layout.uiScale),
+      rgba(250, 226, 164),
+      new Size(panelWidth - 260 * layout.uiScale, 40 * layout.uiScale),
+      Label.HorizontalAlign.LEFT,
+    );
+    this.addChildLabel(
+      panel,
+      'LobbyProfileSubline',
+      `UID ${profile.userId}  |  ${LOBBY_PROFILE_SERVER_NAME}`,
+      avatarX + 96 * layout.uiScale,
+      avatarY - 8 * layout.uiScale,
+      Math.max(12, 17 * layout.uiScale),
+      rgba(209, 199, 176),
+      new Size(panelWidth - 280 * layout.uiScale, 30 * layout.uiScale),
+      Label.HorizontalAlign.LEFT,
+    );
+    this.addChildLabel(
+      panel,
+      'LobbyProfileStatus',
+      this.profileStatusText(profile),
+      avatarX + 96 * layout.uiScale,
+      avatarY - 42 * layout.uiScale,
+      Math.max(12, 16 * layout.uiScale),
+      this.lobbyProfileError ? rgba(255, 162, 92) : rgba(127, 214, 255),
+      new Size(panelWidth - 280 * layout.uiScale, 28 * layout.uiScale),
+      Label.HorizontalAlign.LEFT,
+    );
+
+    const rowTop = avatarY - 104 * layout.uiScale;
+    const columnWidth = (panelWidth - 104 * layout.uiScale) / 2;
+    const leftX = -panelWidth / 4 + 16 * layout.uiScale;
+    const rightX = panelWidth / 4 - 16 * layout.uiScale;
+    const rowGap = 46 * layout.uiScale;
+    this.addProfileRow(panel, '等级', `Lv.${profile.playerLevel}`, leftX, rowTop, columnWidth, layout);
+    this.addProfileRow(panel, '经验', this.formatInteger(profile.exp), rightX, rowTop, columnWidth, layout);
+    this.addProfileRow(panel, '战力', this.formatInteger(profile.combatPower), leftX, rowTop - rowGap, columnWidth, layout);
+    this.addProfileRow(panel, '体力', `${this.formatInteger(profile.stamina)}/${this.formatInteger(profile.maxStamina)}`, rightX, rowTop - rowGap, columnWidth, layout);
+    this.addProfileRow(panel, '账号状态', profile.accountStatus, leftX, rowTop - rowGap * 2, columnWidth, layout);
+    this.addProfileRow(panel, '登录方式', profile.loginMethod, rightX, rowTop - rowGap * 2, columnWidth, layout);
+    this.addProfileRow(panel, '钱包绑定', profile.walletBound ? '已绑定' : '未绑定', leftX, rowTop - rowGap * 3, columnWidth, layout);
+    this.addProfileRow(panel, '钱包地址', this.maskWalletAddress(profile.walletAddress), rightX, rowTop - rowGap * 3, columnWidth, layout);
+
+    this.addChildLabel(
+      panel,
+      'LobbyProfileReadonlyNote',
+      '当前阶段仅展示只读资料；头像、昵称、绑定、登出等操作暂不开放。',
+      0,
+      -panelHeight / 2 + 34 * layout.uiScale,
+      Math.max(11, 15 * layout.uiScale),
+      rgba(173, 158, 130),
+      new Size(panelWidth - 90 * layout.uiScale, 28 * layout.uiScale),
+    );
+  }
+
+  private lobbyHudScale(layout: UiLayout): number {
+    return clamp(layout.uiScale, 0.62, 1);
+  }
+
+  private drawLobbyPlayerInfoFrame(parent: Node, width: number, height: number, scale: number): void {
+    const graphics = parent.addComponent(Graphics);
+    const left = -width / 2;
+    const right = width / 2;
+    const top = height / 2;
+    const bottom = -height / 2;
+    const avatarCenterX = left + 58 * scale;
+
+    graphics.fillColor = rgba(3, 4, 7, 84);
+    graphics.moveTo(left + 72 * scale, top - 30 * scale);
+    graphics.lineTo(right - 38 * scale, top - 27 * scale);
+    graphics.lineTo(right - 14 * scale, top - 43 * scale);
+    graphics.lineTo(right - 56 * scale, bottom + 38 * scale);
+    graphics.lineTo(left + 90 * scale, bottom + 24 * scale);
+    graphics.close();
+    graphics.fill();
+
+    graphics.fillColor = rgba(28, 16, 11, 86);
+    graphics.moveTo(left + 96 * scale, top - 50 * scale);
+    graphics.lineTo(right - 72 * scale, top - 48 * scale);
+    graphics.lineTo(right - 42 * scale, top - 58 * scale);
+    graphics.lineTo(right - 92 * scale, bottom + 48 * scale);
+    graphics.lineTo(left + 112 * scale, bottom + 42 * scale);
+    graphics.close();
+    graphics.fill();
+
+    graphics.strokeColor = rgba(213, 166, 77, 160);
+    graphics.lineWidth = 1.6 * scale;
+    graphics.moveTo(left + 118 * scale, top - 30 * scale);
+    graphics.lineTo(right - 58 * scale, top - 29 * scale);
+    graphics.stroke();
+    graphics.strokeColor = rgba(213, 166, 77, 214);
+    graphics.lineWidth = 1.2 * scale;
+    graphics.moveTo(left + 112 * scale, bottom + 33 * scale);
+    graphics.lineTo(right - 64 * scale, bottom + 27 * scale);
+    graphics.stroke();
+
+    graphics.strokeColor = rgba(119, 86, 39, 150);
+    graphics.lineWidth = 1 * scale;
+    graphics.moveTo(avatarCenterX + 42 * scale, top - 19 * scale);
+    graphics.lineTo(avatarCenterX + 64 * scale, top - 30 * scale);
+    graphics.moveTo(avatarCenterX + 42 * scale, bottom + 23 * scale);
+    graphics.lineTo(avatarCenterX + 72 * scale, bottom + 34 * scale);
+    graphics.stroke();
+
+    const ornamentY = top - 31 * scale;
+    graphics.fillColor = rgba(197, 36, 47, 220);
+    graphics.moveTo(right - 20 * scale, ornamentY + 7 * scale);
+    graphics.lineTo(right - 13 * scale, ornamentY);
+    graphics.lineTo(right - 20 * scale, ornamentY - 7 * scale);
+    graphics.lineTo(right - 27 * scale, ornamentY);
+    graphics.close();
+    graphics.fill();
+    graphics.strokeColor = rgba(244, 122, 91, 205);
+    graphics.lineWidth = 1 * scale;
+    graphics.stroke();
+  }
+
+  private addLobbyNameSigil(parent: Node, x: number, y: number, scale: number): void {
+    const sigil = new Node('LobbyPlayerNameSigil');
+    sigil.layer = this.node.layer;
+    parent.addChild(sigil);
+    sigil.setPosition(new Vec3(x, y, 0));
+    sigil.addComponent(UITransform).setContentSize(new Size(24 * scale, 24 * scale));
+    const graphics = sigil.addComponent(Graphics);
+    graphics.strokeColor = rgba(235, 192, 90, 230);
+    graphics.lineWidth = 1.5 * scale;
+    graphics.moveTo(0, 11 * scale);
+    graphics.lineTo(0, -11 * scale);
+    graphics.moveTo(-9 * scale, 0);
+    graphics.lineTo(9 * scale, 0);
+    graphics.stroke();
+    graphics.fillColor = rgba(62, 31, 18, 215);
+    graphics.moveTo(0, 8 * scale);
+    graphics.lineTo(6 * scale, 0);
+    graphics.lineTo(0, -8 * scale);
+    graphics.lineTo(-6 * scale, 0);
+    graphics.close();
+    graphics.fill();
+    graphics.strokeColor = rgba(245, 210, 122, 230);
+    graphics.stroke();
+  }
+
+  private addLobbyPowerUnderline(parent: Node, x: number, y: number, width: number, scale: number): void {
+    const line = new Node('LobbyPlayerPowerUnderline');
+    line.layer = this.node.layer;
+    parent.addChild(line);
+    line.setPosition(new Vec3(x, y, 0));
+    line.addComponent(UITransform).setContentSize(new Size(width, 14 * scale));
+    const graphics = line.addComponent(Graphics);
+    graphics.strokeColor = rgba(210, 166, 78, 150);
+    graphics.lineWidth = 1 * scale;
+    graphics.moveTo(-width / 2, 0);
+    graphics.lineTo(width / 2 - 18 * scale, 0);
+    graphics.stroke();
+    graphics.fillColor = rgba(213, 47, 50, 210);
+    graphics.moveTo(width / 2 - 8 * scale, 6 * scale);
+    graphics.lineTo(width / 2 - 2 * scale, 0);
+    graphics.lineTo(width / 2 - 8 * scale, -6 * scale);
+    graphics.lineTo(width / 2 - 14 * scale, 0);
+    graphics.close();
+    graphics.fill();
+  }
+
+  private openPlayerProfileDialog(): void {
+    this.lobbyProfileOpen = true;
+    if (this.currentView === 'lobby') {
+      this.renderLobby();
+    }
+  }
+
+  private closePlayerProfileDialog(): void {
+    this.lobbyProfileOpen = false;
+    if (this.currentView === 'lobby') {
+      this.renderLobby();
+    }
+  }
+
+  private async loadLobbyProfile(userId: number): Promise<void> {
+    this.lobbyProfileLoading = true;
+    this.lobbyProfileError = '';
+    if (this.currentView === 'lobby') {
+      this.renderLobby();
+    }
+    try {
+      const profile = await this.api.profile.lobbyProfile();
+      if (userId !== this.lastDevUserId) {
+        return;
+      }
+      this.lobbyProfile = this.normalizeLobbyProfile(profile);
+      this.lobbyProfileError = '';
+    } catch (error) {
+      if (userId !== this.lastDevUserId) {
+        return;
+      }
+      this.lobbyProfile = null;
+      this.lobbyProfileError = error instanceof Error ? error.message : String(error);
+      console.warn('[LootChain] lobby profile load failed:', error);
+    } finally {
+      if (userId !== this.lastDevUserId) {
+        return;
+      }
+      this.lobbyProfileLoading = false;
+      if (this.currentView === 'lobby') {
+        this.renderLobby();
+      }
+    }
+  }
+
+  private currentLobbyProfile(): PlayerLobbyProfileVO {
+    return this.lobbyProfile ?? this.fallbackLobbyProfile();
+  }
+
+  private fallbackLobbyProfile(): PlayerLobbyProfileVO {
+    return {
+      userId: this.lastDevUserId,
+      displayName: 'LootChain',
+      username: `player${this.lastDevUserId}`,
+      nickname: null,
+      avatar: null,
+      playerLevel: 1,
+      exp: 0,
+      stamina: 0,
+      maxStamina: 120,
+      combatPower: 0,
+      status: null,
+      accountStatus: this.lobbyProfileError ? '资料占位' : '读取中',
+      walletBound: false,
+      walletAddress: null,
+      loginMethod: 'dev-login',
+    };
+  }
+
+  private normalizeLobbyProfile(profile: PlayerLobbyProfileVO): PlayerLobbyProfileVO {
+    const userId = this.positiveInteger(profile.userId, this.lastDevUserId);
+    const displayName = this.safeText(profile.displayName || profile.nickname || profile.username || `Player${userId}`);
+    return {
+      userId,
+      displayName,
+      username: profile.username ?? null,
+      nickname: profile.nickname ?? null,
+      avatar: profile.avatar ?? null,
+      playerLevel: this.positiveInteger(profile.playerLevel, 1),
+      exp: this.positiveInteger(profile.exp, 0),
+      stamina: this.positiveInteger(profile.stamina, 0),
+      maxStamina: this.positiveInteger(profile.maxStamina, 120),
+      combatPower: this.positiveInteger(profile.combatPower, 0),
+      status: profile.status ?? null,
+      accountStatus: this.safeText(profile.accountStatus || '未知'),
+      walletBound: Boolean(profile.walletBound),
+      walletAddress: profile.walletAddress ?? null,
+      loginMethod: this.safeText(profile.loginMethod || 'dev-login'),
+    };
+  }
+
+  private profileStatusText(profile: PlayerLobbyProfileVO): string {
+    if (this.lobbyProfileLoading) {
+      return '资料读取中...';
+    }
+    if (this.lobbyProfileError) {
+      return '资料接口暂不可用，已使用本地占位';
+    }
+    return `账号状态：${profile.accountStatus}`;
   }
 
   private renderBase(): UiLayout {
@@ -262,47 +684,43 @@ export class LootChainGameRoot extends Component {
   private renderLoginBrand(layout: UiLayout): void {
     const logoWidth = clamp(layout.stageWidth * 0.23, 210 * layout.uiScale, 320 * layout.uiScale);
     const logoHeight = Math.round(logoWidth * 0.51);
-    const logoInsetX = Math.max(28 * layout.uiScale, layout.stageWidth * 0.035);
-    const logoInsetY = Math.max(18 * layout.uiScale, layout.stageHeight * 0.035);
-    const logoX = layout.stageLeft + logoInsetX + logoWidth / 2;
-    const logoY = layout.stageTop - logoInsetY - logoHeight / 2;
+    const logoX = layout.safeLeft + logoWidth / 2;
+    const logoY = layout.safeTop - logoHeight / 2;
     if (!this.addSprite('LoginLogo', UI_ASSETS.logo, logoX, logoY, logoWidth, logoHeight)) {
-      this.addLabel('LOOTCHAIN', logoX, logoY + 22, 46, rgba(245, 210, 122), new Size(450, 62));
-      this.addLabel('SILENT GODS', logoX, logoY - 30, 17, rgba(214, 177, 94), new Size(390, 28));
+      this.addLabel('LOOTCHAIN', logoX, logoY + 22 * layout.uiScale, 46 * layout.uiScale, rgba(245, 210, 122), new Size(logoWidth * 1.35, 62 * layout.uiScale));
+      this.addLabel('SILENT GODS', logoX, logoY - 30 * layout.uiScale, 17 * layout.uiScale, rgba(214, 177, 94), new Size(logoWidth * 1.2, 28 * layout.uiScale));
     }
   }
 
   private renderRightRail(layout: UiLayout): void {
     const railWidth = 76 * layout.uiScale;
     const railHeight = 74 * layout.uiScale;
-    const railInsetX = Math.max(20 * layout.uiScale, layout.stageWidth * 0.02);
-    const railInsetY = Math.max(32 * layout.uiScale, layout.stageHeight * 0.045);
-    const x = layout.stageRight - railInsetX - railWidth / 2;
-    const yStart = layout.stageTop - railInsetY - railHeight / 2;
+    const x = layout.safeRight - railWidth / 2;
+    const yStart = layout.safeTop - Math.max(8 * layout.uiScale, layout.safeInsetY * 0.4) - railHeight / 2;
     const railGap = 84 * layout.uiScale;
     UI_ASSETS.rightRail.forEach((asset, index) => {
       this.addRailImageButton(asset, x, yStart - index * railGap, layout);
     });
   }
 
-  private renderThirdPartyLogin(y: number, layout: UiLayout): void {
-    this.addLabel('其他登录方式', 0, y + 30 * layout.uiScale, 16 * layout.uiScale, rgba(214, 177, 94), new Size(260 * layout.uiScale, 28 * layout.uiScale));
+  private renderThirdPartyLogin(y: number, layout: UiLayout, centerX = 0): void {
+    this.addLabel('其他登录方式', centerX, y + 30 * layout.uiScale, 16 * layout.uiScale, rgba(214, 177, 94), new Size(260 * layout.uiScale, 28 * layout.uiScale));
     const labels = ['G', 'A', 'D', 'X'];
     const gap = 68 * layout.uiScale;
     labels.forEach((label, index) => {
-      const x = (index - (labels.length - 1) / 2) * gap;
+      const x = centerX + (index - (labels.length - 1) / 2) * gap;
       this.addDiamondButton(label, x, y - 8 * layout.uiScale, () => this.setStatus('第三方登录暂未开放。'), layout);
     });
   }
 
-  private renderAgreement(y: number, layout: UiLayout): void {
+  private renderAgreement(y: number, layout: UiLayout, centerX = 0): void {
     const boxSize = 24 * layout.uiScale;
-    const x = -152 * layout.uiScale;
+    const x = centerX - 152 * layout.uiScale;
     this.addButton(this.agreementAccepted ? '✓' : '', x, y, () => {
       this.agreementAccepted = !this.agreementAccepted;
       this.renderLoginDialog();
     }, layout, boxSize, boxSize);
-    this.addLabel('我已阅读并同意《用户协议》和《隐私政策》', 54 * layout.uiScale, y, 16 * layout.uiScale, rgba(215, 210, 198), new Size(430 * layout.uiScale, 34 * layout.uiScale));
+    this.addLabel('我已阅读并同意《用户协议》和《隐私政策》', centerX + 54 * layout.uiScale, y, 16 * layout.uiScale, rgba(215, 210, 198), new Size(430 * layout.uiScale, 34 * layout.uiScale));
   }
 
   private renderLobbyBackground(layout: UiLayout): void {
@@ -318,7 +736,7 @@ export class LootChainGameRoot extends Component {
       this.addRect('Lobby_BG_Fallback', 0, 0, layout.width, layout.height, rgba(5, 4, 7, 255));
     }
 
-    if (!this.lobbyVideoClip) {
+    if (!USE_LOBBY_NATIVE_VIDEO_BACKGROUND || !this.lobbyVideoClip) {
       return;
     }
 
@@ -338,6 +756,211 @@ export class LootChainGameRoot extends Component {
     }
   }
 
+  private addLobbyAvatar(parent: Node, x: number, y: number, size: number, displayName: string): void {
+    const avatarNode = new Node('LobbyPlayerAvatar');
+    avatarNode.layer = this.node.layer;
+    parent.addChild(avatarNode);
+    avatarNode.setPosition(new Vec3(x, y, 0));
+    avatarNode.addComponent(UITransform).setContentSize(new Size(size, size));
+    const graphics = avatarNode.addComponent(Graphics);
+    const radius = size / 2;
+
+    graphics.fillColor = rgba(15, 10, 7, 230);
+    graphics.circle(0, 0, radius * 1.08);
+    graphics.fill();
+    graphics.strokeColor = rgba(95, 67, 31, 190);
+    graphics.lineWidth = Math.max(2, size * 0.04);
+    graphics.circle(0, 0, radius * 1.03);
+    graphics.stroke();
+    graphics.strokeColor = rgba(205, 160, 73, 210);
+    graphics.lineWidth = Math.max(1, size * 0.015);
+    graphics.arc(0, 0, radius * 1.08, Math.PI * 0.74, Math.PI * 1.34, false);
+    graphics.stroke();
+    graphics.arc(0, 0, radius * 1.08, Math.PI * 1.74, Math.PI * 0.34, false);
+    graphics.stroke();
+
+    this.drawAvatarFrameOrnaments(graphics, size);
+
+    graphics.fillColor = rgba(8, 9, 13, 252);
+    graphics.circle(0, 0, radius * 0.98);
+    graphics.fill();
+
+    graphics.fillColor = rgba(24, 28, 36, 246);
+    graphics.circle(0, -radius * 0.02, radius * 0.78);
+    graphics.fill();
+
+    this.drawArmoredAvatarPortrait(graphics, size);
+
+    graphics.strokeColor = rgba(37, 25, 15, 255);
+    graphics.lineWidth = Math.max(2, size * 0.065);
+    graphics.circle(0, 0, radius * 0.96 - graphics.lineWidth / 2);
+    graphics.stroke();
+    graphics.strokeColor = rgba(232, 186, 82, 240);
+    graphics.lineWidth = Math.max(2, size * 0.026);
+    graphics.circle(0, 0, radius * 0.82);
+    graphics.stroke();
+
+    graphics.strokeColor = rgba(255, 228, 150, 170);
+    graphics.lineWidth = Math.max(1, size * 0.011);
+    graphics.arc(0, 0, radius * 0.72, Math.PI * 0.08, Math.PI * 0.58, false);
+    graphics.stroke();
+
+    const crest = this.safeText(displayName).slice(0, 1).toUpperCase() || 'L';
+    this.addChildLabel(avatarNode, 'AvatarCrestLetter', crest, 0, -size * 0.34, Math.max(10, size * 0.13), rgba(238, 208, 142), new Size(size * 0.44, size * 0.18));
+  }
+
+  private drawAvatarFrameOrnaments(graphics: Graphics, size: number): void {
+    const scale = size / 104;
+    const top = size * 0.56;
+    const bottom = -size * 0.56;
+    const left = -size * 0.56;
+    const right = size * 0.56;
+    graphics.fillColor = rgba(108, 77, 34, 190);
+    graphics.moveTo(0, top + 7 * scale);
+    graphics.lineTo(8 * scale, top - 5 * scale);
+    graphics.lineTo(0, top - 15 * scale);
+    graphics.lineTo(-8 * scale, top - 5 * scale);
+    graphics.close();
+    graphics.fill();
+    graphics.moveTo(0, bottom - 7 * scale);
+    graphics.lineTo(8 * scale, bottom + 5 * scale);
+    graphics.lineTo(0, bottom + 15 * scale);
+    graphics.lineTo(-8 * scale, bottom + 5 * scale);
+    graphics.close();
+    graphics.fill();
+
+    graphics.strokeColor = rgba(206, 162, 78, 165);
+    graphics.lineWidth = 1.2 * scale;
+    graphics.moveTo(left - 6 * scale, 0);
+    graphics.lineTo(left + 12 * scale, 0);
+    graphics.moveTo(right - 12 * scale, 0);
+    graphics.lineTo(right + 6 * scale, 0);
+    graphics.stroke();
+  }
+
+  private drawArmoredAvatarPortrait(graphics: Graphics, size: number): void {
+    const scale = size / 104;
+    graphics.fillColor = rgba(7, 8, 12, 250);
+    graphics.moveTo(-27 * scale, -26 * scale);
+    graphics.lineTo(-16 * scale, -4 * scale);
+    graphics.lineTo(0, 6 * scale);
+    graphics.lineTo(17 * scale, -4 * scale);
+    graphics.lineTo(30 * scale, -28 * scale);
+    graphics.lineTo(22 * scale, -39 * scale);
+    graphics.lineTo(-22 * scale, -39 * scale);
+    graphics.close();
+    graphics.fill();
+
+    graphics.fillColor = rgba(83, 86, 96, 245);
+    graphics.moveTo(-26 * scale, 12 * scale);
+    graphics.lineTo(-14 * scale, 34 * scale);
+    graphics.lineTo(0, 41 * scale);
+    graphics.lineTo(15 * scale, 34 * scale);
+    graphics.lineTo(27 * scale, 12 * scale);
+    graphics.lineTo(18 * scale, -11 * scale);
+    graphics.lineTo(-18 * scale, -11 * scale);
+    graphics.close();
+    graphics.fill();
+
+    graphics.fillColor = rgba(19, 20, 25, 245);
+    graphics.moveTo(-20 * scale, 10 * scale);
+    graphics.lineTo(-9 * scale, 27 * scale);
+    graphics.lineTo(0, 31 * scale);
+    graphics.lineTo(10 * scale, 27 * scale);
+    graphics.lineTo(21 * scale, 10 * scale);
+    graphics.lineTo(12 * scale, -18 * scale);
+    graphics.lineTo(-12 * scale, -18 * scale);
+    graphics.close();
+    graphics.fill();
+
+    graphics.fillColor = rgba(168, 145, 116, 238);
+    graphics.moveTo(-8 * scale, 8 * scale);
+    graphics.lineTo(0, 21 * scale);
+    graphics.lineTo(9 * scale, 8 * scale);
+    graphics.lineTo(6 * scale, -10 * scale);
+    graphics.lineTo(-6 * scale, -10 * scale);
+    graphics.close();
+    graphics.fill();
+
+    graphics.strokeColor = rgba(219, 173, 74, 210);
+    graphics.lineWidth = 1.7 * scale;
+    graphics.moveTo(-28 * scale, 12 * scale);
+    graphics.lineTo(0, 42 * scale);
+    graphics.lineTo(29 * scale, 12 * scale);
+    graphics.moveTo(0, 38 * scale);
+    graphics.lineTo(0, -18 * scale);
+    graphics.stroke();
+
+    graphics.strokeColor = rgba(221, 45, 48, 170);
+    graphics.lineWidth = 1.3 * scale;
+    graphics.moveTo(-18 * scale, -9 * scale);
+    graphics.lineTo(18 * scale, -9 * scale);
+    graphics.stroke();
+  }
+
+  private addExpBadge(parent: Node, x: number, y: number, scale: number): void {
+    const width = 50 * scale;
+    const height = 24 * scale;
+    const badge = this.addChildBeveledPanelNode(parent, 'LobbyPlayerExpBadge', x, y, width, height, rgba(84, 42, 13, 238), rgba(224, 174, 73, 235), 5 * scale);
+    this.addChildLabel(badge, 'Label', 'EXP', 0, 0, 14 * scale, rgba(245, 210, 122), new Size(width, height));
+  }
+
+  private addProfileRow(parent: Node, label: string, value: string, x: number, y: number, width: number, layout: UiLayout): void {
+    const height = 34 * layout.uiScale;
+    const row = this.addChildBeveledPanelNode(parent, `LobbyProfileRow_${label}`, x, y, width, height, rgba(18, 15, 16, 184), rgba(91, 70, 39, 190), 8 * layout.uiScale);
+    this.addChildLabel(
+      row,
+      'RowLabel',
+      label,
+      -width / 2 + 18 * layout.uiScale,
+      0,
+      Math.max(11, 15 * layout.uiScale),
+      rgba(178, 159, 119),
+      new Size(width * 0.35, height),
+      Label.HorizontalAlign.LEFT,
+    );
+    this.addChildLabel(
+      row,
+      'RowValue',
+      value || LOBBY_PROFILE_PLACEHOLDER,
+      width * 0.05,
+      0,
+      Math.max(12, 16 * layout.uiScale),
+      rgba(236, 216, 169),
+      new Size(width * 0.56, height),
+      Label.HorizontalAlign.LEFT,
+    );
+  }
+
+  private addBeveledPanelNode(name: string, x: number, y: number, width: number, height: number, fill: Color, stroke: Color, bevel = 10): Node {
+    const node = this.createUiNode(name);
+    node.setPosition(new Vec3(x, y, 0));
+    this.drawBeveledPanelOnNode(node, width, height, fill, stroke, bevel);
+    return node;
+  }
+
+  private addChildBeveledPanelNode(parent: Node, name: string, x: number, y: number, width: number, height: number, fill: Color, stroke: Color, bevel = 10): Node {
+    const node = new Node(name);
+    node.layer = this.node.layer;
+    parent.addChild(node);
+    node.setPosition(new Vec3(x, y, 0));
+    this.drawBeveledPanelOnNode(node, width, height, fill, stroke, bevel);
+    return node;
+  }
+
+  private drawBeveledPanelOnNode(node: Node, width: number, height: number, fill: Color, stroke: Color, bevel: number): Graphics {
+    node.addComponent(UITransform).setContentSize(new Size(width, height));
+    const graphics = node.addComponent(Graphics);
+    graphics.fillColor = fill;
+    this.traceBeveledRect(graphics, width, height, bevel);
+    graphics.fill();
+    graphics.strokeColor = stroke;
+    graphics.lineWidth = 2;
+    this.traceBeveledRect(graphics, width, height, bevel);
+    graphics.stroke();
+    return graphics;
+  }
+
   private async login(): Promise<void> {
     if (!this.agreementAccepted) {
       this.setStatus('请先同意用户协议和隐私政策。');
@@ -350,8 +973,13 @@ export class LootChainGameRoot extends Component {
     this.setStatus(`登录请求：${AppConfig.apiBaseUrl}`);
     try {
       const token = await this.api.auth.devLogin(userId);
+      this.lastDevUserId = userId;
+      this.lobbyProfile = null;
+      this.lobbyProfileOpen = false;
+      this.lobbyProfileError = '';
       this.lastTokenName = token.tokenName;
       this.startLobbyLoading();
+      void this.loadLobbyProfile(userId);
     } catch (error) {
       this.setStatus(this.formatApiError(error, AppConfig.apiBaseUrl));
     }
@@ -378,9 +1006,14 @@ export class LootChainGameRoot extends Component {
   private async loadLobbyResources(ticket: number): Promise<void> {
     await this.setLoadingProgress(ticket, 0.16, '检查大厅背景资源...');
     this.lobbyPosterFrame = await this.loadSpriteFrameResource(LOBBY_POSTER_PATH);
-    await this.setLoadingProgress(ticket, 0.48, '大厅首帧准备完成，加载动态背景...');
-    this.lobbyVideoClip = await this.loadVideoClipResource(LOBBY_VIDEO_PATH);
-    await this.setLoadingProgress(ticket, 0.82, '大厅动态背景准备完成，整理界面状态...');
+    if (USE_LOBBY_NATIVE_VIDEO_BACKGROUND) {
+      await this.setLoadingProgress(ticket, 0.48, '大厅首帧准备完成，加载动态背景...');
+      this.lobbyVideoClip = await this.loadVideoClipResource(LOBBY_VIDEO_PATH);
+      await this.setLoadingProgress(ticket, 0.82, '大厅动态背景准备完成，整理界面状态...');
+    } else {
+      this.lobbyVideoClip = null;
+      await this.setLoadingProgress(ticket, 0.82, '大厅静态背景准备完成，整理界面状态...');
+    }
     await this.setLoadingProgress(ticket, 1, '资源加载完成，进入圣契大厅...');
     if (ticket !== this.resourceLoadTicket) {
       return;
@@ -451,8 +1084,9 @@ export class LootChainGameRoot extends Component {
 
   private addStatus(text: string, layout?: UiLayout, y?: number): void {
     const currentLayout = layout ?? this.resolveLayout();
-    const statusY = y ?? currentLayout.stageBottom + Math.max(18 * currentLayout.uiScale, currentLayout.stageHeight * 0.025);
-    this.statusLabel = this.addLabel(text, 0, statusY, currentLayout.bodyFont, rgba(127, 214, 255), new Size(currentLayout.statusWidth, 48 * currentLayout.uiScale));
+    const statusY = y ?? currentLayout.safeBottom + Math.max(8 * currentLayout.uiScale, currentLayout.safeHeight * 0.01);
+    const centerX = (currentLayout.stageLeft + currentLayout.stageRight) / 2;
+    this.statusLabel = this.addLabel(text, centerX, statusY, currentLayout.bodyFont, rgba(127, 214, 255), new Size(currentLayout.statusWidth, 48 * currentLayout.uiScale));
   }
 
   private setStatus(text: string): void {
@@ -679,21 +1313,41 @@ export class LootChainGameRoot extends Component {
     return sprite;
   }
 
-  private addChildLabel(parent: Node, name: string, text: string, x: number, y: number, size: number, color: Color, contentSize: Size): Label {
+  private addChildLabel(
+    parent: Node,
+    name: string,
+    text: string,
+    x: number,
+    y: number,
+    size: number,
+    color: Color,
+    contentSize: Size,
+    horizontalAlign: Label.HorizontalAlign = Label.HorizontalAlign.CENTER,
+  ): Label {
     const labelNode = new Node(name);
     labelNode.layer = this.node.layer;
     parent.addChild(labelNode);
-    labelNode.setPosition(new Vec3(x, y, 0));
+    labelNode.setPosition(new Vec3(this.resolveAlignedLabelX(x, contentSize.width, horizontalAlign), y, 0));
     labelNode.addComponent(UITransform).setContentSize(contentSize);
     const label = labelNode.addComponent(Label);
     label.string = this.trimText(text);
     label.fontSize = size;
     label.lineHeight = size + 8;
-    label.horizontalAlign = Label.HorizontalAlign.CENTER;
+    label.horizontalAlign = horizontalAlign;
     label.verticalAlign = Label.VerticalAlign.CENTER;
     label.overflow = Label.Overflow.CLAMP;
     label.color = color;
     return label;
+  }
+
+  private resolveAlignedLabelX(x: number, width: number, horizontalAlign: Label.HorizontalAlign): number {
+    if (horizontalAlign === Label.HorizontalAlign.LEFT) {
+      return x + width / 2;
+    }
+    if (horizontalAlign === Label.HorizontalAlign.RIGHT) {
+      return x - width / 2;
+    }
+    return x;
   }
 
   private addAccountGlyph(parent: Node, x: number, y: number, scale: number): void {
@@ -924,6 +1578,34 @@ export class LootChainGameRoot extends Component {
     return `登录失败：${message}\nurl=${fallbackBaseUrl}/api/player/auth/dev-login`;
   }
 
+  private maskWalletAddress(address?: string | null): string {
+    const clean = this.safeText(address || '');
+    if (!clean) {
+      return LOBBY_PROFILE_PLACEHOLDER;
+    }
+    if (clean.length <= 12) {
+      return clean;
+    }
+    return `${clean.slice(0, 6)}...${clean.slice(-4)}`;
+  }
+
+  private formatInteger(value: number | null | undefined): string {
+    const safeValue = this.positiveInteger(value, 0);
+    return String(safeValue).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  private positiveInteger(value: number | null | undefined, fallback: number): number {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      return fallback;
+    }
+    return Math.floor(parsed);
+  }
+
+  private safeText(value: string | null | undefined): string {
+    return this.trimText(String(value ?? '').trim());
+  }
+
   private trimText(text: string): string {
     return text.length > 1200 ? `${text.slice(0, 1200)}...` : text;
   }
@@ -940,8 +1622,15 @@ export class LootChainGameRoot extends Component {
     const stageRight = stage.centerX + stageWidth / 2;
     const stageTop = stage.centerY + stageHeight / 2;
     const stageBottom = stage.centerY - stageHeight / 2;
-    const horizontalPadding = Math.max(40 * uiScale, stageWidth * 0.04);
-    const contentWidth = Math.max(260 * uiScale, stageWidth - horizontalPadding * 2);
+    const safeInsetX = clamp(stageWidth * 0.035, 12, 68 * Math.max(uiScale, 0.75));
+    const safeInsetY = clamp(stageHeight * 0.035, 10, 54 * Math.max(uiScale, 0.75));
+    const safeLeft = stageLeft + safeInsetX;
+    const safeRight = stageRight - safeInsetX;
+    const safeTop = stageTop - safeInsetY;
+    const safeBottom = stageBottom + safeInsetY;
+    const safeWidth = Math.max(120 * uiScale, safeRight - safeLeft);
+    const safeHeight = Math.max(100 * uiScale, safeTop - safeBottom);
+    const contentWidth = Math.max(260 * uiScale, safeWidth);
     return {
       width,
       height,
@@ -951,9 +1640,17 @@ export class LootChainGameRoot extends Component {
       stageRight,
       stageTop,
       stageBottom,
+      safeLeft,
+      safeRight,
+      safeTop,
+      safeBottom,
+      safeWidth,
+      safeHeight,
+      safeInsetX,
+      safeInsetY,
       uiScale,
       contentWidth,
-      topY: stageTop - 48 * uiScale,
+      topY: safeTop - 48 * uiScale,
       inputHeight: 46 * uiScale,
       buttonHeight: 48 * uiScale,
       statusWidth: Math.min(contentWidth, 760 * uiScale),
@@ -1024,7 +1721,8 @@ export class LootChainGameRoot extends Component {
   }
 
   private makeLayoutKey(): string {
-    const visible = this.visibleSize();
-    return `${this.currentView}:${visible.width}x${visible.height}:${this.agreementAccepted ? 'agree' : 'deny'}`;
+    const layout = this.resolveLayout();
+    const stageKey = `${Math.round(layout.stageLeft)},${Math.round(layout.stageBottom)},${Math.round(layout.stageWidth)}x${Math.round(layout.stageHeight)}`;
+    return `${this.currentView}:${layout.width}x${layout.height}:${stageKey}:${this.agreementAccepted ? 'agree' : 'deny'}:${this.lobbyProfileOpen ? 'profile-open' : 'profile-closed'}`;
   }
 }
