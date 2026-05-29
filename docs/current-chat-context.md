@@ -1,17 +1,17 @@
 # LootChain Cocos 当前聊天窗口交接上下文
 
-更新时间：2026-05-28
+更新时间：2026-05-29
 
-本文用于其他 Codex 窗口快速接手当前阶段。先读本文件，再按 LootChain 规则读取服务端 `D:\business\project\LootChain` 下的 `AGENTS.md`、`AI_RULE.md`、`PROJECT_CONTEXT1.md`、`PROJECT_CONTEXT2.md`、`docs/`、`sql/`、`team-history/CURRENT_PROGRESS.md`。
+本文用于其他 Codex 窗口快速接手当前阶段。先读本文件，再按 LootChain 规则读取服务端 `D:\project\LootChain` 下的 `AGENTS.md`、`AI_RULE.md`、`PROJECT_CONTEXT1.md`、`PROJECT_CONTEXT2.md`、`docs/`、`sql/`、`team-history/CURRENT_PROGRESS.md`。
 
 ## 当前目标
 
 - 游戏前端当前阶段是 Cocos-only 登录页。
 - 不再使用 `web-vue` 作为当前验收路径；`web-vue` 仅为历史实验目录。
-- 当前验收入口是 Cocos Creator 3.8.8 的 `D:\business\project\lootchain-cocos\assets\main.scene`。
+- 当前验收入口是 Cocos Creator 3.8.8 的 `D:\project\lootchain-cocos\assets\main.scene`。
 - 登录阶段只接入玩家 `dev-login`。
 - dev-login 成功后进入 Cocos 资源加载进度页，加载 `assets/resources/lobby` 下的大厅背景资源。
-- 加载完成后切换到大厅背景界面；当前大厅只展示背景与资源就绪状态，不开放抽卡、英雄、背包、USDT、资金池或任何经济写入口。
+- 加载完成后切换到大厅背景界面；当前大厅阶段 1 展示背景视频、左上玩家信息入口与只读资料弹窗，不开放抽卡、英雄、背包、USDT、资金池或任何经济写入口。
 
 ## 硬规则
 
@@ -20,31 +20,31 @@
 - USDT 奖励必须后台审核。
 - 资金池每日释放限制保持 0.5%~1%。
 - 后端 Controller 返回 `Result<T>`，不返回 Entity，必须使用 DTO/VO。
-- 后台前端如需修改，只能改 `D:\business\project\lootchain-admin\apps\web-antd`。
-- 当前 Cocos 登录页工作只改 `D:\business\project\lootchain-cocos`。
+- 后台前端如需修改，只能改 `D:\project\lootchain-admin\apps\web-antd`。
+- 当前 Cocos 登录页工作只改 `D:\project\lootchain-cocos`。
 
 ## 文档更新约定
 
 - 每次阶段性上下文或代码变更完成后，必须同步更新对应项目文档。
-- Cocos-only 登录页、资源加载、大厅背景、场景布局、预览验证、检查脚本等上下文，优先更新本文件和 `D:\business\project\lootchain-cocos\README.md`。
-- 涉及服务端启动、接口、规则、SQL 或后端联调上下文时，同时更新 `D:\business\project\LootChain` 下对应文档。
+- Cocos-only 登录页、资源加载、大厅背景、场景布局、预览验证、检查脚本等上下文，优先更新本文件和 `D:\project\lootchain-cocos\README.md`。
+- 涉及服务端启动、接口、规则、SQL 或后端联调上下文时，同时更新 `D:\project\LootChain` 下对应文档。
 - 不要只改代码不更新交接文档；下一窗口需要先从本文恢复当前阶段。
 
 ## 近期已完成的 Cocos 登录页调整
 
 1. 登录 UI 已放在 Cocos `assets/main.scene` 中，由 `LootChainGameRoot` 生成登录按钮、弹框、协议勾选、右侧入口占位和登录成功状态。
 2. 鼠标悬浮在可点击按钮上时已切换为小手 cursor。
-   - 文件：`D:\business\project\lootchain-cocos\assets\scripts\scenes\LootChainGameRoot.ts`
+   - 文件：`D:\project\lootchain-cocos\assets\scripts\scenes\LootChainGameRoot.ts`
    - 关键方法：`applyPointerCursor()`、`setPointerCursor()`。
 3. 登录背景视频已支持按运行环境自动切换：
-   - PC / 横屏：`D:\business\project\lootchain-cocos\assets\resources\login-bg`
-   - 手机 / 竖屏：`D:\business\project\lootchain-cocos\assets\resources\login-bg-h5`
-   - 文件：`D:\business\project\lootchain-cocos\assets\resources\login-bg\scripts\login\LoginVideoBackground.ts`
+   - PC / 横屏：`D:\project\lootchain-cocos\assets\resources\login-bg`
+   - 手机 / 竖屏：`D:\project\lootchain-cocos\assets\resources\login-bg-h5`
+   - 文件：`D:\project\lootchain-cocos\assets\resources\login-bg\scripts\login\LoginVideoBackground.ts`
    - 判定逻辑：`sys.isMobile || view.getVisibleSize().height > view.getVisibleSize().width` 时使用 H5 资源。
 4. H5 新增资源目录：
-   - `D:\business\project\lootchain-cocos\assets\resources\login-bg-h5\login_bg_loop.mp4`
-   - `D:\business\project\lootchain-cocos\assets\resources\login-bg-h5\login_bg_loop_raw.mp4`
-   - `D:\business\project\lootchain-cocos\assets\resources\login-bg-h5\login_bg_poster.jpg`
+   - `D:\project\lootchain-cocos\assets\resources\login-bg-h5\login_bg_loop.mp4`
+   - `D:\project\lootchain-cocos\assets\resources\login-bg-h5\login_bg_loop_raw.mp4`
+   - `D:\project\lootchain-cocos\assets\resources\login-bg-h5\login_bg_poster.jpg`
 5. `LoginVideoBackground` 已兼容 H5 poster 以 texture 方式导入的情况；如果找不到 spriteFrame，会 fallback 到 texture 并运行时创建 `SpriteFrame`。
 6. `VideoPlayer` 和 poster 会按当前可视区域尺寸铺满，避免横竖屏切换后尺寸不对。
 7. Cocos-only 登录根脚本已修复：
@@ -57,6 +57,7 @@
    - dev-login 返回 `code=0` 后进入“资源加载中”进度条界面。
    - 加载 `assets/resources/lobby/lobby_bg_poster.jpg` 与 `assets/resources/lobby/lobby_bg_loop.mp4`。
    - 大厅背景加载完成后切换到“圣契大厅”背景界面。
+   - 大厅背景视频已恢复播放；poster 仅作为首帧兜底，视频开始播放后淡出。
    - 大厅界面当前不放抽卡、英雄、背包等功能按钮。
 9. `scripts/check-layout.mjs` 已补充当前阶段门禁：
    - 校验 `assets/main.scene` JSON。
@@ -94,25 +95,39 @@ const H5_VIDEO_PATH = 'login-bg-h5/login_bg_loop';
 const H5_POSTER_PATH = 'login-bg-h5/login_bg_poster';
 ```
 
+2026-05-29 历史记录：用户曾替换 PC 登录背景视频与首帧图为 `login_bg_loop.mp4`，当时曾短暂将 PC 视频路径从 `login-bg/login_bg_loop_1080p` 改为 `login-bg/login_bg_loop`；随后用户确认视频改回 `login_bg_loop_1080p`，当前以最新记录为准。
+
+2026-05-29 追加检查：用户再次更新登录背景后，当前目录最新变更是 `assets/resources/login-bg/login_bg_first.jpg`；H5 目录 `assets/resources/login-bg-h5` 未变化。由于登录视频真正播放后会淡出 poster，若只替换首帧图，预览主体仍会显示当前 PC 视频画面；竖屏预览还需替换 H5 资源。
+
+2026-05-29 再次更新：用户确认视频已更换为 `login_bg_loop_1080p`，已将 PC 视频路径改回 `login-bg/login_bg_loop_1080p`。本地检查时 `assets/resources/login-bg/login_bg_loop_1080p.mp4` 未显示为 git 修改且时间戳仍为 `2026-05-26 09:08:59`，若预览仍是旧画面，需要确认新视频是否确实覆盖到该文件。
+
 ## 当前工作区状态
 
-`D:\business\project\lootchain-cocos` 当前有未提交变更：
+`D:\project\lootchain-cocos` 当前有未提交变更：
 
+- `assets/main.scene`
+- `assets/resources/login-bg/login_bg_first.jpg`
+- `assets/resources/login-bg/login_bg_loop_1080p.mp4`
+- `assets/resources/login-bg/login_bg_loop_1080p.mp4.meta`
+- `assets/resources/login-bg/login_bg_loop_raw.mp4`
+- `assets/resources/login-bg/login_bg_loop_raw.mp4.meta`
+- `assets/scripts/scenes/LootChainGameRoot.ts`
 - `scripts/check-layout.mjs`
 - `README.md`
 - `docs/current-chat-context.md`
+- `docs/lobby-feature-analysis.md`
 - `settings/v2/packages/cocos-service.json`
 
 注意：其中不全是本窗口新改内容，其他窗口接手时不要随意 revert 用户或 Cocos 编辑器生成的变更。
 
-`D:\business\project\LootChain` 当前有本轮新增的本地游戏服启动脚本与文档变更；详见服务端仓库 `README.md`、`docs/local-game-server-start.md`、`team-history/CURRENT_PROGRESS.md`。
+`D:\project\LootChain` 当前有本轮新增的本地游戏服启动脚本与文档变更；详见服务端仓库 `README.md`、`docs/local-game-server-start.md`、`team-history/CURRENT_PROGRESS.md`。
 
 ## 已跑过的检查
 
 Cocos 项目检查：
 
 ```powershell
-cd D:\business\project\lootchain-cocos
+cd D:\project\lootchain-cocos
 npm.cmd run check:layout
 ```
 
@@ -123,18 +138,18 @@ npm.cmd run check:layout
 Cocos TS 检查：
 
 ```powershell
-$tsc = 'D:\business\project\lootchain-cocos\web-vue\node_modules\typescript\bin\tsc'
-node $tsc --target ES2020 --module ESNext --moduleResolution Node --experimentalDecorators --skipLibCheck --noEmit --types D:\business\project\lootchain-cocos\temp\declarations\cc D:\business\project\lootchain-cocos\assets\scripts\scenes\LootChainGameRoot.ts D:\business\project\lootchain-cocos\assets\scripts\app\AppConfig.ts D:\business\project\lootchain-cocos\assets\scripts\api\LootChainApi.ts D:\business\project\lootchain-cocos\assets\scripts\net\HttpClient.ts D:\business\project\lootchain-cocos\assets\scripts\store\TokenStore.ts D:\business\project\lootchain-cocos\assets\resources\login-bg\scripts\login\LoginVideoBackground.ts
+$tsc = 'D:\office app\cocos\editors\Creator\3.8.8\resources\resources\3d\engine\node_modules\.bin\tsc.cmd'
+& $tsc --target ES2020 --module ESNext --moduleResolution Node --experimentalDecorators --skipLibCheck --noEmit --types D:\project\lootchain-cocos\temp\declarations\cc D:\project\lootchain-cocos\assets\scripts\scenes\LootChainGameRoot.ts D:\project\lootchain-cocos\assets\scripts\app\AppConfig.ts D:\project\lootchain-cocos\assets\scripts\api\LootChainApi.ts D:\project\lootchain-cocos\assets\scripts\api\PlayerProfileApi.ts D:\project\lootchain-cocos\assets\scripts\net\HttpClient.ts D:\project\lootchain-cocos\assets\scripts\store\TokenStore.ts D:\project\lootchain-cocos\assets\scripts\types\PlayerTypes.ts D:\project\lootchain-cocos\assets\resources\login-bg\scripts\login\LoginVideoBackground.ts
 ```
 
 结果：通过。
 
-本轮补充：已额外对 `assets/scripts/` 与 `assets/resources/login-bg/scripts/` 下全部 TypeScript 执行 Cocos 声明检查，结果通过。
+本轮补充：已使用 Cocos Creator 3.8.8 自带 TypeScript 对大厅根脚本、API、类型和登录背景脚本执行 Cocos 声明检查，结果通过。
 
 场景 JSON 校验：
 
 ```powershell
-node -e "const fs=require('fs'); JSON.parse(fs.readFileSync('D:/business/project/lootchain-cocos/assets/main.scene','utf8')); console.log('main.scene json ok')"
+node -e "const fs=require('fs'); JSON.parse(fs.readFileSync('D:/project/lootchain-cocos/assets/main.scene','utf8')); console.log('main.scene json ok')"
 ```
 
 结果：通过，输出 `main.scene json ok`。
@@ -163,7 +178,7 @@ mvn -pl lootchain-game -am spring-boot:run "-Dspring-boot.run.profiles=local"
 当前推荐使用服务端一键启动脚本：
 
 ```powershell
-Set-Location D:\business\project\LootChain
+Set-Location D:\project\LootChain
 .\start-game-server.bat
 ```
 
@@ -184,7 +199,7 @@ mvn.cmd --no-transfer-progress -f .\lootchain-game\pom.xml spring-boot:run -Dski
 - 当前 Cocos-only 登录页只对接 `POST /api/player/auth/dev-login`，传参为 `userId`。
 - `LootChainGameRoot` 中账号输入为数字时按 `userId` 传给 `dev-login`；非数字账号/邮箱兜底为 `AppConfig.defaultDevUserId`。
 - 登录弹框中的密码输入框当前只是 UI/后续正式登录占位，现阶段不会传给后端，也不会参与鉴权。
-- 正式账号密码、钱包签名、邮箱验证码、第三方登录等玩家登录体系尚未落库；服务端文档 `D:\business\project\LootChain\docs\22-数据库设计.md` 已记录建议后续新增独立凭证/身份表，不把密码直接放入 `game_user`。
+- 正式账号密码、钱包签名、邮箱验证码、第三方登录等玩家登录体系尚未落库；服务端文档 `D:\project\LootChain\docs\22-数据库设计.md` 已记录建议后续新增独立凭证/身份表，不把密码直接放入 `game_user`。
 
 本地配置：
 
@@ -223,28 +238,28 @@ expected START_TAG or END_TAG not TEXT ... settings.xml, line 61, column 15
 
 1. 如果继续处理登录页视觉，优先在 Cocos Creator Preview 中验证，不要回到 `web-vue`。
 2. 如果处理接口联调，先确认 `lootchain-game` 8081、Redis 6379、MySQL 3306 都在线。
-3. 如果要更新进度，必须同步更新本项目文档；涉及服务端时同时更新 `D:\business\project\LootChain\team-history\CURRENT_PROGRESS.md`。
+3. 如果要更新进度，必须同步更新本项目文档；涉及服务端时同时更新 `D:\project\LootChain\team-history\CURRENT_PROGRESS.md`。
 4. 对 Cocos 场景文件谨慎处理，Cocos 编辑器会产生 `assets/main.scene` 和 settings 变更，不要未经确认回滚。
 
 ## 2026-05-28 大厅参考图产品拆解
 
-- 用户提供 `D:\business\project\lootchain-cocos\docs\ui-reference\dragonheir\lobby\lobby.png` 作为后续游戏大厅对标参考。
+- 用户提供 `D:\project\lootchain-cocos\docs\ui-reference\dragonheir\lobby\lobby.png` 作为后续游戏大厅对标参考。
 - 已从产品视角拆解顶部玩家信息、资源栏、系统入口、左侧活动列表、中央场景热点、右侧挑战卡片、底部导航、聊天栏和主冒险入口。
-- 已新增文档 `D:\business\project\lootchain-cocos\docs\lobby-feature-analysis.md`，记录各功能点、点击弹窗建议、开发清单、开发顺序和当前阶段边界。
+- 已新增文档 `D:\project\lootchain-cocos\docs\lobby-feature-analysis.md`，记录各功能点、点击弹窗建议、开发清单、开发顺序和当前阶段边界。
 - 当前仅做产品总结，不改代码，不开放 EX V1，不新增任何经济写入口。
 
 ## 2026-05-28 大厅开发阶段 1
 
 - 当前大厅开发从阶段 1 开始，只实现“大厅背景壳 + 左上玩家信息只读展示 + 玩家资料只读弹窗”。
-- `D:\business\project\lootchain-cocos\assets\scripts\scenes\LootChainGameRoot.ts` 新增 `renderLobbyHud()`、`renderLobbyPlayerInfo()`、`renderPlayerProfileDialog()`、`openPlayerProfileDialog()`、`closePlayerProfileDialog()`。
+- `D:\project\lootchain-cocos\assets\scripts\scenes\LootChainGameRoot.ts` 新增 `renderLobbyHud()`、`renderLobbyPlayerInfo()`、`renderPlayerProfileDialog()`、`openPlayerProfileDialog()`、`closePlayerProfileDialog()`。
 - 大厅左上玩家信息按背景舞台边界自适应，节点包括 `LobbyPlayerInfoButton`、`LobbyPlayerAvatar`、`LobbyPlayerName`、`LobbyPlayerLevel`、`LobbyPlayerPower`、`LobbyPlayerExpBadge`。
 - 玩家资料弹窗节点包括 `LobbyProfileDim`、`LobbyProfilePanel`、`LobbyProfileCloseButton`；只展示资料，不提供写操作。
 - 新增 Cocos API 文件 `assets/scripts/api/PlayerProfileApi.ts` 与类型 `assets/scripts/types/PlayerTypes.ts`，只读调用 `GET /api/player/me/lobby`。
 - `scripts/check-layout.mjs` 已加入阶段 1 门禁，确认大厅资料节点、只读接口、弹窗布局状态 key 存在，并继续禁止抽卡、英雄、背包、领取、购买、提现、USDT 等入口进入根脚本。
-- 服务端新增只读资料接口，详见 `D:\business\project\LootChain\team-history\CURRENT_PROGRESS.md`。
-- Code Review 发现服务端 `PlayerProfileController` 需要排除出后台应用扫描；已在 `D:\business\project\LootChain\lootchain-admin\src\main\java\com\lootchain\bootstrap\AdminApplication.java` 加入排除，避免 admin 启动依赖玩家 Sa-Token Bean。
+- 服务端新增只读资料接口，详见 `D:\project\LootChain\team-history\CURRENT_PROGRESS.md`。
+- Code Review 发现服务端 `PlayerProfileController` 需要排除出后台应用扫描；已在 `D:\project\LootChain\lootchain-admin\src\main\java\com\lootchain\bootstrap\AdminApplication.java` 加入排除，避免 admin 启动依赖玩家 Sa-Token Bean。
 - 已执行 `npm.cmd run check:layout` 通过；后端 `PlayerLobbyProfileServiceTest` 通过；`mvn.cmd --no-transfer-progress -pl lootchain-admin,lootchain-game -am -DskipTests compile` 通过。
-- 当前项目没有可用 TypeScript 编译器依赖，无法复跑独立 Cocos TS 声明检查；需在 Cocos Creator Preview 中做最终运行态确认。
+- 当前可使用 Cocos Creator 3.8.8 自带 TypeScript 进行根脚本级声明检查；完整视觉与视频播放仍需在 Cocos Creator Preview 中做运行态确认。
 
 ### 2026-05-28 大厅 HUD 不显示修复
 
@@ -252,6 +267,16 @@ expected START_TAG or END_TAG not TEXT ... settings.xml, line 61, column 15
 - 排查后确认 `renderLobbyPlayerInfo()` 已执行渲染链，但大厅背景同时创建了全屏 `VideoPlayer` 节点；Cocos Web Preview 中原生视频层可能覆盖 Canvas UI，导致 HUD 被遮住。
 - 已将 `USE_LOBBY_NATIVE_VIDEO_BACKGROUND` 设为 `false`，大厅阶段 1 使用 poster 背景优先，不再创建或强制加载原生视频背景，保证 `LobbyPlayerInfoButton`、资料弹窗等 HUD 在 Canvas 层可见。
 - `scripts/check-layout.mjs` 已加入门禁，防止阶段 1 误开原生视频背景覆盖 HUD。
+
+### 2026-05-29 大厅背景视频恢复
+
+- 用户反馈游戏大厅背景视频没有播放。
+- 根因：上一轮为规避 `VideoPlayer` 覆盖 HUD，将 `USE_LOBBY_NATIVE_VIDEO_BACKGROUND` 临时设为 `false`，导致 loading 阶段不加载 `lobby_bg_loop.mp4`，大厅只显示 poster。
+- 已恢复 `USE_LOBBY_NATIVE_VIDEO_BACKGROUND = true`，加载 `assets/resources/lobby/lobby_bg_loop.mp4` 并创建 `Lobby_BG_Video`。
+- 按登录背景实现方式设置 `VideoPlayer.stayOnBottom = true`、静音循环、`keepAspectRatio = false`，并监听 `READY_TO_PLAY / PLAYING / COMPLETED / ERROR`。
+- `Lobby_BG_Poster` 新增 `UIOpacity`，视频真正进入 `PLAYING` 后再淡出 poster；视频失败时保留 poster，避免黑屏。
+- 全局点击/触摸会重试 `tryPlayLobbyVideo()`，用于兼容浏览器或移动端自动播放限制。
+- `scripts/check-layout.mjs` 已同步改为要求动态视频开启、poster 淡出和 `stayOnBottom` 保护存在。
 
 ### 2026-05-28 背景叠加元素自适应规则
 
@@ -285,8 +310,144 @@ expected START_TAG or END_TAG not TEXT ... settings.xml, line 61, column 15
 
 - 用户要求左上玩家信息与参考图保持一致，并建议使用 image 2.0 生成高质量 UI。
 - 已使用内置 imagegen 生成黑金暗黑幻想玩家铭牌资产，原始输出保留在 `C:\Users\Ethan\.codex\generated_images\019e547a-17f7-7db3-b84e-b4a1858b94c3\ig_07e312bd804b5022016a18653b8de88191aa608e4a90991262.png`。
-- 已在本地用 PowerShell/.NET 去除绿幕并裁剪成项目资源：`D:\business\project\lootchain-cocos\assets\resources\ui\lobby\lobby_player_info_panel.png`，尺寸 `1600x577`，四角 alpha 为 `0`。
+- 已在本地用 PowerShell/.NET 去除绿幕并裁剪成项目资源：`D:\project\lootchain-cocos\assets\resources\ui\lobby\lobby_player_info_panel.png`，尺寸 `1600x577`，四角 alpha 为 `0`。
 - 已新增 Cocos 资源 meta：`assets/resources/ui/lobby.meta` 与 `assets/resources/ui/lobby/lobby_player_info_panel.png.meta`。
 - `renderLobbyPlayerInfo()` 已切换为图片资产驱动，优先加载 `ui/lobby/lobby_player_info_panel/spriteFrame`，只保留等级、名称、战力、EXP 文字动态覆盖；图片加载失败时才使用 Graphics 兜底。
 - 已移除代码层额外红点绘制，避免与图片资产自带红色菱形重复。
 - `scripts/check-layout.mjs` 已加入图片资产存在性、资源常量和多分辨率尺寸公式校验。
+
+### 2026-05-29 大厅 Stage 1A 左上玩家信息自适应修正
+
+- 用户确认进入下一阶段，当前阶段聚焦大厅 UI 左上玩家信息、视频/背景上的 UI 自适应和参考图一致性。
+- `renderLobbyPlayerInfo()` 已从通用 `safeLeft/safeTop` 改为基于舞台安全区派生的 `lobbyHudEdgeInset()` 小边距定位，使铭牌更贴近参考图左上角，同时仍随舞台尺寸自适应。
+- 动态文字区域已收窄到头像右侧有效信息区，避免覆盖 `lobby_player_info_panel.png` 中央装饰件；玩家名与战力使用 `Label.Overflow.SHRINK` 防止长文本溢出。
+- 玩家信息文字已增加 `enableOutline` 黑色描边，提高动态视频背景上的可读性。
+- 图片资产未加载完成时的兜底绘制会同时显示 `LobbyPlayerAvatar`，避免首帧只有框没有头像。
+- 玩家信息按钮 hover/touch 缩放幅度已降低，减少贴边 HUD 在小分辨率下被交互缩放挤出舞台的风险。
+- `scripts/check-layout.mjs` 已同步新的边距公式、文字描边、文本缩放和多分辨率边界门禁。
+
+## 2026-05-29 Lobby Stage 1B player HUD reference rebuild
+
+- Scope: Cocos-only lobby top-left player info HUD. No backend economy rules were changed, EX V1 remains unopened, and no new economy write entry was added.
+- Rebuilt `assets/resources/ui/lobby/lobby_player_info_panel.png` as a compact high-resolution `1080x436` PNG, matching a `540x218` logical reference grid for the provided screenshot direction.
+- Updated `assets/resources/ui/lobby/lobby_player_info_panel.png.meta` so the SpriteFrame uses `rawWidth=1080`, `rawHeight=436`, `width=1080`, `height=436`, `trimX=0`, `trimY=0`, `offsetX=0`, and `offsetY=0`. This avoids the previous auto-trim coordinate drift that made dynamic text collide with the frame.
+- Updated `LootChainGameRoot.renderLobbyPlayerInfo()` to use `LOBBY_PLAYER_INFO_PANEL_ASPECT = 540 / 218`, wider `420..540` adaptive HUD sizing, and explicit safe slots for `Lv`, player name, combat power, underline, sigil, and `EXP`.
+- `LobbyPlayerLevel`, `LobbyPlayerName`, and `LobbyPlayerPower` now use shrink-safe text boxes positioned to the right of the avatar frame, preventing the level label from overlapping the avatar/background frame.
+- Updated `scripts/check-layout.mjs` to verify the HUD PNG dimensions, SpriteFrame meta trim values, and multi-resolution internal label boxes for level/name/power/EXP/sigil.
+- Verification completed:
+  - `npm.cmd run check:layout` -> passed with `layout ok`.
+  - Cocos Creator 3.8.8 bundled `tsc.cmd` no-emit check for `LootChainGameRoot.ts` and dependent scripts -> passed.
+
+### 2026-05-29 Lobby Stage 1B revision after visual rejection
+
+- User rejected the first Stage 1B HUD bitmap because it still differed too much from the provided reference.
+- Current correction: `assets/resources/ui/lobby/lobby_player_info_panel.png` now reuses the higher-quality original portrait/frame/EXP cluster only on the left side and keeps the right text area transparent. This removes the previous visible custom dark panel/blob and lets the lobby video/background show through like the reference image.
+- `addLobbyNameSigil()` was changed from a diamond-style icon to a thin gold anchor-like sigil.
+- `addLobbyPowerUnderline()` was simplified to a thin gold line; the previous red diamond ornament was removed.
+- Rechecked after this revision:
+  - `npm.cmd run check:layout` -> passed with `layout ok`.
+  - Cocos Creator 3.8.8 bundled `tsc.cmd` no-emit check -> passed.
+
+### 2026-05-29 Lobby Stage 1B high-quality avatar frame regeneration
+
+- User rejected the screenshot-crop avatar frame quality. The current HUD asset was regenerated using imagegen instead of cropping the old screenshot-like frame.
+- Generated source image: `C:\Users\axian\.codex\generated_images\019e6dfe-8486-7d32-a92f-9eaea25168f8\ig_07b83f41cd8e8d4e016a193fe1f8188191a7a50f262aadf9c6.png`.
+- Local processing: removed the flat green chroma-key background, despilled green edges, extracted the avatar medallion/badge, and composited it into `assets/resources/ui/lobby/lobby_player_info_panel.png` as a `1080x436` transparent HUD art canvas.
+- `assets/resources/ui/lobby/lobby_player_info_panel.png.meta` remains pinned to the full `1080x436` SpriteFrame grid to prevent auto-trim coordinate drift.
+- Rechecked after this regeneration:
+  - `npm.cmd run check:layout` -> passed with `layout ok`.
+  - Cocos Creator 3.8.8 bundled `tsc.cmd` no-emit check -> passed.
+
+### 2026-05-29 Lobby profile dialog close flash fix
+
+- User reported that closing the top-left player profile dialog could briefly flash the login-page background.
+- Root cause: `openPlayerProfileDialog()`, `closePlayerProfileDialog()`, and lobby profile refresh previously rebuilt the full lobby via `renderLobby()`. That path calls `renderBase()`, releases the lobby video runtime, and clears all content children, so the original scene/login background could show for one frame before the lobby background was rebuilt.
+- Fix: profile dialog open/close now only adds or removes `LobbyProfileDim` and `LobbyProfilePanel`. Lobby profile data refresh now calls `refreshLobbyOverlay()`, which refreshes only `LobbyPlayerInfoButton` and the optional profile dialog without touching `Lobby_BG_Poster` or `Lobby_BG_Video`.
+- Added `removePlayerProfileDialog()` and `removeNodeFromContent()` helpers.
+- Updated `scripts/check-layout.mjs` to forbid full `renderLobby()` calls from profile dialog open/close/profile-refresh paths.
+- Rechecked after this fix:
+  - `npm.cmd run check:layout` -> passed with `layout ok`.
+  - Cocos Creator 3.8.8 bundled `tsc.cmd` no-emit check -> passed.
+
+### 2026-05-29 Lobby Stage 1C top resource bar
+
+- Current next-stage increment: the lobby now renders a top resource bar through `renderLobbyResourceBar()` after the top-left player HUD.
+- The bar is explicitly read-only. It shows stamina from the existing lobby profile VO plus reference-style coin/ruby/crystal visual placeholders until a read-only asset-summary contract is available.
+- The visible `+` marks in the top resource bar are disabled visual marks only. No purchase, claim, exchange, fund-pool, gacha, hero, bag, chain reward, or EX V1 write entry was added.
+- `refreshLobbyOverlay()` now also refreshes/removes `LobbyResourceBar` without rebuilding the lobby background video/poster.
+- `scripts/check-layout.mjs` now requires the resource bar methods/nodes and verifies that the resource bar stays inside the adaptive stage and does not overlap the top-left player info panel across the supported viewport set.
+- Rechecked after this stage:
+  - `npm.cmd run check:layout` -> passed with `layout ok`.
+  - Cocos Creator 3.8.8 bundled `tsc.cmd` no-emit check -> passed.
+
+### 2026-05-29 Lobby Stage 1D refinement
+
+- User requested larger fonts matching the reference image, more accurate center function-point placement near buildings, and building hover/click interaction.
+- Current implementation changes:
+  - Activity-row title/subtitle, center hotspot label, right challenge card, bottom-nav, chat, and adventure-button fonts are larger.
+  - Center hotspots were repositioned closer to their reference buildings.
+  - Each center hotspot now has a transparent `LobbyHotspotHitArea_*` building interaction area behind the visible label.
+  - Hovering the building area sets the same local unopened-status hint as hovering the label.
+  - Clicking either the building area or the label calls `activateLobbyHotspot()` and plays `LobbyClickEffect`, a short red-gold pulse at that function point.
+- This remains Cocos-only local UI behavior. No backend gameplay/economy write API was added or called.
+- Rechecked after this refinement:
+  - `npm.cmd run check:layout` -> passed with `layout ok`.
+  - Cocos Creator 3.8.8 bundled `tsc.cmd` no-emit check -> passed.
+
+### 2026-05-29 Lobby Stage 1D hotspot alignment correction
+
+- User preview showed that the transparent center building hit areas were too large, not aligned with the visible buildings, and displayed a large red rectangle on hover.
+- Correction made in `renderLobbySceneHotspots()`:
+  - Each center function now has independent label coordinates, label width, hit-area center, hit-area width, and hit-area height.
+  - `召唤祭坛`, `公会`, `排行榜`, `旅者集会`, `熔铸工坊`, `深渊之门`, `战役`, and `商店` were retuned against the current 16:9 lobby background.
+  - `drawLobbyHotspotHover()` now draws a small local red-gold target pulse instead of outlining the whole hit area.
+  - Hit-area fill alpha is now `0`, keeping building hit zones invisible during preview.
+- This remains local Cocos UI behavior only; no backend gameplay/economy endpoint was opened.
+- Rechecked after this correction:
+  - `npm.cmd run check:layout` -> passed with `layout ok`.
+  - Cocos Creator 3.8.8 bundled `tsc.cmd` no-emit check -> passed.
+  - `git diff --check` -> passed, only existing CRLF warnings.
+- Next recommended Stage 1 item after user confirmation: bottom navigation and central hotspot placeholders, still read-only/locked and without any economy write entry.
+
+### 2026-05-29 Lobby Stage 1D reference-style HUD skeleton
+
+- User provided `D:\project\lootchain-cocos\docs\ui-reference\dragonheir\lobby\lobby.png` again and required the lobby UI to follow it with higher quality.
+- Current implementation extends the Cocos-only lobby overlay beyond the top-left HUD:
+  - `renderLobbySystemIcons()` draws the top-right friends/mail/settings/menu icon group.
+  - `renderLobbyActivityRail()` draws the left activity list with dark-gold rows, icon medallions, and red-dot markers.
+  - `renderLobbySceneHotspots()` draws central map plaques such as guild, ranking, abyss gate, battle, forge, and shop.
+  - `renderLobbyChallengeRail()` draws the right-side challenge cards.
+  - `renderLobbyBottomHud()` draws the bottom translucent band, compass, bottom navigation, chat preview, and red adventure button.
+- These are all Cocos `Graphics`/`Label`/`Button` UI nodes, not screenshot crops, so they remain sharp when scaled.
+- All newly visible module clicks are placeholder-only and call no backend gameplay/economy endpoint. They only set an unopened status message locally.
+- `scripts/check-layout.mjs` now verifies the new system icon group, resource spacing beside it, activity rail, scene hotspot plaques, challenge rail, and bottom HUD across the supported viewport set.
+- Rechecked after this stage:
+  - `npm.cmd run check:layout` -> passed with `layout ok`.
+  - Cocos Creator 3.8.8 bundled `tsc.cmd` no-emit check -> passed.
+
+### 2026-05-29 Lobby Stage 1D hotspot alignment correction v2
+
+- User preview still showed the center function text and building placement too far from the reference feel.
+- Recalibrated `renderLobbySceneHotspots()` against the current 3840x2160 16:9 `assets/resources/lobby/lobby_bg_poster.jpg`, because the provided reference image uses a different crop ratio.
+- Updated plaque anchors and hit-area anchors for `召唤祭坛`, `公会`, `排行榜`, `旅者集会`, `熔铸工坊`, `深渊之门`, `战役`, and `商店`.
+- Reduced the center plaque height from `36 * scale` to `32 * scale` and the label font from `25 * scale` to `22 * scale`, so nameplates sit closer to the building proportions.
+- Narrowed the transparent hit areas again to the building cores. Hover/click remains local placeholder UI only and does not call gameplay or economy write APIs.
+- Rechecked after this correction:
+  - `npm.cmd run check:layout` -> passed with `layout ok`.
+  - Cocos Creator 3.8.8 bundled `tsc.cmd` focused no-emit check with `cc.d.ts` -> passed.
+
+### 2026-05-29 Lobby Stage 1D code modularization
+
+- User requested that code should no longer be piled into `LootChainGameRoot`.
+- Current split:
+  - `LootChainGameRoot.ts` remains the Cocos root component for lifecycle, route switching, login/loading, lobby background, profile state, and generic UI primitives.
+  - `assets/scripts/scenes/lobby/LobbyHudRenderer.ts` owns the lobby HUD rendering chain and local placeholder interactions.
+  - `assets/scripts/scenes/lobby/LobbyHudConfig.ts` owns editable HUD data such as central hotspot anchors/hit areas, activity rows, challenge cards, and bottom navigation items.
+  - `assets/scripts/scenes/lobby/LobbyHudTypes.ts` owns the HUD host contract, HUD-only types, constants, and small helpers.
+- `LootChainGameRoot.renderLobbyHud()` now delegates to `LobbyHudRenderer.render(layout)` instead of containing every HUD method directly.
+- `scripts/check-layout.mjs` now treats the lobby HUD as a module group and verifies the new `.ts` and `.meta` files.
+- Root script line count after this split is about 1.6k lines; lobby HUD renderer/config/types are separated for future UI iteration.
+- This was a structure-only frontend refactor. No gameplay/economy endpoint was opened, no economy rules changed, and EX V1 remains closed.
+- Rechecked after modularization:
+  - `npm.cmd run check:layout` -> passed with `layout ok`.
+  - Cocos Creator 3.8.8 bundled `tsc.cmd` focused no-emit check with `cc.d.ts` -> passed.

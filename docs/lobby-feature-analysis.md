@@ -1,6 +1,6 @@
 # 大厅参考图功能拆解
 
-参考图：`D:\business\project\lootchain-cocos\docs\ui-reference\dragonheir\lobby\lobby.png`
+参考图：`D:\project\lootchain-cocos\docs\ui-reference\dragonheir\lobby\lobby.png`
 
 本文从产品视角拆解参考大厅的可见功能点，用于后续规划 LootChain Cocos 大厅。当前阶段只做产品拆解与交互定义，不开放抽卡、英雄、背包、USDT、资金池或任何经济写入口。
 
@@ -217,7 +217,7 @@
 - 弹窗当前只有关闭能力，不开放复制 UID、修改昵称、换头像、退出登录、绑定钱包等写操作。
 - Cocos 客户端新增 `PlayerProfileApi.lobbyProfile()`，只调用 `GET /api/player/me/lobby`。
 - 阶段 1 未开放顶部资源栏、左侧活动、中央热点、右侧挑战卡片、底部导航、聊天、冒险按钮。
-- Cocos Web Preview 中原生 `VideoPlayer` 背景可能盖住 HUD；阶段 1 已改为 poster 背景优先，后续如恢复动态背景，需要使用不会覆盖 Canvas UI 的实现。
+- 大厅阶段 1 已恢复动态背景视频：`VideoPlayer.stayOnBottom = true` 保持视频在 Canvas 底层，poster 只作为首帧兜底并在 `PLAYING` 后淡出，HUD 继续在 Canvas 上层渲染。
 - 叠在背景上的大厅 UI 必须走统一舞台安全区：顶部、左侧、右侧、底部、弹窗都按 `stageLeft/stageRight/stageTop/stageBottom` 派生的 `safeLeft/safeRight/safeTop/safeBottom` 定位。
 - 后续新增顶部资源栏、左侧活动、右侧挑战卡、底部导航和中央热点时，必须同步补 `scripts/check-layout.mjs` 多分辨率边界校验，避免只在当前预览分辨率下“碰巧正确”。
 
@@ -232,3 +232,86 @@
 - 返修约束：左对齐文字坐标必须按文本框左边界处理，不能再使用节点中心点导致文字压住头像。
 - 返修约束：左上铭牌不显示接口状态调试文案，避免污染大厅 HUD。
 - 最终方向：左上铭牌主体改为高质量图片资产 `assets/resources/ui/lobby/lobby_player_info_panel.png`，代码只覆盖动态文字和点击区域，避免用 Graphics 手绘导致品质和参考图差距过大。
+- Stage 1A 修正：铭牌使用 `lobbyHudEdgeInset()` 贴近参考图左上角，仍由舞台安全区派生；动态文字宽度收窄，避开图片资产中央饰件。
+- Stage 1A 修正：玩家名与战力开启文本缩放，所有铭牌动态文字增加黑色描边，提高背景视频播放时的可读性。
+- Stage 1A 修正：图片资产首帧未加载时，兜底 Graphics 铭牌会补绘头像，避免出现只有框和文字的空状态。
+
+## 2026-05-29 Stage 1B top-left HUD visual acceptance update
+
+- The provided top-left player reference has been translated into the current Cocos-only lobby HUD as a compact `540x218` logical composition.
+- The project asset `assets/resources/ui/lobby/lobby_player_info_panel.png` was rebuilt at `1080x436` so the avatar frame, EXP plate, dark fantasy backing, and underline stay sharp after Cocos scaling.
+- Runtime text remains dynamic instead of baked into the bitmap: `Lv`, player name, combat power, and `EXP` are rendered by `LootChainGameRoot.renderLobbyPlayerInfo()` with shrink-safe boxes.
+- The previous overlap root cause was addressed by removing the `1600x577` layout dependency and zeroing SpriteFrame trim metadata for the new asset grid.
+- Layout guardrails now include HUD asset dimensions, trim metadata, internal text slot separation, avatar safe-zone separation, and multi-resolution bounds.
+- Stage boundary unchanged: this is read-only lobby display work only; no gacha, hero, bag, USDT, fund-pool, EX V1, or economy write surface was opened.
+
+### Revision
+
+- The first rebuilt bitmap still read as a custom panel and was not close enough to the reference. It has been replaced with an art-only asset: high-quality portrait/frame/EXP on the left, transparent right-side text area, and no heavy dark backing panel.
+- The runtime name sigil is now a thin gold anchor-like shape, and the combat underline is a plain thin gold line without the red diamond ornament.
+
+### High Quality Avatar Frame Regeneration
+
+- The screenshot-crop avatar frame was replaced with a newly generated high-resolution dark-fantasy avatar medallion from imagegen.
+- The green-screen generated source was locally keyed to transparency, despilled, scaled, and composited into `assets/resources/ui/lobby/lobby_player_info_panel.png` on the same `1080x436` HUD canvas.
+- The right-side player text area remains transparent and driven by Cocos runtime labels; only the avatar medallion and blank EXP plate are bitmap art.
+
+### Profile Dialog Close Flash Fix
+
+- The top-left player profile dialog is now treated as an overlay layer instead of a full lobby rerender trigger.
+- Closing the dialog removes only `LobbyProfileDim` and `LobbyProfilePanel`, so the lobby poster/video background remains stable and the login background should not flash through.
+- Profile data refresh updates only the HUD/profile overlay nodes.
+
+### Stage 1C Top Resource Bar Implementation
+
+- Implemented the first top-resource-bar pass in the Cocos lobby HUD.
+- Current resources:
+  - Stamina: read from `PlayerLobbyProfileVO.stamina/maxStamina`.
+  - Coin/ruby/crystal: visible as reference-style visual placeholders only, because no read-only asset summary contract is in scope yet.
+- The implementation intentionally excludes any obtain/purchase/claim path. Resource cells are visual HUD cells, and their visible `+` marks are disabled art only.
+- The resource bar adaptively drops lower-priority placeholder cells on narrower stages, and hides entirely only if there is no safe space beside the player HUD.
+- `scripts/check-layout.mjs` mirrors the placement formula and checks the resource bar against desktop, tablet, mobile landscape, mobile portrait, and minimum viewport geometry.
+- This completes the "top resource bar read-only display" item from Stage 1 without changing economy rules, opening EX V1, or adding an economy write surface.
+
+### Stage 1D Reference-Style HUD Skeleton
+
+- Implemented a broader lobby HUD skeleton based on `docs/ui-reference/dragonheir/lobby/lobby.png`.
+- Added top-right system icons, left activity rail, center scene hotspot plaques, right challenge cards, bottom navigation, chat preview, compass, and red adventure button.
+- The visual direction is dark-gold gothic UI with thin transparent panels, icon medallions, red-dot markers, and restrained labels over the lobby video/background.
+- Current implementation uses Cocos `Graphics` and dynamic labels rather than bitmap screenshot crops, so the UI remains sharp and editable.
+- All module entries remain placeholder-only in this stage. Buttons do not call gacha, hero, bag, shop, reward, fund-pool, or other economy/gameplay write APIs.
+- `scripts/check-layout.mjs` was extended to validate the new HUD regions across the existing multi-viewport set.
+
+### Stage 1D Interaction Refinement
+
+- Center scene function-point labels should be treated as labels attached to buildings, not independent floating menu buttons.
+- The current implementation moves labels closer to their matching background buildings and increases label font size to better match the reference image proportions.
+- Every center function point now has an invisible building hit area. Hovering or clicking the building area triggers the same placeholder content as the visible label.
+- Clicking a building or label plays a short red-gold click pulse to make the interaction visible.
+- These hotspots remain locked placeholders in the current stage. They must not call economy/gameplay write APIs until the corresponding module, backend contract, risk controls, and tests are explicitly opened.
+
+### Stage 1D Hotspot Alignment Correction
+
+- The first transparent-hit-area pass was visually too broad in preview and did not match the building silhouettes well enough.
+- Hotspot data should remain per-building, not shared:
+  - Label position and label width are separate from the clickable building hit area.
+  - Building hit areas should cover the visible building mass only, not the whole surrounding scenery.
+  - Hover should not expose full hit-area rectangles; it should use small local target/glow feedback.
+- Current implementation follows that rule with independent coordinates for summon altar, guild, ranking, traveler gathering, forge, abyss gate, campaign, and shop.
+
+### Stage 1D Hotspot Alignment Correction V2
+
+- The second correction is calibrated to the active 16:9 lobby poster, not only to the 1536x1024 reference crop.
+- Center labels are now smaller and closer to building-nameplate scale, with revised anchors for all eight center function points.
+- Building hit areas are intentionally narrower than the visible plaque area where needed, so hover/click feels tied to the building rather than to empty scenery.
+- The stage boundary remains unchanged: all entries are local unopened placeholders and no economy/gameplay write API is called.
+
+### Stage 1D Module Split
+
+- `LootChainGameRoot` should remain the scene root, not the long-term home for every lobby UI detail.
+- Lobby HUD implementation is now separated into:
+  - `LobbyHudRenderer.ts` for actual Cocos node rendering and local UI interaction.
+  - `LobbyHudConfig.ts` for adjustable visual/content data, especially central hotspot anchors and hit areas.
+  - `LobbyHudTypes.ts` for HUD contracts, constants, and type definitions.
+- Future central-hotspot visual tuning should start in `LobbyHudConfig.ts`, then rely on `scripts/check-layout.mjs` for bounds validation.
+- The split is intentionally UI-only and does not change module-opening status. All entries remain placeholder-only until backend contracts and risk controls are explicitly opened.
