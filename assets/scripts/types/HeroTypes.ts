@@ -1,3 +1,4 @@
+/** 英雄列表展示模型；当前大厅阶段入口仍为本地占位。 */
 export interface UserHeroListItemVO {
   id: number;
   heroCode: string;

@@ -37,6 +37,12 @@ function rgba(red: number, green: number, blue: number, alpha = 255): Color {
   return new Color(red, green, blue, alpha);
 }
 
+/**
+ * 登录页背景特效层。
+ *
+ * 使用 Cocos Graphics 绘制云、光束、火焰、粒子等轻量效果，并在 update 中做循环动画。
+ * 这是纯表现层，不参与登录流程和任何接口调用。
+ */
 @ccclass('LootChainLoginEffectLayer')
 export class LootChainLoginEffectLayer extends Component {
   private readonly effects: EffectNode[] = [];
@@ -68,6 +74,7 @@ export class LootChainLoginEffectLayer extends Component {
     const rootTransform = root.getComponent(UITransform) ?? root.addComponent(UITransform);
     rootTransform.setContentSize(new Size(layout.width, layout.height));
 
+    // 所有特效位置都基于当前可视尺寸计算，避免旋转或缩放预览时偏出画面。
     const topCoreY = layout.height / 2 - (layout.compact ? 58 : 46);
     const gemY = layout.height / 2 - (layout.compact ? 250 : 320);
     this.addCloud('CloudBackA', -layout.width * 0.18, layout.height * 0.32, layout.width * 0.76, layout.height * 0.2, 54, 0.18, 0.08);
@@ -83,6 +90,7 @@ export class LootChainLoginEffectLayer extends Component {
   private animateEffects(): void {
     for (const effect of this.effects) {
       const wave = Math.sin(this.time * effect.speed + effect.phase);
+      // 不同类型使用不同运动曲线，让背景有层次但不干扰登录按钮可读性。
       if (effect.kind === 'cloud') {
         effect.node.setPosition(new Vec3(effect.baseX + wave * effect.amplitude, effect.baseY + Math.cos(this.time * 0.11 + effect.phase) * 8, 0));
         effect.node.setScale(new Vec3(1 + wave * 0.018, 1 + wave * 0.012, 1));

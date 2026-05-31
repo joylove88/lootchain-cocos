@@ -315,3 +315,1226 @@
   - `LobbyHudTypes.ts` for HUD contracts, constants, and type definitions.
 - Future central-hotspot visual tuning should start in `LobbyHudConfig.ts`, then rely on `scripts/check-layout.mjs` for bounds validation.
 - The split is intentionally UI-only and does not change module-opening status. All entries remain placeholder-only until backend contracts and risk controls are explicitly opened.
+
+### Stage 1E Profile Dialog Module Split
+
+- The readonly player profile dialog has been separated from the scene root.
+- `LootChainGameRoot` remains responsible for lobby profile data ownership, route/view lifecycle, overlay open/close state, and background stability.
+- `LobbyProfileDialogRenderer.ts` now owns the visible dialog composition: dim layer, panel, close button, avatar/header, profile rows, status text, readonly note, and wallet masking.
+- This keeps the profile modal aligned with the lobby modularization direction while preserving the existing no-full-rerender behavior when opening or closing the dialog.
+- Current product boundary is unchanged: the profile dialog remains readonly and does not expose edit nickname, avatar changes, wallet binding, logout, resource claim, purchase, or other write operations.
+
+### Stage 1F Background Controller Split
+
+- The lobby background poster/video controller has been separated from the scene root.
+- `LootChainGameRoot` remains responsible for loading resources and switching views; `LobbyBackgroundController.ts` now owns the poster/video runtime, fade, replay, autoplay retry, and release/reset behavior.
+- The visual behavior is intentionally unchanged: poster covers the full canvas, video stays behind Cocos HUD through `stayOnBottom`, and poster remains visible on video errors.
+- This split prepares future lobby background/VFX work without mixing video lifecycle code into player HUD, modal, or feature-entry rendering.
+- Product boundary is unchanged: the background controller is presentation-only and introduces no gameplay, reward, purchase, claim, or economy write path.
+
+### Stage 1G Avatar Renderer Split
+
+- The shared lobby avatar renderer has been separated from the scene root.
+- `LobbyAvatarRenderer.ts` now owns the Cocos `Graphics` composition for the fallback dark-fantasy avatar used by the top-left HUD and profile dialog.
+- Keeping avatar rendering as a focused module makes future avatar-frame or portrait replacement work safer, because HUD layout and modal data rendering no longer need to carry low-level drawing details.
+- Product boundary is unchanged: this is visual presentation only and introduces no avatar edit, NFT/avatar-frame ownership, wallet binding, purchase, reward, or other write operation.
+
+### Stage 1H Profile State Split
+
+- The readonly lobby profile state and normalization layer has been separated from the scene root.
+- `LobbyProfileState.ts` now owns fallback profile construction, profile loading/error state, current-user validation, and sanitization of the lobby profile VO.
+- `LootChainGameRoot` remains the owner of the actual API call and UI refresh timing, keeping data ownership explicit while reducing scene-root responsibilities.
+- Product boundary is unchanged: profile data remains readonly and does not expose nickname edits, avatar edits, wallet binding, logout, reward claim, or any economic write operation.
+
+### Stage 1I Loading Renderer Split
+
+- The lobby resource-loading screen renderer has been separated from the scene root.
+- `LobbyLoadingRenderer.ts` now owns the loading mask/panel, message/error presentation, percentage display, progress bar, and retry button.
+- `LootChainGameRoot` remains responsible for loading state, ticket guards, actual resource requests, and the transition into the lobby.
+- Product boundary is unchanged: this screen only reports local resource loading progress and does not expose gameplay, reward, purchase, claim, or economy writes.
+
+### Stage 1J Resource Loader Split
+
+- The lobby poster/video resource loader has been separated from the scene root.
+- `LobbyResourceLoader.ts` now owns Cocos resource requests for the lobby poster and video clip, including the `Texture2D` fallback used when the poster SpriteFrame path is unavailable.
+- `LootChainGameRoot` remains responsible for loading tickets, progress/error state, stale-flow protection, and switching into the lobby after resources are ready.
+- `scripts/check-layout.mjs` now treats the resource loader as a required lobby module and scans it for forbidden economy/write tokens.
+- Product boundary is unchanged: this is local resource loading only and does not expose gameplay, reward, purchase, claim, fund-pool, EX V1, or economy writes.
+
+### Stage 1K Login Renderer Split
+
+- The login page and login dialog renderer has been separated from the scene root.
+- `LoginRenderer.ts` now owns the visible login UI composition: logo, account-login button, right-side rail, dialog panel, input placement, third-party placeholders, agreement row, back button, and enter-game button.
+- `LootChainGameRoot` remains responsible for state and behavior: current view routing, agreement flag, account/password input references, status label, dev-login API call, loading transition, and lobby/profile loading.
+- `scripts/check-layout.mjs` now treats the login renderer as a required module, blocks API/gameplay routing inside it, and validates the dialog's internal controls against the multi-resolution layout set.
+- Product boundary is unchanged: login still only uses dev-login and does not expose gameplay, reward, purchase, claim, fund-pool, EX V1, or economy writes.
+
+### Stage 1L Adaptive Layout Resolver Split
+
+- The adaptive viewport/stage layout resolver has been separated from the scene root.
+- `AdaptiveStageLayoutResolver.ts` now owns visible-size detection, active stage-node bounds, reference resolution constants, minimum viewport clamps, and safe-area derivation.
+- `LootChainGameRoot` remains responsible for lifecycle, route/view state, `renderBase()`, root sizing, content cleanup, and `makeLayoutKey()` because those depend on current view and overlay state.
+- `UiLayout` is shared through `LobbyHudTypes.ts`, so login, loading, lobby HUD, and the root scene now consume the same structural layout contract.
+- `scripts/check-layout.mjs` now requires the adaptive layout module, blocks layout formula code from returning to the root script, and keeps the supported viewport checks tied to the same formula.
+- Product boundary is unchanged: this is local layout calculation only and does not expose gameplay, reward, purchase, claim, fund-pool, EX V1, or economy writes.
+
+### Stage 1M UI SpriteFrame Cache Split
+
+- The UI SpriteFrame cache and preload logic has been separated from the scene root.
+- `UiSpriteFrameCache.ts` now owns cached SpriteFrames, in-flight load tracking, `resources.load(path, SpriteFrame)`, login image preloading, and lobby player-info panel preloading.
+- `LootChainGameRoot` remains responsible for Cocos Inspector-bound frame overrides and shared UI node construction. This keeps `logoFrame`, `mainButtonFrame`, and `rightRailFrames` scene bindings intact.
+- `addSprite()` and `addImageButton()` continue to be root host primitives, but SpriteFrame resolve/request work is delegated to the cache module.
+- `scripts/check-layout.mjs` now requires the cache module, blocks business/API/UI-node responsibilities inside it, and prevents cache maps/loaders from returning to the root script.
+- Product boundary is unchanged: this is local UI asset loading only and does not expose gameplay, reward, purchase, claim, fund-pool, EX V1, or economy writes.
+
+### Stage 1N Readonly Profile Loader Split
+
+- The readonly lobby profile loading flow has been separated from the scene root.
+- `LobbyProfileLoader.ts` now owns the `LobbyProfileState`, loading/error transitions, stale-user checks, and the readonly `PlayerProfileApi.lobbyProfile()` request.
+- `LootChainGameRoot` remains responsible for login sequencing, lobby resource loading, profile dialog open/close state, and the actual overlay node refresh implementation.
+- The loader can only notify root through `isLobbyViewActive()` and `refreshLobbyOverlay()`, preserving the no-full-lobby-rerender rule that prevents background flashes.
+- `scripts/check-layout.mjs` now requires the profile loader module, blocks the profile loading implementation from returning to root, and enforces `PlayerProfileApi` as exact read-only `GET /api/player/me/lobby`.
+- Product boundary is unchanged: profile data remains readonly and does not expose gameplay, reward, purchase, claim, fund-pool, EX V1, or economy writes.
+
+### Stage 1O Loading Flow Controller Split
+
+- The lobby loading flow controller has been separated from the scene root.
+- `LobbyLoadingFlow.ts` now owns loading ticket state, progress/message/error state, retry startup, stale-load protection, and the local poster/video resource loading orchestration.
+- `LootChainGameRoot` remains responsible only for view switching and narrow host callbacks: show/refresh loading, write loaded poster/video into the lobby background controller, and enter the lobby.
+- `LobbyLoadingRenderer.ts` remains pure presentation, while `LobbyResourceLoader.ts` remains pure Cocos resource loading. This keeps loading UI, loading flow, and resource IO independently replaceable.
+- `scripts/check-layout.mjs` now requires the loading-flow module, scans it for forbidden gameplay/economy tokens, and blocks loading ticket/progress implementation from returning to the scene root.
+- `docs/api-contract.md` was aligned with the current stage: `dev-login` plus readonly lobby profile are the only active Cocos client API surfaces.
+- Product boundary is unchanged: this is local resource-loading orchestration only and does not expose gameplay, reward, purchase, claim, fund-pool, EX V1, or economy writes.
+
+### Stage 1P Login Flow Split
+
+- The Cocos-only login flow has been separated from the scene root.
+- `LoginFlow.ts` now owns agreement state, account input references, default dev-user fallback, `userId` parsing, the `PlayerAuthApi.devLogin(userId)` request, login error formatting, and the last token name used by loading retry.
+- `LootChainGameRoot` remains responsible for route/view lifecycle and only exposes narrow login host callbacks: API base URL setup, status text, readonly profile reset/loading, and loading-flow start.
+- `LoginRenderer.ts` remains presentation-only. It can render account inputs and buttons, but it does not call `dev-login`, profile APIs, gameplay APIs, or economy APIs.
+- `scripts/check-layout.mjs` now requires the login-flow module, scans it for forbidden gameplay/economy responsibilities, and blocks login implementation details from returning to the root scene script.
+- Product boundary is unchanged: login still only uses `POST /api/player/auth/dev-login`; profile remains readonly through `GET /api/player/me/lobby`; no gameplay, reward, purchase, claim, fund-pool, EX V1, or economy writes are exposed.
+
+### Stage 1Q Shared Text And Status Modules
+
+- Shared formatting is now centralized in `assets/scripts/scenes/UiTextFormatter.ts`.
+- Status text presentation is now centralized in `assets/scripts/scenes/StatusPresenter.ts`.
+- The status presenter resets its label reference when the content root is cleared, avoiding invisible status updates after view transitions.
+- Product impact: no feature behavior changed. This is a maintainability step before further lobby UI polish.
+- Boundary unchanged: login/profile are the only active client API surfaces, and profile remains readonly.
+
+### Stage 1R UI Primitive Factory Split
+
+- Shared Cocos UI primitive construction is now centralized in `assets/scripts/scenes/UiPrimitiveFactory.ts`.
+- Login, loading, HUD, profile dialog, and background modules continue to call the same host methods, but the root no longer owns low-level drawing/feedback/password-mask implementation.
+- Product impact: future visual tuning can update labels, buttons, panels, image buttons, and pointer feedback in one place without reopening gameplay or economy scope.
+- Boundary unchanged: all lobby entries remain local placeholders; no gameplay/economy write API was added.
+
+### Stage 1S Content Root Controller Split
+
+- Cocos content-root lifecycle is now centralized in `assets/scripts/scenes/UiContentRootController.ts`.
+- The root no longer stores `contentRoot`; it delegates root sizing, UI node creation, node removal, full clearing, and content-root recovery.
+- Route/view switching intentionally remains in `LootChainGameRoot.ts` as part of root lifecycle responsibility.
+- Product impact: this reduces scene-root complexity and makes later lobby visual work less likely to accidentally break node cleanup or root sizing.
+- Boundary unchanged: only `POST /api/player/auth/dev-login` and readonly `GET /api/player/me/lobby` are active; no EX V1 or economic write path was opened.
+
+### Stage 1T Chinese Code Comments
+
+- Added Chinese comments to the current Cocos frontend implementation so future product/UI/code review can follow each module's purpose faster.
+- Comment focus:
+  - Module responsibility and ownership.
+  - Adaptive layout and multi-resolution decisions.
+  - Placeholder-only lobby entry boundaries.
+  - Async stale-request/ticket guards.
+  - Resource fallback and video/poster behavior.
+  - Readonly profile display and wallet masking.
+- Product impact: no visible behavior changed. This is a maintainability pass only.
+- Verification completed:
+  - `npm.cmd run check:layout` -> passed with `layout ok`.
+  - Cocos Creator 3.8.8 bundled `tsc.cmd` focused no-emit check -> passed.
+  - `assets/scripts/**/*.ts` Chinese-content scan -> all TypeScript files contain Chinese comments or Chinese UI text.
+  - `git diff --check` -> passed, with only existing LF/CRLF conversion warnings.
+- Boundary unchanged: login/profile remain the only active client API surfaces; no gameplay/economy write path was opened.
+
+### Stage 1U HUD Layout Metrics Split
+
+- Lobby HUD geometry calculation is now separated from visible HUD drawing.
+- `LobbyHudLayout.ts` owns shared formulas for HUD scale, safe edge inset, and the top-left player-info panel bounds.
+- `LobbyHudRenderer.ts` still renders the same UI nodes, but delegates these formulas so later visual modules can reuse one source of truth.
+- Product impact: no visible behavior changed. This is a maintainability and multi-resolution safety step before splitting more HUD regions.
+- Guardrail impact: `scripts/check-layout.mjs` now verifies the new module exists and blocks these geometry formulas from moving back into the renderer.
+- Verification completed:
+  - `npm.cmd run check:layout` -> passed with `layout ok`.
+  - Cocos Creator 3.8.8 bundled `tsc.cmd` focused no-emit check -> passed.
+  - `assets/scripts/**/*.ts` Chinese-content scan -> all TypeScript files contain Chinese comments or Chinese UI text.
+  - `git diff --check` -> passed, with only existing LF/CRLF conversion warnings.
+- Boundary unchanged: lobby entries remain local placeholders; no gameplay/economy write path was opened.
+
+### Stage 1V Top HUD Renderer Split
+
+- The lobby top HUD is now separated from the main HUD renderer.
+- `LobbyTopHudRenderer.ts` owns player info, resource bar, and top-right system icons.
+- `LobbyHudRenderer.ts` remains responsible for the remaining lobby overlay regions: activity rail, scene hotspots, challenge rail, bottom navigation, chat preview, and adventure button.
+- Product impact: no visible behavior changed. The split reduces the size and responsibility of the main HUD renderer before the next visual modules are separated.
+- Guardrail impact: `scripts/check-layout.mjs` requires the new module and blocks top-HUD implementation tokens from moving back into the main renderer.
+- Verification completed:
+  - `npm.cmd run check:layout` -> passed with `layout ok`.
+  - Cocos Creator 3.8.8 bundled focused `tsc.cmd --noEmit` -> passed.
+  - `assets/scripts/**/*.ts` Chinese-content scan -> all TypeScript files contain Chinese comments or Chinese UI text.
+  - `git diff --check` -> passed, with only existing LF/CRLF conversion warnings.
+- Boundary unchanged: resource plus signs and all system icons remain local placeholder UI; no gameplay/economy write path was opened.
+
+### Stage 1W Unified Placeholder Dialog
+
+- Product stage changed from module splitting to visible lobby UX polish.
+- All currently unopened lobby entries now share one local feedback pattern: a dark-gold modal with module title, “功能暂未开放”, explanatory text, dim close, and “知道了” close button.
+- Covered entries:
+  - Activity rail items.
+  - Central building hotspots and their visible plaques.
+  - Right challenge cards.
+  - Bottom navigation items.
+  - Adventure main button.
+  - Top-right system icons.
+- Product reason: a single modal makes the current stage boundary clearer than scattered status text and creates the base empty/unopened-state behavior listed in the first-stage lobby plan.
+- UX rule: hover may still show a light status hint, but click must use the unified modal.
+- Safety rule: the modal is local-only. It cannot jump into gameplay, claim rewards, purchase resources, open EX V1, or call any new economy endpoint.
+- Guardrail impact: `scripts/check-layout.mjs` now checks placeholder dialog method tokens, node names, no-full-lobby-rebuild behavior, and adaptive panel bounds.
+- Verification completed:
+  - `npm.cmd run check:layout` -> passed with `layout ok`.
+  - Cocos Creator 3.8.8 bundled focused `tsc.cmd --noEmit` -> passed.
+  - Touched-code Chinese comment/text scan -> passed.
+- Boundary unchanged: no gameplay/economy write path was opened.
+
+### Stage 1X Multi-Role Lobby Polish
+
+- Product, design, art, UI, development, interface-boundary, review, and test roles were used to decide the next lobby batch.
+- Product decision: continue with Cocos-only visible lobby polish and local placeholder UX. Real gameplay, economy, reward, chat, red-dot, countdown, activity, ranking, mail, shop, gacha, battle, and settlement systems remain blocked until backend contracts and rules are explicitly opened.
+- UI/design decision: current lobby has the functional skeleton but still reads as an overlay of simple controls. The next visible goal is darker atmospheric pressure, richer plaques/cards, clearer placeholder feedback, and safer multi-resolution behavior.
+- Implemented local UX:
+  - Resource cells now open the unified placeholder dialog. Stamina identifies readonly profile data; coin/ruby/crystal identify visual placeholders.
+  - Chat preview now opens the unified placeholder dialog and does not expose message sending.
+  - Resource `+` marks were visually softened as disabled art marks.
+- Implemented runtime hardening:
+  - Content-root clearing now destroys old children.
+  - Loading flow has a cancel path for root destruction.
+  - Lobby background can be preserved and resized during lobby rerender instead of always stop/play rebuilding.
+  - Top-right system icons hide on narrow layouts when they would overlap the player panel.
+  - The placeholder dialog close button is now a child of the dialog panel.
+- Implemented visual polish:
+  - Added `LobbyAtmosphereOverlay` for dark edge pressure.
+  - Central scene plaques now have shadow, layered dark-gold strokes, and thin gold lines.
+  - Right challenge cards now have stronger pseudo-illustration shading and subtle red light.
+- Test/guardrail impact:
+  - `check-layout` now includes resource/chat placeholder tokens, HUD click-contract checks, content-root destroy checks, loading cancel checks, background preserve/resize checks, system-icon overlap handling, and additional viewport threshold samples.
+- Boundary unchanged: all these changes remain local UI/runtime behavior only and do not open gameplay or economy write paths.
+
+### Stage 2D Readonly Notice Panel And Interface Guardrails
+
+- 产品定位：
+  - 活动入口先承载“公告与活动”只读详情，而不是进入真实活动任务、奖励或玩法。
+  - 面板用于验证大厅功能接口接入链路：登录 token -> GET 只读接口 -> schema 校验 -> loader stale guard -> Cocos 面板渲染。
+- 已开发功能：
+  - 桌面左侧活动栏第一项点击打开 `LobbyNoticePanel`。
+  - 小屏 `LobbyCompactActionEntrances` 的 `活动` 点击打开同一个 `LobbyNoticePanel`。
+  - 面板包含标题、接口状态、公告列表、空状态、错误兜底、刷新按钮、关闭按钮和边界说明。
+  - profile 弹窗、notice 面板、placeholder 弹窗互斥，避免多层面板叠加。
+- 接口接入：
+  - 新增 `LobbyNoticeApi.lobbyNotices()`，只调用 `GET /api/player/lobby/notices`。
+  - 响应在 API 边界做结构校验：数组数量上限、标题/内容长度裁剪、priority 数值范围、日期字段类型。
+  - 新增 `LobbyNoticeLoader`，使用 ticket 防止旧请求覆盖新面板状态。
+- 仍保持未开放：
+  - 挑战、冒险、英雄、背包、任务、商店、聊天发送、活动领奖、战斗结算、抽卡等入口仍然只走本地未开放弹窗。
+  - 不开放任何资源增减、奖励领取、购买兑换、结算、链上或资金池类能力。
+- 验收结果：
+  - `npm.cmd run check:layout` 通过。
+  - Cocos Creator 3.8.8 focused `tsc.cmd --noEmit` 通过。
+  - 后端 `lootchain-game` reactor compile 通过。
+
+### Stage 2E 弹框关闭与公告异常兜底
+
+- 问题：
+  - 公告/活动面板在本地公告表未初始化时会显示 `读取失败：系统异常`。
+  - 点击弹框内容区可能穿透到遮罩层，导致弹框被关闭。
+- 处理：
+  - 后端公告读取失败时返回空只读列表，并记录 warning，避免影响大厅体验。
+  - 公告面板、玩家资料弹窗、统一未开放弹窗的面板本体都加入 `BlockInputEvents`。
+  - 公告面板错误文案改为“服务端公告暂不可用，已显示本地说明”，避免误导为玩法失败。
+- 交互规则：
+  - 点击遮罩外侧可关闭。
+  - 点击明确的关闭/确认按钮可关闭。
+  - 点击弹框内部内容区不关闭。
+
+### Stage 1Y HUD Placeholder State And Safety Polish
+
+- 多角色结论：当前继续以 Cocos-only 大厅为准，剩余入口只做可见占位与状态表达，不接真实玩法/经济/聊天/结算。
+- 产品调整：
+  - 左侧活动栏取消真实倒计时/运营感文案，改为 `预览中`、`未开放`、`占位展示`、`暂未开放`。
+  - 右侧挑战卡取消“挑战中/今日双倍”等像真实活动的数据，改为 `预览中`、`锁定`、`未开放`、`占位展示`。
+  - 底部导航本阶段不显示红点，避免被误解为真实任务、商店、图鉴更新。
+- UI/美术调整：
+  - 底部 HUD 增加暗色地台、分段金属上沿和左右压暗。
+  - 活动条改为暗金旗帜式条目，并增加小型状态徽标。
+  - 挑战卡增加状态徽标，继续保留 Graphics 伪插画质感。
+  - 底部导航增加独立金属槽位和分隔刻线。
+  - 聊天预览改为黑玻璃 ticker，独立显示 `[世界]` 频道章。
+- 安全与接口调整：
+  - 体力仍来自只读大厅资料；金币、红宝石、水晶改为 `未开放`，不再展示假余额。
+  - `LobbyProfileLoader.cancel()` 会在根销毁和登录重置时让旧 profile 请求失效。
+  - profile 响应 `userId` 不匹配当前登录用户时进入本地兜底状态，不展示错号资料。
+- 验收结果：
+  - `npm.cmd run check:layout` -> passed with `layout ok`。
+  - Cocos Creator 3.8.8 bundled focused `tsc.cmd --noEmit` -> passed。
+- 边界不变：不改变经济规则，不开放 EX V1，不新增任何经济写入口；大厅入口仍是本地 placeholder。
+
+### Stage 1Z Profile And Placeholder Clarity
+
+- 产品目标：让“玩家资料可看但不可改”和“大厅入口存在但未开放”更容易理解。
+- 玩家资料弹窗：
+  - 保留等级、经验、战力、体力、账号状态、登录方式、钱包绑定、钱包地址脱敏展示。
+  - 空间足够时增加本地占位属性：主线进度、深渊层数、公会、称号。
+  - 这些属性只用于大厅观感和后续规划，不代表玩法或后端数据已经开放。
+- 未开放弹窗：
+  - 根据入口类型显示不同副标题：只读/占位资源、本地聊天预览、系统入口占位、玩法未开放。
+  - 增加本地边界提示，强调不跳转、不发奖、不写入经济数据。
+- 校验：
+  - `scripts/check-layout.mjs` 已加入资料占位行和 `LobbyPlaceholderBoundaryNote` 守卫。
+  - `npm.cmd run check:layout` 与 Cocos Creator 3.8.8 focused `tsc.cmd --noEmit` 均通过。
+- 边界不变：所有新增内容仍是只读/本地占位，不开放 EX V1，不新增经济写入口。
+
+### Stage 2A Small-Screen Access And Guardrails
+
+- 多角色结论：
+  - 产品：小屏不能只隐藏大厅入口，至少要能触达八个核心场景入口。
+  - 设计/美术：继续用 Cocos `Graphics` 提升资源栏和小屏入口质感，不新增 bitmap 资产。
+  - 接口/测试：补登录旧请求防护、资源导入硬失败、配置漂移守卫和资源占位守卫。
+- 小屏可达性：
+  - 当普通中央热点因尺寸阈值隐藏时，显示 `LobbyCompactSceneEntrances`。
+  - 面板包含 8 个场景入口，点击全部走统一未开放弹窗。
+  - 桌面和大屏仍保留原来的建筑铭牌与透明热区。
+- 顶部资源：
+  - 资源格从直矩形升级为暗金斜切胶囊。
+  - 体力仍来自只读 profile。
+  - 金币、红宝石、水晶继续是 `未开放` 占位。
+  - 空间不足时用 `LobbyCompactStaminaChip` 保留体力入口。
+- 运行边界：
+  - `LoginFlow` 增加 ticket，避免旧登录响应覆盖新登录流程。
+  - `LobbyResourceLoader` 不再用 texture fallback 构造运行时 SpriteFrame，大厅 poster 必须有导入后的 spriteFrame。
+- 检查脚本：
+  - 解析 `LobbyHudConfig.ts` 中的 hotspot 配置并校验坐标，不再维护第二份硬编码坐标。
+  - 校验 config 只保留数据，不允许 API/节点/资源加载/经济关键词。
+  - 校验 resourceItems 只有体力读取 profile，其余资源不能恢复为假余额或 profile 经济字段。
+  - 增加小屏与阈值 viewport。
+- 验收结果：
+  - `npm.cmd run check:layout` -> passed with `layout ok`。
+  - Cocos Creator 3.8.8 bundled focused `tsc.cmd --noEmit` -> passed。
+- 边界不变：不改变经济规则，不开放 EX V1，不新增任何经济写入口。
+
+### Stage 2B Multi-Role Lobby Polish And Safety
+
+- 产品结论：
+  - 当前大厅入口仍全部是本地 placeholder，不能出现像真实活动/任务/奖励的红点或假进度。
+  - “冒险”主按钮可以保留为主视觉焦点，但副标题必须标识 `未开放`，不能展示不存在的关卡进度。
+  - 玩家资料弹窗在小屏必须可读，不能因为头像和文字重叠导致资料入口不可用。
+- 设计/UI 结论：
+  - 中央热点应继续向“建筑铭牌”靠近，不做明亮按钮块。
+  - 右侧挑战卡需要更像参考图的图片卡/边栏卡，不应只是矩形面板。
+  - 底部导航需要黑金地台厚度，让组件像落在场景底部，而不是浮在视频上。
+- 实施内容：
+  - `LobbyHudRenderer.ts`：中央牌匾增加多层暗金描边；挑战卡改为非矩形 trace；右侧挑战栏增加暗金轨道；底部 HUD 增加三层阶梯平台；冒险副标题改为 `未开放`。
+  - `LobbyHudConfig.ts`：所有 activity、scene hotspot、challenge、bottom nav 的 `hot` 均保持 `false`，避免未开放入口显示真实红点。
+  - `LobbyProfileDialogRenderer.ts`：新增 `profileDialogScale()` 和 `isNarrowProfileDialog()`；窄屏改为单列资料行，姓名/UID/状态文本开启 shrink。
+  - `PlayerAuthApi.ts` / `LoginFlow.ts` / `LootChainGameRoot.ts`：token 保存移动到登录 ticket 校验之后，root 销毁时取消未完成登录。
+  - `scripts/check-layout.mjs`：补充 UI token、未开放红点、背景 preserve 顺序、stale-safe token、资源占位顺序、disabled plus 非交互守卫。
+- 验收结果：
+  - `npm.cmd run check:layout` -> passed with `layout ok`。
+  - Cocos Creator 3.8.8 bundled focused `tsc.cmd --noEmit` -> passed。
+  - `git diff --check` -> passed，仅有已有 LF/CRLF 转换 warning。
+- 边界不变：不改变经济规则，不开放 EX V1，不新增任何经济写入口；当前可调用接口仍只有 `POST /api/player/auth/dev-login` 和只读 `GET /api/player/me/lobby`。
+
+### Lobby Poster SpriteFrame Import Fix
+
+- 问题：登录后进入资源加载页时，`LobbyResourceLoader` 加载 `lobby/lobby_bg_poster/spriteFrame` 失败。
+- 原因：大厅背景 poster 文件存在，但 `.meta` 被导入为 texture-only，没有 spriteFrame 子资源。
+- 处理：
+  - 修复 `assets/resources/lobby/lobby_bg_poster.jpg.meta`，为 3840x2160 poster 增加 spriteFrame 子资源。
+  - 补 `scripts/check-layout.mjs` 守卫，防止后续替换背景图时再次丢失 spriteFrame 导入类型。
+- 验收：
+  - `npm.cmd run check:layout` -> passed with `layout ok`。
+- 边界不变：该项仅修复资源导入，不涉及玩法、奖励、经济或后端接口。
+
+### Stage 2C Compact Action Access
+
+- 产品目标：小屏布局不能只隐藏大厅入口，必须保留核心模块的本地可达性。
+- 本轮新增：
+  - `LobbyCompactActionEntrances`：当活动/挑战侧栏或底部 HUD 因分辨率隐藏时出现。
+  - 快捷入口包括活动、挑战、冒险、聊天、英雄、背包、任务、商店。
+  - 中央场景入口仍由 `LobbyCompactSceneEntrances` 承担，两者共同覆盖小屏大厅主要入口。
+- 交互规则：
+  - 所有 compact action 入口只打开统一未开放弹窗。
+  - 不进入战斗、不领取奖励、不购买/兑换/消耗资源、不访问玩法或经济写接口。
+  - 窄屏极限高度不足时允许隐藏 compact action 面板，避免遮挡登录/加载/弹窗等关键 UI。
+- 工程约束：
+  - `LootChainGameRoot.rerenderLobbyOverlay()` 必须清理 compact action/scene 面板，防止重绘叠层。
+  - `scripts/check-layout.mjs` 必须校验 compact action 面板在各 viewport 内不越界、不压底部 HUD。
+- 验收：
+  - `npm.cmd run check:layout` -> passed with `layout ok`。
+  - Cocos Creator 3.8.8 bundled focused `tsc.cmd --noEmit` -> passed。
+- 边界不变：不改变经济规则，不开放 EX V1，不新增任何经济写入口。
+
+### Stage 2F Readonly Codex Panel
+
+- 产品定位：
+  - `图鉴` 是大厅底部导航中的基础入口，本阶段先作为只读预览开放。
+  - 面板展示“收录/已拥有/只读预览”状态，帮助玩家理解图鉴入口存在，但不进入英雄养成。
+  - 不显示 EX V1 内容，不暴露获取、升级、升星、觉醒、精炼、奖励领取、购买、出售或任何经济操作。
+- UI/美术要求：
+  - 弹框沿用大厅暗金风格，使用安全区内居中布局。
+  - 卡片以英雄名、稀有度、阵营/职业、定位和拥有状态为主，避免做成可点击养成卡。
+  - 内部点击必须被弹框自身吸收，防止玩家点卡片区域时误关闭弹框。
+- 接口边界：
+  - Cocos 只调用 `GET /api/player/lobby/codex`。
+  - 该接口是大厅专用只读门面，不让前端直接依赖包含写操作的英雄 Controller。
+  - 后端过滤锁定/EX 记录，前端再过滤 `EX` rarity 与 `EX_` heroCode。
+- 已开发内容：
+  - 新增 `LobbyCodexTypes.ts`、`LobbyCodexApi.ts`、`LobbyCodexState.ts`、`LobbyCodexLoader.ts`、`LobbyCodexPanelRenderer.ts`。
+  - `LootChainGameRoot.ts` 接入图鉴面板的打开、关闭、刷新、重绘和登录重置。
+  - `LobbyHudRenderer.ts` 将底部 `图鉴` 和小屏 compact `图鉴` 接到该只读面板。
+  - `scripts/check-layout.mjs` 增加只读 API allowlist、EX 过滤、modal 阻断和多分辨率 bounds 守卫。
+- 验收：
+  - `npm.cmd run check:layout` -> passed with `layout ok`。
+  - Cocos Creator 3.8.8 bundled focused `tsc.cmd --noEmit` -> passed。
+  - 后端 `lootchain-game` compile -> passed。
+- 边界不变：不改变经济规则，不开放 EX V1，不新增任何经济写入口。
+
+### Stage 3A Readonly Adventure Shell
+
+- 产品定位：
+  - 大厅右下 `冒险` 是玩家登录后的第一主目标入口，不能长期停留在占位提示。
+  - 本阶段先打通 `大厅 -> 主线冒险地图` 的只读路径，让玩家明确下一步是主线 1-1。
+  - 不在本阶段开放编队保存、战斗启动、结算或奖励。
+- UI/美术要求：
+  - 弹框沿用大厅暗金、深红、哥特风格。
+  - 使用章节列表、地图节点和推荐关卡详情组成完整信息架构。
+  - `编队未开放` 保持禁用视觉状态，避免误导玩家以为已经能战斗。
+  - 面板和节点必须按安全区自适应，内部点击不能穿透关闭弹框。
+- 接口边界：
+  - Cocos 只调用 `GET /api/player/lobby/adventure`。
+  - 该接口只读，返回章节、关卡、推荐战力、敌人摘要和掉落预览文案。
+  - 掉落预览不是发奖，真实奖励必须在后续后端结算事务中决定。
+- 已开发内容：
+  - 新增 `LobbyAdventureTypes.ts`、`LobbyAdventureApi.ts`、`LobbyAdventureState.ts`、`LobbyAdventureLoader.ts`、`LobbyAdventurePanelRenderer.ts`。
+  - `LootChainGameRoot.ts` 接入冒险面板打开、关闭、刷新、登录重置和自适应重绘。
+  - `LobbyHudRenderer.ts` 将右下主 `冒险` 按钮和 compact `冒险` 快捷入口接到只读面板。
+  - `scripts/check-layout.mjs` 增加只读 API allowlist、冒险模块必需项、点击契约和多分辨率 bounds 守卫。
+- 验收：
+  - `npm.cmd run check:layout` -> passed with `layout ok`。
+  - Cocos Creator 3.8.8 focused `tsc.cmd --noEmit` -> passed。
+  - 后端 `PlayerLobbyAdventureServiceImplTest` -> passed。
+  - 后端 `lootchain-admin,lootchain-game` compile -> passed。
+- 边界不变：不改变经济规则，不开放 EX V1，不保存主线进度，不保存编队，不创建战斗，不扣体力，不发放奖励，不新增任何经济写入口。
+
+### Stage 3B Readonly Formation Shell
+
+- 产品定位：
+  - 玩家从 `冒险` 看到推荐关卡后，下一步自然会确认队伍。
+  - 本阶段只打通可感知路径：`冒险关卡详情 -> 编队确认`。
+  - 不在本阶段保存队伍、不开始战斗、不结算奖励。
+- UI/美术要求：
+  - 编队面板沿用暗金弹框风格，展示五个上阵槽。
+  - 主角优先进入第一槽，并标注 `队长 / 主角`。
+  - 候选英雄列表只读展示，避免玩家误以为可以拖拽保存。
+  - `战斗未开放` 用禁用视觉状态表达下一阶段边界。
+- 已开发内容：
+  - 新增 `LobbyFormationPanelRenderer.ts`。
+  - `LobbyAdventurePanelRenderer.ts` 的 `编队确认` 入口接到 formation 面板。
+  - `LootChainGameRoot.ts` 接入 formation 面板打开、关闭、重绘和登录重置。
+  - `scripts/check-layout.mjs` 增加 formation 模块、弹框边界和 root wiring 守卫。
+- 验收：
+  - `npm.cmd run check:layout` -> passed with `layout ok`。
+  - Cocos Creator 3.8.8 focused `tsc.cmd --noEmit` -> passed。
+- 边界不变：不改变经济规则，不开放 EX V1，不保存编队，不创建战斗，不扣体力，不发放奖励，不新增任何经济写入口。
+
+### Stage 3C Local Battle Preview Shell
+
+- 产品定位：
+  - 玩家从编队确认后需要看到“下一步会进入战斗”的明确反馈。
+  - 本阶段只做本地战斗表现预演，不创建真实战斗、不保存阵容、不结算、不发奖。
+  - 真实战斗闭环下一阶段必须由后端权威 session 和 settlement 控制。
+- UI/美术要求：
+  - 战斗预演继续沿用大厅暗金弹框风格。
+  - 左侧展示我方五个槽位，主角仍优先展示为第一/队长。
+  - 右侧展示敌方占位单位，中下方展示本地战斗日志。
+  - “结算未开放”保持禁用视觉状态，避免玩家误以为已经能获得奖励。
+- 已开发内容：
+  - 新增 `LobbyBattlePreviewPanelRenderer.ts`。
+  - `LobbyFormationPanelRenderer.ts` 增加 `LobbyFormationBattlePreviewButton`。
+  - `LootChainGameRoot.ts` 接入 battle preview 面板打开、关闭、重绘和登录重置。
+  - `scripts/check-layout.mjs` 增加 battle preview 必需文件、节点名、`BlockInputEvents`、禁用结算按钮和响应式 bounds 守卫。
+- 验收：
+  - `npm.cmd run check:layout` -> passed with `layout ok`。
+  - Cocos Creator 3.8.8 focused `tsc.cmd --noEmit` -> passed。
+- 边界不变：不改变经济规则，不开放 EX V1，不保存编队，不创建真实战斗，不扣体力，不写进度，不结算，不发奖，不新增任何经济写入口。
+
+### Stage 4A Backend Battle Session And No-Reward Settlement
+
+- 产品定位：
+  - 玩家现在可以从大厅冒险进入编队，再进入后端创建的战斗会话，并记录一次无奖励结算。
+  - 这是“流程闭环”阶段，不是经济结算开放阶段。
+- 接口行为：
+  - `POST /api/player/battles/start`：创建 battle session，保存服务端阵容快照和敌方快照。
+  - `POST /api/player/battles/{battleNo}/settle`：记录战斗结果，但 `rewardGranted=false`。
+- UI 行为：
+  - 战斗面板打开后自动创建会话。
+  - 会话创建成功后展示 battleNo、阵容快照、敌方预览和服务端种子。
+  - 点击“记录结算”只记录无奖励结果，完成后可以“返回大厅”。
+  - 面板仍保留“奖励未开放”禁用视觉标识。
+- 安全边界：
+  - 前端不提交奖励、掉落、经验、金币、材料、体力消耗、主线进度或英雄属性。
+  - 前端校验后端响应必须保持 `readonlyEconomy=true` 和 `rewardGranted=false`。
+  - 后端真实奖励/体力/进度结算必须后续单独审查。
+- 验收：
+  - `npm.cmd run check:layout` -> passed。
+  - Cocos Creator 3.8.8 focused `tsc.cmd --noEmit` -> passed。
+  - 后端相关单测与 game/admin compile -> passed。
+
+### Stage 4C Battle Presentation Pass
+
+- 产品定位：
+  - 让 `冒险 -> 编队 -> 战斗 -> 记录结果 -> 返回大厅` 从玩家视角更像一条真实游玩路径。
+  - 当前仍然不是奖励结算开放阶段，只是把 battle session / no-reward settlement 包装成可感知的战斗表现。
+- UI/美术要求：
+  - 战斗面板不能继续像左右列表，应有暗黑影视风舞台、角色站位、血条、回合条、命中特效和底部日志。
+  - 结果页只能表达“战斗记录已完成”，不出现获得奖励、领取按钮、金币/材料增长或飞入背包动画。
+  - 移动/窄屏必须能从冒险继续到编队，footer 按钮需要自动重排。
+- 已开发内容：
+  - `LobbyAdventurePanelRenderer.ts` compact 模式新增 `LobbyAdventureCompactFormationButton`。
+  - 冒险详情将 `掉落预览` 降级为 `关卡配置预览（当前不发放）`。
+  - 新增 `LobbyBattlePresentationLayout.ts`，统一计算战斗站位、日志、边界徽标、footer 按钮布局。
+  - 新增 `LobbyBattlePresentationState.ts`，把 battle API 状态翻译成创建中、演出中、记录中、已记录、错误等 UI 阶段。
+  - `LobbyBattlePreviewPanelRenderer.ts` 重做为表现层：`LobbyBattleCinematicBackdrop`、`LobbyBattleActor_*`、`LobbyBattleActorHpBar`、`LobbyBattleEffectLayer`、`LobbyBattleBoundaryBadge`。
+  - `scripts/check-layout.mjs` 已增加 compact CTA、战斗表现模块、actor/effect/boundary 节点和 no-reward 文案守卫。
+- 验收：
+  - `npm.cmd run check:layout` -> passed。
+  - Cocos Creator 3.8.8 focused `tsc.cmd --noEmit` -> passed。
+  - `scripts/smoke-player-flow.ps1` -> passed，确认 `rewardGranted=false`、`readonlyEconomy=true`，体力和战力未变化。
+- 边界不变：不改变经济规则，不开放 EX V1，不扣体力，不写主线进度，不发奖励，不新增任何经济写入口。
+
+### Stage 4E Local Battle Timeline
+
+- 产品定位：
+  - 避免玩家进入战斗后立刻看到“记录结果”，补足一段可读的战斗过程。
+  - 当前仍然只做表现时间轴，不做真实战斗模拟和经济结算。
+- 已开发内容：
+  - `LobbyBattleState.ts` 增加 `presentationStep` 和 `presentationComplete`。
+  - `LobbyBattleFlow.ts` 在 battle session 创建成功后启动本地计时器，推进 4 个演出阶段。
+  - 演出中主按钮为 `LobbyBattlePlaybackPending`，禁用 settlement。
+  - 演出完成后才出现 `LobbyBattleSettlementButton`。
+  - `LobbyBattlePresentationState.ts` 根据 step 输出回合文字、日志、伤害浮字和敌方 HP 展示。
+- 验收：
+  - `npm.cmd run check:layout` -> passed。
+  - Cocos Creator 3.8.8 focused `tsc.cmd --noEmit` -> passed。
+- 边界不变：时间轴只驱动画面，不决定胜负、不发奖励、不扣体力、不写进度、不写资源。
+
+### Stage 4F Selected Stage Propagation
+
+- 产品定位：
+  - 玩家在冒险面板选择某个主线关卡后，编队、战斗预览和 battle start 必须保持同一个目标关卡。
+  - 未来开放多关卡时，不能因为参数丢失而静默打回 `MAIN_1_1`。
+- UI/体验要求：
+  - 编队页必须展示当前目标关卡，玩家能确认自己正在为哪一关编队。
+  - 关卡选择丢失、为空或命中 `EX_` 非法关卡时，不进入战斗，提示重新选择主线关卡并返回冒险面板。
+  - 该提示是流程保护，不是未开放 placeholder。
+- 已开发内容：
+  - `LobbyAdventurePanelRenderer.ts` 将推荐关卡和详情关卡的 `stageCode` 显式传入 `openLobbyFormationPanel(stageCode)`。
+  - `LobbyFormationPanelRenderer.ts` 读取 `currentLobbySelectedStageCode()`，并在只读编队说明中展示目标关卡。
+  - `LootChainGameRoot.ts` 使用 `selectedLobbyStageCode` 统一保存当前关卡选择，并用 `resolveLobbyStageCode()` / `rejectInvalidLobbyStageSelection()` 拦截非法状态。
+  - `LobbyBattleFlow.ts` 的 `prepare()` 与 `start()` 不再用空值回落到 `MAIN_1_1`，非法关卡会进入错误状态。
+  - `scripts/check-layout.mjs` 增加 selected-stage 与 no-fallback 守卫。
+- 验收：
+  - `npm.cmd run check:layout` -> passed。
+  - Cocos Creator 3.8.8 focused `tsc.cmd --noEmit` -> passed。
+  - 后端 smoke 使用非默认 `StageCode=MAIN_1_2` 通过，battle start 返回同一关卡，settlement 仍保持 `rewardGranted=false` / `readonlyEconomy=true`。
+- 边界不变：只传递关卡选择，不保存编队，不扣体力，不写主线进度，不发奖励，不新增经济写入口，不开放 EX V1。
+
+### Stage 4H Battle Stage Visibility
+
+- 产品定位：
+  - 玩家进入战斗后仍要能确认目标关卡，避免“我选了 1-2，但不知道实际打哪关”的不确定感。
+- 已开发内容：
+  - 战斗 ready 状态 subtitle 显示 `目标关卡 {stageCode}`。
+  - 记录完成页 subtitle 和日志显示后端 settlement 返回的 `stageCode`。
+  - `scripts/check-layout.mjs` 增加结果页关卡文案守卫。
+- 验收：
+  - `npm.cmd run check:layout` -> passed。
+  - Cocos Creator 3.8.8 focused `tsc.cmd --noEmit` -> passed。
+- 边界不变：只改展示，不改变接口、不发奖励、不扣体力、不写进度、不新增经济写入口。
+
+### Stage 4I Formation Explicit Battle Stage
+
+- 产品定位：
+  - 编队页进入战斗时必须使用编队页当前展示的目标关卡，不能靠 root 历史状态兜底。
+- 已开发内容：
+  - `LobbyFormationBattlePreviewButton` 显式调用 `openLobbyBattlePreviewPanel(stageCode)`。
+  - `LootChainGameRoot.openLobbyBattlePreviewPanel()` 改为必须传入关卡。
+  - 前端只接受 `MAIN_数字_数字` 形式的主线关卡，空值、展示文案和 `EX_` 都会被拒绝并回到冒险选择。
+  - `scripts/check-layout.mjs` 增加显式 stage 传递守卫。
+- 验收：
+  - `npm.cmd run check:layout` -> passed。
+  - Cocos Creator 3.8.8 focused `tsc.cmd --noEmit` -> passed。
+- 边界不变：只改状态传递，不保存编队、不扣体力、不写进度、不发奖励。
+
+### Stage 4J Return-To-Lobby Refresh
+
+- 产品定位：
+  - 结算记录完成后返回大厅，应该回到干净的大厅状态，而不是保留战斗面板的旧计时器或旧快照。
+- 已开发内容：
+  - 返回大厅时调用 `lobbyBattleFlow.cancel()` 清理本地战斗表现计时。
+  - 关闭 battle preview 与 formation 面板后，回读只读玩家资料、冒险状态和英雄队列。
+  - `LobbyBattleFlow` 内部关卡格式校验与 root 对齐，只接受 `MAIN_数字_数字`。
+  - `scripts/check-layout.mjs` 增加回大厅刷新守卫。
+- 验收：
+  - `npm.cmd run check:layout` -> passed。
+  - Cocos Creator 3.8.8 focused `tsc.cmd --noEmit` -> passed。
+- 边界不变：只读刷新，不扣体力、不写进度、不发奖励、不新增经济写入口。
+
+### 2026-05-31 Stage 4K New Player Full-Flow Smoke And Product Gate
+
+- Product gate now has runtime evidence for the first-player path, not only existing-player smoke.
+- Verified path:
+  `empty protagonist -> create SSR protagonist -> protagonist first in hero roster -> MAIN_1_1 battle -> no-reward settlement -> lobby readonly refresh`.
+- UX/product implications:
+  - protagonist creation can be treated as the required first-time gate before normal lobby play;
+  - protagonist is not part of gacha and remains `source_type=PROTAGONIST`;
+  - duplicate create is idempotent and does not create a second SSR protagonist;
+  - current settlement must continue to communicate "battle record only / no reward yet".
+- Validation evidence:
+  - `scripts/smoke-new-player-flow.ps1` passed with `userId=12`, `protagonistHeroId=9`, `battleNo=Bf8f08ea10fc945ab9022db1bbfa3f548`, `settlementNo=S52c47a1c10ba4ec9ba9733c9e4216a90`;
+  - repeated create kept one `player_protagonist` and one `PROTAGONIST` hero row;
+  - stamina and combat power stayed unchanged.
+- Remaining visible-product work:
+  - capture/inspect the Cocos UI version of the same flow across desktop and compact resolutions;
+  - harden double-click states on create protagonist, battle start, and settlement buttons;
+  - continue improving the role-selection and hero-card art to match the dark cinematic reference.
+- Boundary unchanged: no reward, stamina cost, mainline progress, bag/currency/USDT/fund-pool, EX V1, or economy write path was opened.
+
+### 2026-05-31 Stage 4L Repeat-Submit Product Gate
+
+- Product gate moved the previous remaining item "harden double-click states" from open risk to implemented frontend protection.
+- Protected actions:
+  - create protagonist;
+  - auto battle start after formation/battle-preview open;
+  - no-reward settlement record.
+- Player-facing effect:
+  - rapid taps no longer send extra protagonist-create or battle-start POSTs from Cocos;
+  - settlement cannot be submitted again after a result exists;
+  - current stage selection still remains explicit and visible through the flow.
+- Review/QA note:
+  - backend protagonist create remains idempotent and battle stage guard remains authoritative;
+  - frontend guards reduce duplicate requests and stale state before those backend safeguards are reached.
+- Verification:
+  - `npm.cmd run check:layout` passed;
+  - focused Cocos TypeScript check passed.
+- Boundary unchanged: frontend debounce/state hardening only, no economy write path opened.
+
+### 2026-05-31 Stage 4M Battle Resume And Contract Hardening
+
+- Product gate closed the next real-play blocker: after entering battle preview, returning to formation must not strand the player in a hidden busy state.
+- Player-facing behavior:
+  - if a same-stage battle session already exists, opening battle preview shows that existing state so the player can continue to no-reward settlement;
+  - after the recorded-result flow returns to lobby, local battle state is cleared and the player can enter the same mainline stage again;
+  - invalid or EX stage codes are filtered/rejected before they become playable UI choices;
+  - roster/formation no longer displays invalid `id=0` heroes that battle start would reject.
+- Contract hardening:
+  - battle start response must echo the requested `MAIN_x_y`;
+  - settlement response must match the session stage;
+  - missing stage no longer silently falls back to `MAIN_1_1`;
+  - protagonist create/state response is validated before routing to lobby.
+- Verification passed:
+  - Cocos `check:layout`;
+  - focused Cocos TypeScript check;
+  - existing-player smoke on `MAIN_1_2`;
+  - fresh-player smoke on `MAIN_1_1`;
+  - stage guard smoke for unopened `MAIN_9_9` and `EX_1_1`.
+- Boundary unchanged: this stage improves frontend flow and validation only. No reward, stamina cost, mainline progress, bag/currency/USDT/fund-pool write, EX V1, or economy write path was opened.
+
+### 2026-05-31 Stage 4N Compact Responsive Product Gate
+
+- Product gate closed the next responsive P1 set for the current flow.
+- Player-facing effect:
+  - short-height lobby layouts keep essential access to `公告 / 冒险 / 英雄 / 图鉴`;
+  - protagonist creation no longer lets the name input and `进入游戏` button touch or overlap on portrait/narrow screens;
+  - compact formation keeps all five slots inside the panel and clear of footer actions;
+  - battle presentation keeps the fight field, boundary note, and footer buttons separated in very short panels.
+- QA baseline:
+  - `390x300` is now included as a compact playable viewport in `scripts/check-layout.mjs`;
+  - `360x240` is included as a floor viewport for non-overlap and critical-control survival;
+  - `320x180` remains a no-crash/no-bounds minimum, not a full visual-quality target.
+- Verification:
+  - Cocos `npm.cmd run check:layout` passed;
+  - focused Cocos Creator 3.8.8 TypeScript check passed.
+- Boundary unchanged: layout-only frontend work. No reward, stamina cost, mainline progress, bag/currency/USDT/fund-pool write, EX V1, backend API/SQL change, or economy write path was opened.
+
+### 2026-05-31 Stage 4O Local Formation Product Gate
+
+- Product gate moved formation from "default readonly preview" to "local battle lineup confirmation".
+- Player-facing behavior:
+  - candidate heroes can be clicked to add/remove them from the current lineup;
+  - the protagonist stays fixed as the leader, matching the current main-character-first design;
+  - battle preview/start uses the lineup the player just confirmed, instead of silently rebuilding the default top-power lineup.
+- UI/UX boundary:
+  - this is still a local, per-battle lineup only;
+  - it does not save long-term teams or unlock formation management systems;
+  - there is no drag-swap, equipment, growth, reward claim, or resource mutation in this stage.
+- Technical boundary:
+  - no backend API/SQL change;
+  - existing `POST /api/player/battles/start` receives only `heroIds` and `leaderHeroId`;
+  - no client-submitted attributes, rewards, stamina, progress, currency, USDT, fund-pool, or EX data.
+- Verification:
+  - Cocos `npm.cmd run check:layout` passed;
+  - focused Cocos Creator 3.8.8 TypeScript check passed;
+  - Cocos `git diff --check` passed.
+- Remaining P0/P1 product risks:
+  - backend player API feature gate is still needed so current Cocos phase exposes only allowed endpoints;
+  - no-reward battle settlement should eventually persist an explicit no-economy mode flag;
+  - full visual QA still needs Cocos preview screenshots/video across desktop and compact viewports.
+
+### 2026-05-31 Stage 4P Player API Gate Product Gate
+
+- Product/security gate closed the current-phase route exposure risk.
+- Player-facing effect:
+  - current Cocos lobby can still log in, create protagonist, read lobby panels, start battle, and record no-reward battle settlement;
+  - unapproved economy/growth routes are blocked even if a client attempts to call them with a valid player token.
+- Cocos-side effect:
+  - `GachaApi.draw()` now fails locally with "当前 Cocos 阶段未开放抽卡";
+  - layout guard prevents accidentally reintroducing the draw POST during this phase.
+- Backend allowlist is active by default through `lootchain.player.cocos-phase-gate-enabled=true`.
+- This stage reduces risk without opening content:
+  - no reward settlement;
+  - no stamina cost;
+  - no mainline progress;
+  - no bag/currency/USDT/fund-pool write;
+  - no EX V1.
+- Remaining product risks:
+  - no-reward settlement mode is still returned in VO but not persisted as a DB flag;
+  - repeated battle start with same `requestId` but different payload still needs stricter backend contract handling;
+  - Cocos visual QA still needs screenshots/video across target resolutions.
+
+### 2026-05-31 Stage 4Q Battle Start Idempotency Product Gate
+
+- Product/security gate closed the repeated `requestId` payload mismatch risk.
+- Player-facing intent:
+  - rapid retry of the same battle start request can safely return the original session;
+  - changing stage or formation is a different player intent and must use a new request ID.
+- Backend behavior:
+  - missing battle start `requestId` is rejected;
+  - same `requestId` with different stage, lineup, or leader is rejected;
+  - same `requestId` with the same payload still returns the existing battle session.
+- Cocos behavior:
+  - current `LobbyBattleFlow` creates a fresh `battle-start-*` request ID per start attempt;
+  - local formation changes are therefore represented by a new start request.
+- Remaining product risks:
+  - no-reward settlement mode still needs DB persistence;
+  - latest-code HTTP smoke should be run after server restart;
+  - visual QA/screenshots across target resolutions remain outstanding.
+
+### 2026-05-31 Stage 4R Battle Settlement No-Economy Product Gate
+
+- Product/security gate closed the "VO-only no reward" risk.
+- Settlement records now carry DB-visible flags that make the current Cocos result auditable:
+  - `settlement_mode=NO_REWARD`
+  - `reward_granted=0`
+  - `readonly_economy=1`
+  - `economy_applied=0`
+- Player-facing behavior is unchanged:
+  - the battle result can still be recorded;
+  - it still does not grant rewards, deduct stamina, advance mainline progress, or mutate resources.
+- Future product rule:
+  - any real reward/progress settlement must be designed as a separate reviewed stage and must not treat `NO_REWARD` records as claimable rewards.
+- Remaining product risks:
+  - latest-code HTTP smoke after server restart;
+  - unified DB snapshot smoke for red-line economy tables;
+  - Cocos visual QA/screenshots across target resolutions.
+
+### 2026-05-31 Stage 4S Latest-Code Smoke Product Gate
+
+- Product/security gate closed the "compiled but not running latest code" risk for the current Cocos flow.
+- Local `lootchain-game` was restarted from current source on port `8081` before smoke.
+- Player-facing flow now has HTTP verification coverage for:
+  - existing-player login -> lobby -> adventure/hero roster -> battle start -> no-reward settlement -> lobby reread;
+  - fresh-player login -> protagonist creation -> hero roster protagonist first -> protagonist-only battle -> no-reward settlement;
+  - invalid or EX stages rejected before battle session insert.
+- Red-line verification was extended:
+  - gacha, bag, and hero growth player endpoints are blocked by phase gate at HTTP level;
+  - economy table snapshots stay unchanged around forbidden calls and no-reward settlement;
+  - battle settlement row persists `NO_REWARD`, `reward_granted=0`, `readonly_economy=1`, and `economy_applied=0`;
+  - battle start `requestId` idempotency accepts same payload and rejects changed lineup.
+- Remaining product risk:
+  - Cocos visual QA/screenshots across target desktop and compact resolutions remain outstanding.
+
+### 2026-05-31 Stage 4T Recent Battle Readback Product Gate
+
+- Product gap closed:
+  - after a no-reward battle settlement, the player can now see a recent challenge record in the adventure panel instead of returning to a fully stateless lobby.
+- Player-facing behavior:
+  - recent record text is deliberately framed as "无奖励记录";
+  - it does not imply claimable drops, stamina spend, mainline completion, or progression.
+- UI behavior:
+  - adventure detail panel shows the latest matching stage record when available, otherwise the latest recent record or empty state;
+  - physical micro viewport mode keeps the core navigation path visible when Preview/browser viewport is extremely small.
+- Backend contract:
+  - `GET /api/player/battles/recent` is read-only and current-phase allowlisted;
+  - records expose `settlementMode`, `rewardGranted`, `readonlyEconomy`, and `economyApplied` so the client can fail closed if the red-line flags change.
+- Product red line:
+  - this is a readback/clarity feature only;
+  - no reward settlement, stamina cost, mainline progress, saved formation, economy write, or EX V1 is introduced.
+- Acceptance notes:
+  - latest HTTP smoke verifies the recent record contains the just-created settlement and keeps `rewardGranted=false`, `readonlyEconomy=true`, `economyApplied=false`;
+  - visual screenshot acceptance still requires restarting Cocos Preview because port `7456` was serving stale compiled cache.
+
+### 2026-05-31 Stage 4U Supervisor Gate
+
+- User-perspective gate remains open until real visual acceptance uses the latest Preview chunk.
+- Latest product-flow smoke confirms the non-visual loop is intact:
+  - existing player: login -> lobby -> heroes/adventure -> battle start -> no-reward settlement -> recent battle readback -> return-to-lobby clarity;
+  - fresh player: login -> SSR protagonist creation -> protagonist first in hero roster -> protagonist-only battle -> no-reward settlement;
+  - invalid mainline and EX stages remain blocked before `battle_session` insert.
+- Product acceptance cannot rely on the current `7456` screenshots until the `AdaptiveStageLayoutResolver.ts` chunk contains `viewportWidth` and `viewportHeight`.
+- Manual low-risk visual unblock:
+  - Reimport `assets/scripts/scenes/AdaptiveStageLayoutResolver.ts` in Creator Assets;
+  - run `Project -> Refresh Device` or reopen Preview;
+  - accept screenshots only after `npm.cmd run check:preview` passes, proving the latest physical-viewport/micro-HUD code is served.
+- Red-line gate remains unchanged: recent battle history is readability only and does not imply rewards, stamina spend, progress, saved formation, resources, USDT, fund-pool, or EX V1.
+
+### 2026-05-31 Stage 4V Result Exit And Recent Contract Gate
+
+- Product gate closed:
+  - result-recorded battle panels can no longer send the player back into old formation state through the dim layer or bottom back slot;
+  - recent battle readback now has a stricter no-reward contract.
+- Player behavior:
+  - after result recording, the clear action is returning to lobby, where recent no-reward history can be read;
+  - adventure wording now frames the path as no-reward battle preview instead of real progression.
+- API/product contract:
+  - recent records are accepted only when `settlementMode=NO_REWARD`, `rewardGranted=false`, `readonlyEconomy=true`, and `economyApplied=false`;
+  - backend query and service mapping both filter to no-reward readonly records only.
+- Acceptance notes:
+  - current-flow smoke and fresh-player smoke both verify recent readback after settlement;
+  - invalid mainline and EX stages still reject before session insert;
+  - final visual acceptance is still pending the Cocos Preview chunk refresh.
+
+### 2026-05-31 Stage 4W Request/Settle Guard Product Gate
+
+- Product/security gate tightened:
+  - battle `requestId` longer than 80 characters is rejected instead of truncated, preventing accidental idempotency collisions;
+  - same start `requestId` with changed stage, lineup, or leader is rejected;
+  - settle retries return the original no-reward result and keep one settlement row.
+- Player-facing intent:
+  - repeated taps/network retries are safe when the payload is unchanged;
+  - changed formation or stage must create a new battle request, which the current Cocos flow already does;
+  - failed invalid requests do not create hidden battle sessions or settlements.
+- Acceptance coverage:
+  - request guard covers missing/null/blank/overlong `requestId`;
+  - stage guard covers malformed, BOSS, EX, Unicode, and overlong stage values;
+  - lineup guard covers invalid/non-owned/over-limit teams;
+  - settle guard covers unknown battle, missing/blank/overlong settle `requestId`, illegal result, and duplicate settlement.
+- Red-line gate remains unchanged:
+  - these are safety checks only;
+  - no reward, stamina spend, mainline progress, saved formation, resources, USDT, fund-pool, or EX V1 behavior is introduced.
+
+### 2026-05-31 Stage 4X Runtime Visual Acceptance Gate
+
+- Supervisor/user-perspective gate now has live Preview screenshot evidence instead of only source/static checks.
+- Player-visible flow accepted for this stage:
+  - existing player enters lobby and can open hero roster, adventure, formation, battle preview, no-reward result, and return lobby;
+  - first-login local QA player enters protagonist creation, sees high-quality male/female SSR character cards, creates a protagonist, then enters lobby;
+  - compact Preview/browser sizes `390x340` and `390x300` keep the minimal player HUD, stamina, and core nav visible.
+- Evidence folder:
+  - `D:\business\project\lootchain-cocos\docs\visual-qa\stage-4x-runtime`
+- Product observations:
+  - result copy correctly says no-reward/recorded and does not imply claimable rewards;
+  - protagonist name and lobby player display name are currently separate concepts: lobby HUD reads `game_user.nickname`;
+  - debug FPS overlay may cover a small corner during Preview screenshots, but it is a Creator preview overlay rather than lobby UI.
+- Acceptance coverage:
+  - Cocos layout guard passed;
+  - Preview freshness guard passed;
+  - Cocos TypeScript no-emit passed;
+  - existing-player current-flow HTTP smoke passed;
+  - fresh-player HTTP smoke passed and verifies protagonist first in hero roster, SSR rarity, attack form default, locked defense/support forms, no-reward settlement, and no stamina/combat-power change.
+- Red-line gate remains unchanged:
+  - no reward, stamina spend, mainline progress, saved formation, resources, USDT, fund-pool, or EX V1 behavior is introduced.
+
+### 2026-05-31 Stage 4AE Runtime Flow Acceptance And Micro HUD Correction
+
+- Runtime Preview flow is accepted for the lobby next-step tracker:
+  - login -> lobby;
+  - next-step tracker -> adventure;
+  - `MAIN_1_1` -> formation;
+  - battle preview -> no-reward settlement;
+  - return lobby -> tracker still visible;
+  - reopen adventure -> recent record readback.
+- Evidence is stored in `D:\business\project\lootchain-cocos\docs\visual-qa\stage-4ae-lobby-goal-tracker`.
+- Runtime IDs:
+  - battle `B81f5c9e9f0274c3a81654dcfeeede8e6`;
+  - settlement `S0bdab68da86e4438850a87e8a1f5cade`;
+  - settlement remained `rewardGranted=false` and `readonlyEconomy=true`.
+- Product/UI note:
+  - desktop tracker placement is valid and does not block top-left player info, right rail, or bottom nav;
+  - tracker nodes now mount inside `LootChainCocosLoginUIRoot`, so different-resolution rerenders can cleanly remove and rebuild them.
+- Micro viewport correction:
+  - `LobbyHudRenderer.viewportUnit()` no longer scales from design resolution / browser window ratio;
+  - micro HUD now uses `clamp(layout.uiScale, 0.72, 1)` to prevent 390x340 over-sized text and button bars.
+- Verification:
+  - `npm.cmd run check:layout` passed;
+  - focused Cocos TypeScript no-emit passed;
+  - backend current-player smoke and new-player smoke both passed with no reward/resource mutation.
+- Preview caveat:
+  - the open Preview still needs one more Creator script refresh for the final micro-scale token;
+  - `check:preview` currently reports stale `LobbyHudRenderer.ts` missing `layout.uiScale, 0.72, 1`.
+- Red-line gate remains unchanged:
+  - no reward, stamina spend, mainline progress, saved formation, resources, USDT, fund-pool, or EX V1 behavior is introduced.
+
+### 2026-05-31 Stage 4AE Latest Context Note
+
+- The next completed frontend source stage is the lobby next-step goal tracker.
+- New HUD nodes:
+  - `LobbyGoalTracker`;
+  - `LobbyCompactGoalTracker`;
+  - `LobbyMicroGoalChip`.
+- The tracker only reads adventure/selected-stage/recent-battle state and only opens the existing adventure panel.
+- Static/frontend checks passed except current Preview freshness:
+  - `npm.cmd run check:layout` passed;
+  - focused Cocos TypeScript no-emit passed;
+  - `npm.cmd run check:preview` fails because the open Preview still serves stale `LobbyHudRenderer.ts`.
+- Backend smoke for the full current flow passed with battle `B3c2c3bee321449cf9ffe379e32f947fd` and settlement `S4fd31cbe921e4edbb1af0c60438682bd`, still `rewardGranted=false` and `readonlyEconomy=true`.
+- Red-line gate remains unchanged:
+  - no reward, stamina spend, mainline progress, saved formation, resources, USDT, fund-pool, or EX V1 behavior is introduced.
+
+### 2026-05-31 Stage 4AE Lobby Next-Step Goal Tracker
+
+- Product/user-supervisor goal:
+  - after a player returns to lobby from the no-reward battle/result/readback flow, the lobby must explain the next action without making the player reopen panels blindly.
+- UI behavior implemented:
+  - desktop HUD shows `LobbyGoalTracker` near the bottom play flow area;
+  - constrained non-micro layouts show `LobbyCompactGoalTracker`;
+  - very small viewports show `LobbyMicroGoalChip` above the micro action bar;
+  - text emphasizes current mainline target, latest readonly record, and the no-reward/no-stamina/no-progress boundary.
+- Player action:
+  - the tracker CTA only opens the adventure panel;
+  - locked targets are displayed as locked and do not jump to formation or battle;
+  - missing/loading/error states remain readable and do not imply claimable rewards.
+- R&D guard:
+  - HUD host reads current adventure, selected stage, and battle recent state only;
+  - `check-layout` now verifies the new nodes and click contract;
+  - `check-preview` now catches stale HUD chunks for the tracker.
+- Verification:
+  - frontend layout guard passed;
+  - focused Cocos TypeScript no-emit passed;
+  - backend current-flow smoke still passed with no-reward settlement `S4fd31cbe921e4edbb1af0c60438682bd` and `readonlyEconomy=true`.
+- Current acceptance blocker:
+  - open Cocos Preview is stale for `LobbyHudRenderer.ts`, so visual screenshot acceptance waits for Creator refresh/reimport or Preview reopen.
+- Red-line gate remains unchanged:
+  - no reward, stamina spend, mainline progress, saved formation, resources, USDT, fund-pool, or EX V1 behavior is introduced.
+
+### 2026-05-31 Stage 4AA Locked Stage Authority Gate
+
+- Product/supervisor requirement:
+  - the selected-stage flow must not rely only on Cocos UI hiding locked nodes;
+  - backend battle start must reject locked stages even if a modified client sends a valid-looking `MAIN_x_y`.
+- Backend behavior:
+  - `POST /api/player/battles/start` keeps the existing format/static allowlist checks;
+  - then it reads the current player's readonly adventure state and requires the target stage to be present and `unlocked=true`;
+  - locked stages are rejected before hero lookup and before `battle_session` insert.
+- Player-facing impact:
+  - normal `MAIN_1_1` flow is unchanged;
+  - locked `MAIN_1_2` is now consistently blocked by both UI and backend authority;
+  - no new progress, reward, stamina, formation-save, or economy behavior was introduced.
+- Verification:
+  - backend focused tests passed with 16 tests;
+  - current-flow smoke still passed for `MAIN_1_1` with no-reward settlement;
+  - stage guard smoke passed and now includes the locked-stage case.
+
+### 2026-05-31 Stage 4AB Locked Stage UX Guard
+
+- Product/user-supervisor P0:
+  - locked stages must be visible but unmistakably unavailable;
+  - tapping a locked stage must explain why it is locked;
+  - locked stages must not become selected and must not open formation or battle preview.
+- UI behavior implemented:
+  - desktop locked map nodes show a `锁` badge and `锁定` prefix;
+  - compact locked rows use dim styling and `锁定` prefix;
+  - locked taps only call the new locked-preview status path.
+- Engineering guard:
+  - `openLobbyFormationPanel()` and `openLobbyBattlePreviewPanel()` now both re-check `stage.unlocked`;
+  - even if a future UI path passes a locked stage, root will send the player back to adventure instead of entering formation/battle.
+- Verification:
+  - static layout guard passed;
+  - focused TypeScript no-emit passed;
+  - Preview freshness now checks locked-stage tokens and passes after Creator refreshed stale chunks;
+  - runtime QA captured screenshots in `D:\business\project\lootchain-cocos\docs\visual-qa\stage-4ab-locked-stage`;
+  - locked `MAIN_1_2` did not change selected stage and did not open formation/battle;
+  - legal `MAIN_1_1` completed no-reward battle settlement `Sb69829a75ad04a3f99dd251828025ccd` and returned to lobby.
+- Fresh-player verification:
+  - backend fresh-player smoke still passes through dev-login, protagonist creation, protagonist-first roster, no-reward battle, recent readback, and lobby profile reread;
+  - current Cocos Preview also shows the protagonist creation screen and then a lobby HUD using the created protagonist name `VisualHero25`.
+- Red-line gate remains unchanged:
+  - no reward, stamina spend, mainline progress, saved formation, resources, USDT, fund-pool, or EX V1 behavior is introduced.
+
+### 2026-05-31 Stage 4Y Protagonist Name Display Gate
+
+- Product correction:
+  - the lobby identity name must represent the player's created protagonist, not the account nickname.
+- Accepted behavior:
+  - first-login player creates a protagonist named `SmokeHero23`;
+  - `/api/player/me/lobby.displayName` returns `SmokeHero23`;
+  - Cocos top-left HUD displays `SmokeHero23`;
+  - the original account nickname remains available as `nickname` for account/profile use.
+- UI impact:
+  - no special HUD rendering fork was needed because the HUD already renders `profile.displayName`;
+  - profile dialog also inherits the same display name.
+- Red-line gate remains unchanged:
+  - this is a read-only identity-display correction only;
+  - no reward, stamina spend, mainline progress, saved formation, resources, USDT, fund-pool, or EX V1 behavior is introduced.
+
+### 2026-05-31 Stage 4Z Adventure Stage Selection Gate
+
+- Product correction:
+  - the player must be able to choose an unlocked mainline stage in the adventure panel before entering formation;
+  - the chosen stage must be visually highlighted and must stay consistent through detail, formation, battle preview, and backend battle request.
+- Accepted source behavior:
+  - unlocked desktop stage nodes and compact rows can be clicked;
+  - selected stages show `已选`;
+  - detail panel and compact `编队确认` CTA follow the selected stage;
+  - invalid, malformed, locked, or not-loaded stage choices fail locally and do not create battle state.
+- UX guard:
+  - selection is intentionally not a battle start;
+  - formation remains the explicit next step;
+  - result-recorded battle state still routes back to lobby, not old formation.
+- Verification:
+  - static layout guard passed;
+  - TypeScript no-emit passed;
+  - backend current-flow smoke still records a no-reward `MAIN_1_1` battle with no resource mutation.
+- Visual acceptance blocker:
+  - Preview freshness now checks the new stage-selection chunks;
+  - the currently running Preview is stale for this stage until Creator reimports/refreshed `LootChainGameRoot.ts` and `LobbyAdventurePanelRenderer.ts`.
+- Red-line gate remains unchanged:
+  - no reward, stamina spend, mainline progress, saved formation, resources, USDT, fund-pool, or EX V1 behavior is introduced.
+
+### 2026-05-31 Stage 4Z Runtime Selection Acceptance
+
+- The Preview cache blocker cleared and the new stage-selection chunks are now live.
+- Player-visible path accepted:
+  - adventure shows selected `MAIN_1_1`;
+  - formation status keeps the same target stage;
+  - battle preview starts the same stage;
+  - no-reward settlement returns the same stage;
+  - result return closes battle/formation and lands back in lobby.
+- Evidence:
+  - desktop screenshots cover adventure, formation, battle, result, and return lobby;
+  - compact `390x340` screenshot covers the small-layout adventure selection path.
+- Runtime settlement guard:
+  - `settlementNo=Sf4ebb68f5cec4eb890141477df987b1c`;
+  - `rewardGranted=false`;
+  - `readonlyEconomy=true`.
+- Recent readback:
+  - a fresh login into adventure read `Sf4ebb68f5cec4eb890141477df987b1c` as the latest recent record;
+  - the record still kept `rewardGranted=false` and `readonlyEconomy=true`.
+- Red-line gate remains unchanged:
+  - no reward, stamina spend, mainline progress, saved formation, resources, USDT, fund-pool, or EX V1 behavior is introduced.
+
+### 2026-05-31 Stage 4AC Battle Result Guidance And Recent Readback UX
+
+- Product/user-supervisor correction:
+  - after settlement, the player must understand this is a recorded no-reward battle result, not a real reward/progression settlement;
+  - returning to lobby should have a clear follow-up: open mainline adventure and view the recent readback.
+- UI behavior implemented:
+  - battle result copy now states the no-reward record was written and that rewards/resources/progress did not change;
+  - desktop result panels show a compact receipt card with settlement number, battle number, reward status, resource status, and progress status;
+  - adventure detail now shows a recent-record card instead of one compressed line.
+- UX wording rule:
+  - player-facing copy uses “奖励未开放 / 资源未变更 / 进度不推进”;
+  - raw fields such as `rewardGranted=false` remain only in code comments and guard logic.
+- Engineering guard:
+  - new nodes are mounted inside existing battle/adventure panels, preserving `BlockInputEvents` behavior so content-area clicks do not close the modal;
+  - `check-layout` and `check-preview` now guard the new result receipt and recent-record card tokens.
+- Current acceptance:
+  - static layout guard passed;
+  - focused TypeScript no-emit passed;
+  - runtime Preview acceptance is pending because the open Preview is still serving stale chunks for the two changed renderer files.
+- Red-line gate remains unchanged:
+  - no reward, stamina spend, mainline progress, saved formation, resources, USDT, fund-pool, or EX V1 behavior is introduced.
+
+### 2026-05-31 Stage 4AD Runtime Acceptance For Result Guidance
+
+- The Stage 4AC runtime cache blocker is cleared and the running Preview now serves the new result/readback chunks.
+- Player-visible path accepted:
+  - enter lobby as user `1`;
+  - open adventure and see `LobbyAdventureRecentBattleSummaryCard`;
+  - select `MAIN_1_1`;
+  - enter formation and battle preview;
+  - record no-reward battle settlement;
+  - see `LobbyBattleSettlementReceipt` on the result page;
+  - return to lobby and reopen adventure;
+  - recent-record card reads back the latest settlement.
+- Evidence:
+  - screenshots are stored in `D:\business\project\lootchain-cocos\docs\visual-qa\stage-4ad-result-guidance`;
+  - result receipt screenshot confirms the receipt node is visible in the modal content area;
+  - adventure readback screenshot confirms recent-record presentation after returning.
+- Runtime IDs:
+  - stage `MAIN_1_1`;
+  - battle `B05d15599907544cea526baba82b0cb12`;
+  - settlement `Sc6ee0f5062f44317a0333c5c3d7fde30`.
+- Guard status:
+  - runtime settlement returned `rewardGranted=false` and `readonlyEconomy=true`;
+  - backend current-flow smoke also passed with no economy snapshot change.
+- Red-line gate remains unchanged:
+  - no reward, stamina spend, mainline progress, saved formation, resources, USDT, fund-pool, or EX V1 behavior is introduced.
+
+### 2026-05-31 Stage 4AE Latest Context Note
+
+- The next completed frontend source stage is the lobby next-step goal tracker.
+- New HUD nodes:
+  - `LobbyGoalTracker`;
+  - `LobbyCompactGoalTracker`;
+  - `LobbyMicroGoalChip`.
+- The tracker only reads adventure/selected-stage/recent-battle state and only opens the existing adventure panel.
+- Static/frontend checks passed except current Preview freshness:
+  - `npm.cmd run check:layout` passed;
+  - focused Cocos TypeScript no-emit passed;
+  - `npm.cmd run check:preview` fails because the open Preview still serves stale `LobbyHudRenderer.ts`.
+- Backend smoke for the full current flow passed with battle `B3c2c3bee321449cf9ffe379e32f947fd` and settlement `S4fd31cbe921e4edbb1af0c60438682bd`, still `rewardGranted=false` and `readonlyEconomy=true`.
+- Red-line gate remains unchanged:
+  - no reward, stamina spend, mainline progress, saved formation, resources, USDT, fund-pool, or EX V1 behavior is introduced.
+### 2026-05-31 Stage 4AF Fresh Player Closed-Loop Acceptance
+
+- 产品验收结果：
+  - 新玩家首次登录后会先进入主角创建页；
+  - 创建 `VisualHero29` 后，大厅身份名立即使用主角名；
+  - 大厅 next-step tracker 能引导玩家进入冒险，而不是让玩家在 HUD 中迷路；
+  - 冒险、编队、战斗预演、无奖励结算、最近记录回读已经形成闭环。
+- 玩家视角确认：
+  - 主角是 SSR 主角，不进入抽卡池；
+  - 主角作为英雄列表第一位进入可上阵队列；
+  - 当前默认使用攻击形态，防御/辅助形态仍保持后续主线道具解锁方向；
+  - 结算页和最近记录只表达“无奖励记录已写入”，不暗示领取、掉落、体力消耗或进度推进。
+- UI/交互确认：
+  - 弹框内容区仍通过 `BlockInputEvents` 阻止点击穿透；
+  - 小视口路径使用 `LobbyMicroGoalChip` 与 micro action bar，当前 `390x340` 截图已覆盖；
+  - 目标引导只打开冒险面板，不跳过编队，也不直接触发 battle start。
+- 研发/审查补充：
+  - `LobbyHeroRosterLoader` 修复并发加载竞态，快速操作时也会等待同一个英雄队列请求完成；
+  - 最新运行时：user `29`，hero `26`，battle `B8a2ffc4fea6e40689e3a03030d156d03`，settlement `S013e12191ed944ca89b43cecf79a5fc6`；
+  - 后端 fresh-player smoke 仍确认体力和战力不变：user `30`，stamina `100 -> 100`，combatPower `9432 -> 9432`。
+- 边界不变：
+  - 当前仍不开放真实奖励、体力消耗、主线进度写入、保存编队、背包/货币/USDT/资金池变更、EX V1 或任何经济写入口。
+
+### 2026-05-31 Stage 4AG 大厅韧性闭环补充
+
+- 产品验收结论：
+  - 大厅当前已经从“能走通”推进到“能抵抗误触和重复操作”；
+  - 玩家可以登录、进入大厅、查看目标、进入冒险、编队、战斗预演、记录无奖励结算、返回大厅和重登回读；
+  - 锁定关卡和非法 EX 路径不会进入下一步。
+- 设计/UI 要点：
+  - 所有弹框都必须维持“遮罩点击关闭、内容区点击不关闭”的规则；
+  - 登录弹框内容区已补 `BlockInputEvents`，和大厅弹框规则保持一致；
+  - 编队页在英雄数据未准备好时不展示可点击的出战预演，按钮改为 `读取中` 或 `不可出战`。
+- 研发要点：
+  - `LobbyFormationPanelRenderer.canOpenBattlePreview()` 只允许 `MAIN`、无错误、且可见英雄数量大于 0 时进入战斗预演；
+  - `check-layout`/`check-preview` 已把弹框阻断、目标追踪、战斗回执、最近记录、英雄队列竞态列为固定守卫；
+  - `tmp/stage4ag-resilience-qa.mjs` 覆盖弹框阻断、非法/锁定路径、battle start/settle 快速点击去重、返回/重登回读、多分辨率 HUD。
+- 最新运行时证据：
+  - user `1`，displayName/protagonistName `圣契1`；
+  - battle `B3525e4db77d94108a1c0379773366153`；
+  - settlement `S6f721e05eee049658795824d15ddce0f`；
+  - 最近记录返回大厅和重登后均回读同一 settlement；
+  - `rewardGranted=false`，`readonlyEconomy=true`，`economyApplied=false`；
+  - 截图目录 `D:\business\project\lootchain-cocos\docs\visual-qa\stage-4ag-resilience`。
+- 测试/审查结论：
+  - 前端 `check:layout`、`check:preview`、focused TypeScript no-emit 通过；
+  - 后端 current-flow、stage guard、lineup guard、request guard、settle guard、fresh-player smoke 通过；
+  - 未改变经济规则，未开放 EX V1，未新增经济写入口。
+
+### 2026-05-31 Stage 4AH 全屏战斗与英雄详情补充
+
+- 产品判断：
+  - 战斗是核心体验，不能塞在缩小弹框里；
+  - 当前先做大厅内全屏战斗逻辑视图，表现上等同进入战斗场景，后续如果需要物理 Cocos Scene 再拆；
+  - 英雄列表需要能查看单个英雄详情，详情必须覆盖名称、稀有度、星级、技能、属性和主角形态信息。
+- 设计/UI 方案：
+  - 战斗层使用全屏遮罩和专属背景，不再压缩在小面板中；
+  - 战斗过程保留阶段状态、己方/敌方、伤害/胜负/结算回执；
+  - 英雄详情作为英雄列表上层详情页，返回后仍在英雄列表，不打断玩家查阅队伍；
+  - 详情内容区拦截输入，避免点击穿透导致外层误关闭。
+- 美术方案：
+  - 新增暗黑哥特高质量战斗背景；
+  - 新增英雄详情背景；
+  - 新增主角动态立绘素材，用呼吸和光效表现“动态图”阶段目标；
+  - 风格继续贴近参考图，避免卡通化和低龄化。
+- 研发实现：
+  - `LootChainGameRoot.ts` 增加 `battle` 视图和英雄详情状态；
+  - `LobbyBattlePreviewPanelRenderer.ts` 升级为 `LobbyBattleSceneRoot` 全屏战斗表现层；
+  - `LobbyHeroRosterPanelRenderer.ts` 支持英雄卡点击打开详情；
+  - `LobbyHeroDetailPanelRenderer.ts` 新增只读详情展示；
+  - `UiSpriteFrameCache.ts` 预加载新增资源；
+  - `check-layout`/`check-preview` 已补本阶段 token 守卫。
+- 审查结论：
+  - 本阶段不新增任何战斗奖励、体力扣除、主线推进、保存编队、资源发放或经济写入；
+  - 英雄详情只读，不开放升级、升星、觉醒、装备、抽卡、领取；
+  - 不接 EX V1。
+- 验收状态：
+  - `npm.cmd run check:layout` 通过；
+  - focused Cocos TypeScript no-emit 通过；
+  - `git diff --check` 通过，仅有既有 LF->CRLF warning；
+  - `npm.cmd run check:preview` 当前失败，原因为 Cocos Preview 仍在服务旧 chunk，需要刷新/重开 Preview 后复验。
+
+### 2026-05-31 Stage 4AI 弹框转场景页补充
+
+- 产品判断：
+  - 登录账号页也不应继续保持小弹框比例；
+  - 大厅入口承载的是长期功能页面，不应该继续用弹框承载；
+  - 个人信息、公告、冒险、编队、英雄、英雄详情、图鉴、占位入口都应表现为“进入一个页面/场景”，玩家通过明确返回按钮离开；
+  - 当前优先做单 Cocos 主场景内的逻辑场景切换，不拆物理 `.scene`，以保证已有登录、加载、大厅、战斗闭环稳定。
+- UI/交互规则：
+  - 大厅只保留 HUD；
+  - 功能页打开后不再渲染大厅 HUD；
+  - 功能页面板按安全区全屏铺开；
+  - 遮罩层只阻断底层输入，不允许点击遮罩关闭；
+  - 主退出按钮统一文案 `返回大厅`；
+  - 英雄详情保留 `返回英雄`，作为上一级导航。
+- 研发实现：
+  - `LoginRenderer.ts` 的账号登录面板改为安全区全屏页面，`DialogDim` 只阻断底层输入；
+  - `LootChainGameRoot.ts` 扩展 `ViewName`，新增 `profile/adventure/codex/formation/heroes/heroDetail/notice/placeholder`；
+  - `renderLobbyScenePage()` 统一负责大厅功能页逻辑场景；
+  - `returnToLobbyFromScenePage()` 统一清理功能页状态并回大厅；
+  - 各 panel renderer 的 `dim` 从 Button 点击关闭改为 `BlockInputEvents`；
+  - 各 panel renderer 的宽高从固定弹框上限改为基于 `layout.safeWidth/safeHeight` 的全屏页面。
+- 审查结论：
+  - 本阶段只改前端页面组织和 UI 尺寸；
+  - 不新增后端接口；
+  - 不新增经济写入口；
+  - 不改变 no-reward battle contract；
+  - 不开放 EX V1。
+- 验收状态：
+  - `npm.cmd run check:layout` 通过；
+  - focused Cocos TypeScript no-emit 通过；
+  - `git diff --check` 通过，仅有既有 LF->CRLF warning；
+  - `npm.cmd run check:preview` 失败，原因为 Preview 旧 chunk 未刷新。
+
+## 2026-05-31 Stage 4AJ 召唤祭坛入口分析补充
+
+- 大厅入口调整：
+  - 左侧活动栏 `深渊召唤` 不再显示占位弹框，进入全屏召唤预览页；
+  - 场景热点 `召唤祭坛` 不再显示占位弹框，进入全屏召唤预览页；
+  - 小屏快捷入口新增 `召唤`，同样进入全屏召唤预览页。
+- 视觉结构：
+  - 顶部：返回、标题、货币展示；
+  - 左侧：卡池列表；
+  - 中央：五张预览卡，SSR 主卡突出；
+  - 右侧：概率、记录、兑换、保底；
+  - 底部：保底说明、单抽、十连。
+- 当前行为边界：
+  - 概率、记录、兑换、保底按钮只给本地阶段提示；
+  - 单抽/十连按钮只提示未开放；
+  - 不调用后端抽卡、兑换、补发或任何资源变更接口。
+- 多分辨率策略：
+  - 大屏使用左卡池 + 中央 5 卡 + 右功能栏；
+  - 窄屏使用顶部卡池 tab + 中央 3 卡 + 底部按钮；
+  - 背景按 cover 方式铺满，UI 按 `safeWidth/safeHeight/uiScale` 自适应。

@@ -1,5 +1,6 @@
 import type { DateTimeString, DecimalValue } from './CommonTypes';
 
+/** 抽卡池展示模型；当前 Cocos-only 阶段入口仍未开放。 */
 export interface GachaPoolVO {
   id: number;
   poolCode: string;

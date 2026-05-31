@@ -1,6 +1,7 @@
 import { _decorator, Component, UIOpacity } from 'cc';
 const { ccclass, property } = _decorator;
 
+/** 红色能量脉冲脚本：叠加两组正弦波，让红光变化更自然。 */
 @ccclass('CrimsonPulse')
 export class CrimsonPulse extends Component {
     @property

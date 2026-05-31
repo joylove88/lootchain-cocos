@@ -1,6 +1,7 @@
 import { _decorator, Component, Vec3 } from 'cc';
 const { ccclass, property } = _decorator;
 
+/** 旋涡环带运动脚本：让云带沿椭圆轨迹运动，并可按切线方向旋转。 */
 @ccclass('VortexBandMotion')
 export class VortexBandMotion extends Component {
     @property radiusX = 420;

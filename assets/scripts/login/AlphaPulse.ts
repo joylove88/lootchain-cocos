@@ -2,6 +2,7 @@ import { _decorator, Component, UIOpacity } from 'cc';
 
 const { ccclass } = _decorator;
 
+/** 透明度脉冲脚本：给登录页小型光效做循环呼吸。 */
 @ccclass('AlphaPulse')
 export class AlphaPulse extends Component {
 

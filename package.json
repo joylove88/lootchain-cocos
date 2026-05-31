@@ -3,7 +3,8 @@
   "description": "LootChain Cocos Creator player client.",
   "type": "module",
   "scripts": {
-    "check:layout": "node ./scripts/check-layout.mjs"
+    "check:layout": "node ./scripts/check-layout.mjs",
+    "check:preview": "node ./scripts/check-preview-freshness.mjs"
   },
   "dependencies": {},
   "devDependencies": {},

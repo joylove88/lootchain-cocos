@@ -6,66 +6,94 @@ import {
   Label,
   Node,
   Size,
-  Sprite,
   UIOpacity,
   UITransform,
   Vec3,
   tween,
 } from 'cc';
-import type { PlayerLobbyProfileVO } from '../../types/PlayerTypes';
 import {
   LOBBY_ACTIVITY_ITEMS,
   LOBBY_CHALLENGE_ITEMS,
   LOBBY_NAV_ITEMS,
   LOBBY_SCENE_HOTSPOTS,
-  LOBBY_SYSTEM_ICONS,
 } from './LobbyHudConfig';
 import {
-  LOBBY_PLAYER_INFO_PANEL_ASPECT,
-  LOBBY_PLAYER_INFO_PANEL_ASSET,
+  lobbyHudEdgeInset as resolveLobbyHudEdgeInset,
+  lobbyHudScale as resolveLobbyHudScale,
+  resolveLobbyPlayerInfoLayout as resolveHudPlayerInfoLayout,
+  type LobbyHudEdgeAxis,
+} from './LobbyHudLayout';
+import {
   clamp,
   rgba,
   type LobbyActivityIconKey,
   type LobbyHudHost,
   type LobbyNavIconKey,
   type LobbyPlayerInfoLayout,
-  type LobbyResourceItem,
-  type LobbySystemIconKey,
   type UiLayout,
 } from './LobbyHudTypes';
+import { LobbyTopHudRenderer } from './LobbyTopHudRenderer';
+import type { PlayerBattleRecentVO } from '../../types/BattleTypes';
+import type { LobbyAdventureStageVO } from '../../types/LobbyAdventureTypes';
 export type { LobbyHudHost } from './LobbyHudTypes';
 
+type LobbyNextGoalTone = 'loading' | 'error' | 'empty' | 'locked' | 'ready' | 'recent';
+
+interface LobbyNextGoalView {
+  title: string;
+  stageLine: string;
+  recentLine: string;
+  boundaryLine: string;
+  actionLabel: string;
+  disabled: boolean;
+  tone: LobbyNextGoalTone;
+}
+
+/**
+ * 大厅 HUD 渲染器。
+ *
+ * 负责左上玩家信息、顶部资源栏、系统按钮、活动栏、中心建筑热点、右侧挑战和底部导航。
+ * 所有点击目前只走本地占位提示，不能在这里直接接入玩法或经济写入。
+ */
 export class LobbyHudRenderer {
-  constructor(private readonly host: LobbyHudHost) {}
+  private readonly topHudRenderer: LobbyTopHudRenderer;
+
+  constructor(private readonly host: LobbyHudHost) {
+    this.topHudRenderer = new LobbyTopHudRenderer(host);
+  }
 
   render(layout: UiLayout): void {
-    this.renderLobbyPlayerInfo(layout);
-    this.renderLobbyResourceBar(layout);
-    this.renderLobbySystemIcons(layout);
+    // 渲染顺序按参考图层级排列：压暗氛围、顶部信息、侧栏/热点、底部导航。
+    this.renderLobbyAtmosphere(layout);
+    if (this.isMicroViewport(layout)) {
+      this.renderMicroLobbyHud(layout);
+      return;
+    }
+    this.topHudRenderer.render(layout);
     this.renderLobbyActivityRail(layout);
     this.renderLobbySceneHotspots(layout);
+    this.renderLobbyGoalTracker(layout);
     this.renderLobbyChallengeRail(layout);
     this.renderLobbyBottomHud(layout);
+    this.renderCompactSceneEntrances(layout);
+    this.renderCompactGoalTracker(layout);
+    this.renderCompactActionEntrances(layout);
   }
 
   private get node(): Node {
     return this.host.node;
   }
 
-  private currentLobbyProfile(): PlayerLobbyProfileVO {
-    return this.host.currentLobbyProfile();
-  }
-
-  private openPlayerProfileDialog(): void {
-    this.host.openPlayerProfileDialog();
-  }
-
   private createUiNode(name: string): Node {
     return this.host.createUiNode(name);
   }
 
-  private addSprite(name: string, assetPath: string, x: number, y: number, width: number, height: number, parent?: Node): Sprite | null {
-    return this.host.addSprite(name, assetPath, x, y, width, height, parent);
+  private createSizedUiNode(name: string, x: number, y: number, width: number, height: number): Node {
+    // 顶层 HUD 节点必须进入统一内容根节点，避免挂到 Canvas 后无法随大厅 HUD 重排和清理。
+    const node = this.createUiNode(name);
+    node.setPosition(new Vec3(x, y, 0));
+    node.addComponent(UITransform).setContentSize(new Size(width, height));
+    return node;
   }
 
   private addChildLabel(
@@ -86,14 +114,6 @@ export class LobbyHudRenderer {
     return this.host.addChildPlainNode(parent, name, x, y, width, height);
   }
 
-  private addChildBeveledPanelNode(parent: Node, name: string, x: number, y: number, width: number, height: number, fill: Color, stroke: Color, bevel = 10): Node {
-    return this.host.addChildBeveledPanelNode(parent, name, x, y, width, height, fill, stroke, bevel);
-  }
-
-  private addLobbyAvatar(parent: Node, x: number, y: number, size: number, displayName: string): void {
-    this.host.addLobbyAvatar(parent, x, y, size, displayName);
-  }
-
   private applyImageButtonFeedback(node: Node, hoverScale = 1.035, pressedScale = 0.975): void {
     this.host.applyImageButtonFeedback(node, hoverScale, pressedScale);
   }
@@ -106,231 +126,550 @@ export class LobbyHudRenderer {
     this.host.setStatus(text);
   }
 
-  private formatInteger(value: number | null | undefined): string {
-    return this.host.formatInteger(value);
+  private isMicroViewport(layout: UiLayout): boolean {
+    return layout.viewportWidth < 640 || layout.viewportHeight < 420;
   }
 
-  private compactResourceValue(value: number | null | undefined): string {
-    return this.host.compactResourceValue(value);
+  private viewportUnit(layout: UiLayout): number {
+    // 微型 HUD 需要补偿 Cocos 设计舞台被浏览器小窗口缩放后的物理像素差异，但必须封顶，避免 390 宽 Preview 被放大到接近 5 倍后压住画面。
+    const widthUnit = layout.stageWidth / Math.max(1, layout.viewportWidth);
+    const heightUnit = layout.stageHeight / Math.max(1, layout.viewportHeight);
+    return clamp(Math.max(widthUnit, heightUnit), 1, 4);
   }
 
-  private renderLobbyPlayerInfo(layout: UiLayout): void {
-    const profile = this.currentLobbyProfile();
-    const playerLayout = this.resolveLobbyPlayerInfoLayout(layout);
-    const panelWidth = playerLayout.width;
-    const panelHeight = playerLayout.height;
-    const hudScale = playerLayout.scale;
-    const x = playerLayout.x;
-    const y = playerLayout.y;
-    const panel = this.createUiNode('LobbyPlayerInfoButton');
-    panel.setPosition(new Vec3(x, y, 0));
-    panel.addComponent(UITransform).setContentSize(new Size(panelWidth, panelHeight));
-    if (!this.addSprite('LobbyPlayerInfoArt', LOBBY_PLAYER_INFO_PANEL_ASSET, 0, 0, panelWidth, panelHeight, panel)) {
-      this.drawLobbyPlayerInfoFrame(panel, panelWidth, panelHeight, hudScale);
-      this.addLobbyAvatar(panel, -panelWidth / 2 + 80 * hudScale, panelHeight / 2 - 90 * hudScale, 125 * hudScale, profile.displayName);
-    }
-    panel.addComponent(Button);
-    panel.on(Button.EventType.CLICK, () => this.openPlayerProfileDialog(), this);
-    this.applyImageButtonFeedback(panel, 1.006, 0.994);
-
-    const panelLeft = -panelWidth / 2;
-    const panelTop = panelHeight / 2;
-    const textX = panelLeft + 160 * hudScale;
-    const textWidth = Math.max(190 * hudScale, Math.min(panelWidth - 178 * hudScale, 340 * hudScale));
-    const levelLabel = this.addChildLabel(
-      panel,
-      'LobbyPlayerLevel',
-      `Lv.${profile.playerLevel}`,
-      textX,
-      panelTop - 52 * hudScale,
-      21 * hudScale,
-      rgba(226, 201, 145),
-      new Size(118 * hudScale, 30 * hudScale),
-      HorizontalTextAlignment.LEFT,
-    );
-    levelLabel.overflow = Label.Overflow.SHRINK;
-    this.applyLobbyPlayerTextStyle(levelLabel, hudScale, false);
-    const nameLabel = this.addChildLabel(
-      panel,
-      'LobbyPlayerName',
-      profile.displayName,
-      textX,
-      panelTop - 86 * hudScale,
-      27 * hudScale,
-      rgba(250, 226, 164),
-      new Size(textWidth, 36 * hudScale),
-      HorizontalTextAlignment.LEFT,
-    );
-    nameLabel.overflow = Label.Overflow.SHRINK;
-    this.applyLobbyPlayerTextStyle(nameLabel, hudScale, true);
-    this.addLobbyNameSigil(panel, textX + Math.min(154 * hudScale, textWidth + 12 * hudScale), panelTop - 86 * hudScale, hudScale);
-    const powerLabel = this.addChildLabel(
-      panel,
-      'LobbyPlayerPower',
-      `战力 ${this.formatInteger(profile.combatPower)}`,
-      textX,
-      panelTop - 128 * hudScale,
-      22 * hudScale,
-      rgba(224, 190, 112),
-      new Size(textWidth, 32 * hudScale),
-      HorizontalTextAlignment.LEFT,
-    );
-    powerLabel.overflow = Label.Overflow.SHRINK;
-    this.applyLobbyPlayerTextStyle(powerLabel, hudScale, false);
-    this.addLobbyPowerUnderline(panel, panelLeft + 366 * hudScale, panelTop - 150 * hudScale, 250 * hudScale, hudScale);
-    const expLabel = this.addChildLabel(
-      panel,
-      'LobbyPlayerExpBadge',
-      'EXP',
-      panelLeft + 80 * hudScale,
-      panelTop - 160 * hudScale,
-      17 * hudScale,
-      rgba(245, 210, 122),
-      new Size(70 * hudScale, 26 * hudScale),
-    );
-    this.applyLobbyPlayerTextStyle(expLabel, hudScale, false);
-
+  private openLobbyPlaceholderDialog(title: string, detail?: string): void {
+    this.host.openLobbyPlaceholderDialog(title, detail);
   }
 
-  private renderLobbyResourceBar(layout: UiLayout): void {
-    const profile = this.currentLobbyProfile();
-    const playerLayout = this.resolveLobbyPlayerInfoLayout(layout);
-    const scale = this.lobbyHudScale(layout);
-    const hudInsetX = this.lobbyHudEdgeInset(layout, 'x', scale);
-    const hudInsetY = this.lobbyHudEdgeInset(layout, 'y', scale);
-    const itemHeight = 34 * scale;
-    const gap = 14 * scale;
-    let items = this.lobbyResourceItems(profile);
-    if (layout.stageWidth < 840) {
-      items = items.slice(0, 2);
-    } else if (layout.stageWidth < 1180) {
-      items = items.slice(0, 3);
-    }
+  private openLobbyNoticePanel(): void {
+    this.host.openLobbyNoticePanel();
+  }
 
-    let itemWidths = items.map((item) => this.lobbyResourceItemWidth(item.key, scale));
-    let totalWidth = this.sumWithGaps(itemWidths, gap);
-    const systemWidth = this.lobbySystemIconsWidth(layout, scale);
-    const right = layout.stageRight - hudInsetX - systemWidth - 22 * scale;
-    const minGapFromPlayer = 18 * scale;
-    while (items.length > 0 && right - totalWidth < playerLayout.right + minGapFromPlayer) {
-      items = items.slice(0, -1);
-      itemWidths = itemWidths.slice(0, -1);
-      totalWidth = this.sumWithGaps(itemWidths, gap);
-    }
-    if (items.length === 0) {
-      return;
-    }
+  private openLobbyCodexPanel(): void {
+    this.host.openLobbyCodexPanel();
+  }
 
-    const bar = this.createUiNode('LobbyResourceBar');
-    const barX = right - totalWidth / 2;
-    const barY = layout.stageTop - hudInsetY - itemHeight / 2;
-    bar.setPosition(new Vec3(barX, barY, 0));
-    bar.addComponent(UITransform).setContentSize(new Size(totalWidth, itemHeight));
+  private openLobbyHeroRosterPanel(): void {
+    this.host.openLobbyHeroRosterPanel();
+  }
 
-    let cursorX = -totalWidth / 2;
-    for (let index = 0; index < items.length; index += 1) {
-      const item = items[index];
-      const width = itemWidths[index] ?? 0;
-      if (!item || width <= 0) {
-        continue;
-      }
-      this.addLobbyResourceItem(bar, item, cursorX + width / 2, width, itemHeight, scale);
-      cursorX += width + gap;
-    }
+  private openLobbyAdventurePanel(): void {
+    this.host.openLobbyAdventurePanel();
+  }
+
+  private openLobbyGachaScene(): void {
+    this.host.openLobbyGachaScene();
+  }
+
+  private openPlayerProfileDialog(): void {
+    // 玩家资料弹窗只读展示账号与角色概况，不触发玩法或经济写入。
+    this.host.openPlayerProfileDialog();
+  }
+
+  private showUnopenedFeature(title: string, detail?: string): void {
+    // 大厅占位入口统一走根节点弹窗，避免各入口散落不同的临时提示逻辑。
+    this.openLobbyPlaceholderDialog(title, detail);
   }
 
   private resolveLobbyPlayerInfoLayout(layout: UiLayout): LobbyPlayerInfoLayout {
-    const baseHudScale = this.lobbyHudScale(layout);
-    const hudInsetX = this.lobbyHudEdgeInset(layout, 'x', baseHudScale);
-    const hudInsetY = this.lobbyHudEdgeInset(layout, 'y', baseHudScale);
-    let width = Math.min(
-      clamp(layout.stageWidth * 0.28, 420 * baseHudScale, 540 * baseHudScale),
-      layout.safeWidth,
-      layout.stageWidth - hudInsetX * 2,
+    return resolveHudPlayerInfoLayout(layout);
+  }
+
+  private renderLobbyAtmosphere(layout: UiLayout): void {
+    const group = this.createUiNode('LobbyAtmosphereOverlay');
+    group.setPosition(Vec3.ZERO);
+    group.addComponent(UITransform).setContentSize(new Size(layout.width, layout.height));
+    const graphics = group.addComponent(Graphics);
+    const left = layout.stageLeft;
+    const right = layout.stageRight;
+    const top = layout.stageTop;
+    const bottom = layout.stageBottom;
+    const width = layout.stageWidth;
+    const height = layout.stageHeight;
+
+    // 用多层透明矩形模拟参考图的暗角和压边，让 HUD 文字在视频背景上更稳。
+    for (let index = 0; index < 5; index += 1) {
+      const ratio = index / 5;
+      const topHeight = height * (0.055 + ratio * 0.025);
+      graphics.fillColor = rgba(0, 0, 0, 58 - index * 9);
+      graphics.rect(left, top - topHeight, width, topHeight);
+      graphics.fill();
+
+      const bottomHeight = height * (0.075 + ratio * 0.028);
+      graphics.fillColor = rgba(0, 0, 0, 70 - index * 10);
+      graphics.rect(left, bottom, width, bottomHeight);
+      graphics.fill();
+
+      const sideWidth = width * (0.035 + ratio * 0.02);
+      graphics.fillColor = rgba(0, 0, 0, 46 - index * 7);
+      graphics.rect(left, bottom, sideWidth, height);
+      graphics.rect(right - sideWidth, bottom, sideWidth, height);
+      graphics.fill();
+    }
+
+    const redGlowWidth = width * 0.22;
+    const redGlowHeight = height * 0.18;
+    graphics.fillColor = rgba(105, 9, 17, 22);
+    graphics.rect(layout.stageLeft + width * 0.62, bottom + height * 0.45, redGlowWidth, redGlowHeight);
+    graphics.fill();
+  }
+
+  private renderMicroLobbyHud(layout: UiLayout): void {
+    const unit = this.viewportUnit(layout);
+    this.renderMicroPlayerInfo(layout, unit);
+    this.renderMicroStamina(layout, unit);
+    this.renderMicroGoalChip(layout, unit);
+    this.renderMicroActionBar(layout, unit);
+  }
+
+  private renderMicroPlayerInfo(layout: UiLayout, unit: number): void {
+    const profile = this.host.currentLobbyProfile();
+    const margin = 8 * unit;
+    const width = Math.min(190 * unit, layout.stageWidth * 0.52);
+    const height = 58 * unit;
+    const x = layout.stageLeft + margin + width / 2;
+    const y = layout.stageTop - margin - height / 2;
+    const node = this.createSizedUiNode('LobbyMicroPlayerInfo', x, y, width, height);
+    node.addComponent(Button);
+    node.on(Button.EventType.CLICK, () => this.openPlayerProfileDialog(), this);
+    this.applyImageButtonFeedback(node, 1.01, 0.99);
+    const graphics = node.addComponent(Graphics);
+    this.drawMicroPanel(graphics, width, height, unit, rgba(2, 3, 5, 190), rgba(183, 134, 64, 170));
+    const avatarSize = 42 * unit;
+    this.host.addLobbyAvatar(node, -width / 2 + 29 * unit, 0, avatarSize, profile.displayName);
+    const textLeft = -width / 2 + 58 * unit;
+    const textWidth = width - 66 * unit;
+    const level = this.addChildLabel(node, 'LobbyMicroPlayerLevel', `Lv.${profile.playerLevel}`, textLeft, 17 * unit, 11 * unit, rgba(226, 201, 145), new Size(textWidth, 14 * unit), HorizontalTextAlignment.LEFT);
+    level.overflow = Label.Overflow.SHRINK;
+    this.applyLobbyResourceTextStyle(level, unit, false);
+    const name = this.addChildLabel(node, 'LobbyMicroPlayerName', profile.displayName, textLeft, 2 * unit, 13 * unit, rgba(250, 226, 164), new Size(textWidth, 16 * unit), HorizontalTextAlignment.LEFT);
+    name.overflow = Label.Overflow.SHRINK;
+    this.applyLobbyResourceTextStyle(name, unit, true);
+    const power = this.addChildLabel(node, 'LobbyMicroPlayerPower', `战力 ${this.host.formatInteger(profile.combatPower)}`, textLeft, -16 * unit, 11 * unit, rgba(224, 190, 112), new Size(textWidth, 14 * unit), HorizontalTextAlignment.LEFT);
+    power.overflow = Label.Overflow.SHRINK;
+    this.applyLobbyResourceTextStyle(power, unit, false);
+  }
+
+  private renderMicroStamina(layout: UiLayout, unit: number): void {
+    const profile = this.host.currentLobbyProfile();
+    const margin = 8 * unit;
+    const width = Math.min(112 * unit, layout.stageWidth * 0.34);
+    const height = 24 * unit;
+    const x = layout.stageRight - margin - width / 2;
+    const y = layout.stageTop - margin - height / 2;
+    const node = this.createSizedUiNode('LobbyMicroStamina', x, y, width, height);
+    node.addComponent(Button);
+    node.on(Button.EventType.CLICK, () => this.showUnopenedFeature('体力', '当前仅展示体力数值，不开放购买、领取或消耗入口。'), this);
+    this.applyImageButtonFeedback(node, 1.015, 0.985);
+    const graphics = node.addComponent(Graphics);
+    this.drawMicroPanel(graphics, width, height, unit, rgba(2, 3, 5, 184), rgba(99, 190, 218, 150));
+    this.addMicroStaminaGlyph(node, -width / 2 + 14 * unit, 0, 16 * unit, unit);
+    const label = this.addChildLabel(
+      node,
+      'LobbyMicroStaminaValue',
+      `${this.host.formatInteger(profile.stamina)}/${this.host.formatInteger(profile.maxStamina)}`,
+      -width / 2 + 30 * unit,
+      0,
+      11 * unit,
+      rgba(245, 222, 168),
+      new Size(width - 36 * unit, height),
+      HorizontalTextAlignment.LEFT,
     );
-    let height = width / LOBBY_PLAYER_INFO_PANEL_ASPECT;
-    const maxHeight = layout.stageHeight - hudInsetY * 2;
-    if (height > maxHeight) {
-      height = maxHeight;
-      width = height * LOBBY_PLAYER_INFO_PANEL_ASPECT;
-    }
-    const x = layout.stageLeft + hudInsetX + width / 2;
-    const y = layout.stageTop - hudInsetY - height / 2;
-    return {
-      x,
-      y,
-      width,
-      height,
-      scale: width / 540,
-      left: x - width / 2,
-      right: x + width / 2,
-      top: y + height / 2,
-      bottom: y - height / 2,
-    };
+    label.overflow = Label.Overflow.SHRINK;
+    this.applyLobbyResourceTextStyle(label, unit, true);
   }
 
-  private lobbyResourceItems(profile: PlayerLobbyProfileVO): LobbyResourceItem[] {
-    return [
-      {
-        key: 'stamina',
-        label: '体力',
-        value: `${this.formatInteger(profile.stamina)}/${this.formatInteger(profile.maxStamina)}`,
-        tint: rgba(104, 202, 226),
-      },
-      {
-        key: 'coin',
-        label: '金币',
-        value: '3,456K',
-        tint: rgba(222, 172, 84),
-      },
-      {
-        key: 'ruby',
-        label: '红宝石',
-        value: '8,888',
-        tint: rgba(212, 50, 73),
-      },
-      {
-        key: 'crystal',
-        label: '水晶',
-        value: '2,450',
-        tint: rgba(132, 94, 226),
-      },
+  private renderMicroActionBar(layout: UiLayout, unit: number): void {
+    const actions = [
+      { label: '公告', detail: '', notice: true },
+      { label: '冒险', detail: '', adventure: true },
+      { label: '英雄', detail: '', heroRoster: true },
+      { label: '图鉴', detail: '', codex: true },
     ];
-  }
-
-  private lobbyResourceItemWidth(key: LobbyResourceItem['key'], scale: number): number {
-    if (key === 'stamina') {
-      return 128 * scale;
+    const margin = 8 * unit;
+    const width = Math.min(340 * unit, layout.stageWidth - margin * 2);
+    const height = 38 * unit;
+    const x = (layout.stageLeft + layout.stageRight) / 2;
+    const y = layout.stageBottom + margin + height / 2;
+    const group = this.createSizedUiNode('LobbyMicroActionBar', x, y, width, height);
+    const graphics = group.addComponent(Graphics);
+    this.drawMicroPanel(graphics, width, height, unit, rgba(2, 3, 5, 178), rgba(174, 126, 63, 150));
+    const itemWidth = width / actions.length;
+    for (let index = 0; index < actions.length; index += 1) {
+      const action = actions[index];
+      this.addCompactActionEntrance(
+        group,
+        action.label,
+        action.detail,
+        Boolean(action.notice),
+        -width / 2 + itemWidth * index + itemWidth / 2,
+        0,
+        itemWidth - 6 * unit,
+        height - 8 * unit,
+        unit,
+        Boolean(action.codex),
+        Boolean(action.heroRoster),
+        Boolean(action.adventure),
+      );
     }
-    if (key === 'coin') {
-      return 122 * scale;
+  }
+
+  private renderMicroGoalChip(layout: UiLayout, unit: number): void {
+    if (layout.viewportHeight < 260) {
+      return;
     }
-    return 112 * scale;
+    const goal = this.resolveLobbyNextGoalView();
+    const margin = 8 * unit;
+    const actionHeight = 38 * unit;
+    const gap = 8 * unit;
+    const width = Math.min(330 * unit, layout.stageWidth - margin * 2);
+    const height = 28 * unit;
+    const x = (layout.stageLeft + layout.stageRight) / 2;
+    const y = layout.stageBottom + margin + actionHeight + gap + height / 2;
+    if (y + height / 2 > layout.stageTop - margin - 64 * unit) {
+      return;
+    }
+    const node = this.createSizedUiNode('LobbyMicroGoalChip', x, y, width, height);
+    const button = node.addComponent(Button);
+    button.interactable = !goal.disabled;
+    if (!goal.disabled) {
+      node.on(Button.EventType.CLICK, () => this.activateLobbyNextGoal(goal), this);
+      this.applyImageButtonFeedback(node, 1.015, 0.985);
+    }
+    const graphics = node.addComponent(Graphics);
+    this.drawLobbyGoalPill(graphics, width, height, unit, goal.tone);
+    const text = this.addChildLabel(
+      node,
+      'LobbyMicroGoalChipText',
+      `下一步 · ${goal.actionLabel}`,
+      0,
+      0,
+      11 * unit,
+      goal.disabled ? rgba(156, 139, 104) : rgba(246, 218, 150),
+      new Size(width - 18 * unit, height),
+    );
+    text.overflow = Label.Overflow.SHRINK;
+    this.applyLobbyResourceTextStyle(text, unit, true);
   }
 
-  private sumWithGaps(values: number[], gap: number): number {
-    return values.reduce((total, value) => total + value, 0) + Math.max(0, values.length - 1) * gap;
+  private renderLobbyGoalTracker(layout: UiLayout): void {
+    if (layout.stageWidth < 1180 || layout.stageHeight < 620) {
+      return;
+    }
+    const scale = this.lobbyHudScale(layout);
+    const hudInsetX = this.lobbyHudEdgeInset(layout, 'x', scale);
+    const width = Math.min(410 * scale, Math.max(330 * scale, layout.stageWidth * 0.24));
+    const height = 126 * scale;
+    const leftRailReserve = Math.min(206 * scale, layout.stageWidth * 0.18) + 18 * scale;
+    const rightRailReserve = Math.min(184 * scale, layout.stageWidth * 0.16) + 18 * scale;
+    const minX = layout.stageLeft + hudInsetX + leftRailReserve + width / 2;
+    const maxX = layout.stageRight - hudInsetX - rightRailReserve - width / 2;
+    const preferredX = layout.stageLeft + layout.stageWidth * 0.34;
+    const x = minX <= maxX ? clamp(preferredX, minX, maxX) : (layout.stageLeft + layout.stageRight) / 2;
+    const y = layout.stageBottom + 96 * scale + height / 2 + 12 * scale;
+    const group = this.createSizedUiNode('LobbyGoalTracker', x, y, width, height);
+    const graphics = group.addComponent(Graphics);
+    const goal = this.resolveLobbyNextGoalView();
+    this.drawLobbyGoalTrackerPanel(graphics, width, height, scale, goal.tone);
+    this.addLobbyGoalTrackerContent(group, goal, width, height, scale);
   }
 
-  private renderLobbySystemIcons(layout: UiLayout): void {
+  private renderCompactGoalTracker(layout: UiLayout): void {
+    if (layout.stageWidth >= 1180 && layout.stageHeight >= 620) {
+      return;
+    }
+    if (layout.viewportWidth < 640 || layout.viewportHeight < 420 || layout.stageHeight < 360) {
+      return;
+    }
     const scale = this.lobbyHudScale(layout);
     const hudInsetX = this.lobbyHudEdgeInset(layout, 'x', scale);
     const hudInsetY = this.lobbyHudEdgeInset(layout, 'y', scale);
-    const iconSize = this.lobbySystemIconSize(scale);
-    const gap = 14 * scale;
-    const items = LOBBY_SYSTEM_ICONS;
-    const totalWidth = this.lobbySystemIconsWidth(layout, scale);
-    const x = layout.stageRight - hudInsetX - totalWidth / 2;
-    const y = layout.stageTop - hudInsetY - iconSize / 2;
-    const group = this.createUiNode('LobbySystemIcons');
-    group.setPosition(new Vec3(x, y, 0));
-    group.addComponent(UITransform).setContentSize(new Size(totalWidth, iconSize));
-
-    let cursorX = -totalWidth / 2 + iconSize / 2;
-    for (const key of items) {
-      this.addLobbySystemIcon(group, key, cursorX, 0, iconSize, scale, key === 'menu');
-      cursorX += iconSize + gap;
+    const bottomHudVisible = layout.stageWidth >= 900 && layout.stageHeight >= 500;
+    const width = bottomHudVisible
+      ? Math.min(330 * scale, Math.max(270 * scale, layout.stageWidth * 0.34))
+      : Math.min(300 * scale, Math.max(230 * scale, layout.stageWidth * 0.32));
+    const height = bottomHudVisible ? 68 * scale : 48 * scale;
+    let x: number;
+    let y: number;
+    if (bottomHudVisible) {
+      const leftRailReserve = layout.stageWidth >= 900 && layout.stageHeight >= 520 ? Math.min(206 * scale, layout.stageWidth * 0.18) + 18 * scale : 0;
+      const minX = layout.stageLeft + hudInsetX + leftRailReserve + width / 2;
+      const maxX = layout.stageRight - hudInsetX - width / 2;
+      x = minX <= maxX ? clamp(layout.stageLeft + layout.stageWidth * 0.34, minX, maxX) : (layout.stageLeft + layout.stageRight) / 2;
+      y = layout.stageBottom + 96 * scale + height / 2 + 10 * scale;
+    } else {
+      x = layout.stageRight - hudInsetX - width / 2;
+      y = layout.stageTop - hudInsetY - 46 * scale - height / 2;
     }
+    const group = this.createSizedUiNode('LobbyCompactGoalTracker', x, y, width, height);
+    const graphics = group.addComponent(Graphics);
+    const goal = this.resolveLobbyNextGoalView();
+    this.drawLobbyGoalTrackerPanel(graphics, width, height, scale, goal.tone);
+    this.addLobbyCompactGoalContent(group, goal, width, height, scale);
+  }
+
+  private addLobbyGoalTrackerContent(parent: Node, goal: LobbyNextGoalView, width: number, height: number, scale: number): void {
+    const left = -width / 2;
+    const top = height / 2;
+    const title = this.addChildLabel(parent, 'LobbyGoalTrackerTitle', goal.title, left + 24 * scale, top - 24 * scale, 17 * scale, rgba(245, 213, 145), new Size(width - 150 * scale, 24 * scale), HorizontalTextAlignment.LEFT);
+    title.overflow = Label.Overflow.SHRINK;
+    this.applyLobbyResourceTextStyle(title, scale, true);
+    const stage = this.addChildLabel(parent, 'LobbyGoalTrackerStage', goal.stageLine, left + 24 * scale, top - 53 * scale, 20 * scale, rgba(248, 226, 169), new Size(width - 48 * scale, 28 * scale), HorizontalTextAlignment.LEFT);
+    stage.overflow = Label.Overflow.SHRINK;
+    this.applyLobbyResourceTextStyle(stage, scale, true);
+    const recent = this.addChildLabel(parent, 'LobbyGoalTrackerRecent', goal.recentLine, left + 24 * scale, top - 79 * scale, 14 * scale, rgba(205, 187, 143), new Size(width - 48 * scale, 22 * scale), HorizontalTextAlignment.LEFT);
+    recent.overflow = Label.Overflow.SHRINK;
+    this.applyLobbyResourceTextStyle(recent, scale, false);
+    const boundary = this.addChildLabel(parent, 'LobbyGoalTrackerBoundary', goal.boundaryLine, left + 24 * scale, -height / 2 + 16 * scale, 12 * scale, rgba(151, 126, 82), new Size(width - 170 * scale, 18 * scale), HorizontalTextAlignment.LEFT);
+    boundary.overflow = Label.Overflow.SHRINK;
+    this.addLobbyGoalActionButton(parent, goal, width / 2 - 62 * scale, -height / 2 + 21 * scale, 104 * scale, 32 * scale, scale);
+  }
+
+  private addLobbyCompactGoalContent(parent: Node, goal: LobbyNextGoalView, width: number, height: number, scale: number): void {
+    const title = this.addChildLabel(parent, 'LobbyCompactGoalTitle', `下一步：${goal.actionLabel}`, -width / 2 + 16 * scale, height / 2 - 18 * scale, 14 * scale, rgba(246, 218, 150), new Size(width - 126 * scale, 20 * scale), HorizontalTextAlignment.LEFT);
+    title.overflow = Label.Overflow.SHRINK;
+    this.applyLobbyResourceTextStyle(title, scale, true);
+    const stage = this.addChildLabel(parent, 'LobbyCompactGoalStage', goal.stageLine, -width / 2 + 16 * scale, -height / 2 + 17 * scale, 13 * scale, rgba(204, 186, 141), new Size(width - 126 * scale, 19 * scale), HorizontalTextAlignment.LEFT);
+    stage.overflow = Label.Overflow.SHRINK;
+    this.applyLobbyResourceTextStyle(stage, scale, false);
+    this.addLobbyGoalActionButton(parent, goal, width / 2 - 52 * scale, 0, 88 * scale, Math.min(32 * scale, height - 12 * scale), scale);
+  }
+
+  private addLobbyGoalActionButton(parent: Node, goal: LobbyNextGoalView, x: number, y: number, width: number, height: number, scale: number): void {
+    const node = this.addChildPlainNode(parent, 'LobbyGoalTrackerButton', x, y, width, height);
+    const button = node.addComponent(Button);
+    button.interactable = !goal.disabled;
+    if (!goal.disabled) {
+      node.on(Button.EventType.CLICK, () => this.activateLobbyNextGoal(goal), this);
+      this.applyImageButtonFeedback(node, 1.025, 0.975);
+    }
+    const graphics = node.addComponent(Graphics);
+    graphics.fillColor = goal.disabled ? rgba(24, 20, 16, 142) : rgba(78, 12, 13, 210);
+    graphics.moveTo(-width / 2 + 10 * scale, height / 2);
+    graphics.lineTo(width / 2 - 10 * scale, height / 2);
+    graphics.lineTo(width / 2, 0);
+    graphics.lineTo(width / 2 - 10 * scale, -height / 2);
+    graphics.lineTo(-width / 2 + 10 * scale, -height / 2);
+    graphics.lineTo(-width / 2, 0);
+    graphics.close();
+    graphics.fill();
+    graphics.strokeColor = goal.disabled ? rgba(104, 86, 58, 120) : rgba(222, 174, 83, 202);
+    graphics.lineWidth = Math.max(1, 1 * scale);
+    graphics.stroke();
+    const label = this.addChildLabel(node, 'LobbyGoalTrackerButtonLabel', goal.actionLabel, 0, 0, 14 * scale, goal.disabled ? rgba(153, 137, 104) : rgba(248, 219, 138), new Size(width - 12 * scale, height));
+    label.overflow = Label.Overflow.SHRINK;
+    this.applyLobbyResourceTextStyle(label, scale, true);
+  }
+
+  private resolveLobbyNextGoalView(): LobbyNextGoalView {
+    const adventureState = this.host.currentLobbyAdventureState();
+    const battleState = this.host.currentLobbyBattleState();
+    const adventure = adventureState.adventure;
+    const selectedStageCode = this.normalizeMainStageCode(this.host.currentLobbySelectedStageCode());
+    const stage = adventure ? this.resolveLobbyGoalStage(adventure.chapters.flatMap((chapter) => chapter.stages), selectedStageCode ?? this.normalizeMainStageCode(adventure.recommendedStageCode)) : null;
+    const recent = this.resolveLobbyGoalRecentBattle(battleState.recentBattles, stage?.stageCode ?? null);
+    if (adventureState.loading && !adventure) {
+      return {
+        title: '同步主线目标',
+        stageLine: '主线状态读取中',
+        recentLine: '正在回读最近无奖励战斗记录',
+        boundaryLine: '仅读取大厅状态，不写入资源。',
+        actionLabel: '加载中',
+        disabled: true,
+        tone: 'loading',
+      };
+    }
+    if (adventureState.error && !adventure) {
+      return {
+        title: '主线目标异常',
+        stageLine: '冒险状态暂时不可用',
+        recentLine: battleState.recentError ? '最近记录也读取异常' : this.formatRecentBattleLine(recent, false, ''),
+        boundaryLine: '可打开冒险面板重试，不发起战斗。',
+        actionLabel: '进入冒险',
+        disabled: false,
+        tone: 'error',
+      };
+    }
+    if (!adventure || !stage) {
+      return {
+        title: '开始主线预演',
+        stageLine: '等待服务器推荐主线目标',
+        recentLine: this.formatRecentBattleLine(recent, battleState.recentLoading, battleState.recentError),
+        boundaryLine: '创建主角后从冒险面板选择关卡。',
+        actionLabel: '进入冒险',
+        disabled: false,
+        tone: 'empty',
+      };
+    }
+    if (!stage.unlocked) {
+      return {
+        title: '主线目标未解锁',
+        stageLine: `${stage.stageName} · ${stage.stageCode}`,
+        recentLine: `状态：${stage.statusLabel || '查看解锁条件'}`,
+        boundaryLine: '只能查看目标，不绕过锁定进入编队。',
+        actionLabel: '查看目标',
+        disabled: false,
+        tone: 'locked',
+      };
+    }
+    return {
+      title: '下一步目标',
+      stageLine: `${stage.stageName} · ${stage.stageCode}`,
+      recentLine: this.formatRecentBattleLine(recent, battleState.recentLoading, battleState.recentError),
+      boundaryLine: '只打开主线冒险，不发奖励、不扣体力、不推进主线。',
+      actionLabel: recent ? '继续冒险' : '进入冒险',
+      disabled: false,
+      tone: recent ? 'recent' : 'ready',
+    };
+  }
+
+  private resolveLobbyGoalStage(stages: LobbyAdventureStageVO[], preferredStageCode: string | null): LobbyAdventureStageVO | null {
+    if (preferredStageCode) {
+      const preferred = stages.find((stage) => stage.stageCode === preferredStageCode);
+      if (preferred) {
+        return preferred;
+      }
+    }
+    return stages.find((stage) => stage.recommended) ?? stages.find((stage) => stage.unlocked) ?? stages[0] ?? null;
+  }
+
+  private resolveLobbyGoalRecentBattle(recentBattles: PlayerBattleRecentVO[], stageCode: string | null): PlayerBattleRecentVO | null {
+    if (stageCode) {
+      const stageRecent = recentBattles.find((record) => record.stageCode === stageCode);
+      if (stageRecent) {
+        return stageRecent;
+      }
+    }
+    return recentBattles[0] ?? null;
+  }
+
+  private formatRecentBattleLine(recent: PlayerBattleRecentVO | null, loading: boolean, error: string): string {
+    if (loading && !recent) {
+      return '最近记录同步中';
+    }
+    if (error && !recent) {
+      return '最近记录读取异常，可从冒险面板重试';
+    }
+    if (!recent) {
+      return '尚无战斗记录，先完成一次无奖励预演';
+    }
+    const readonlyTag = !recent.rewardGranted && recent.readonlyEconomy && !recent.economyApplied ? '无奖励记录' : '只读记录待核验';
+    return `最近 ${recent.stageCode} · ${recent.result} · ${readonlyTag}`;
+  }
+
+  private normalizeMainStageCode(value: string | null | undefined): string | null {
+    const normalized = String(value ?? '').trim().toUpperCase();
+    return /^MAIN_\d+_\d+$/.test(normalized) ? normalized : null;
+  }
+
+  private activateLobbyNextGoal(goal: LobbyNextGoalView): void {
+    if (goal.disabled) {
+      return;
+    }
+    this.openLobbyAdventurePanel();
+    this.setStatus(`${goal.stageLine}：已打开主线冒险，当前仍是无奖励预演。`);
+  }
+
+  private drawLobbyGoalTrackerPanel(graphics: Graphics, width: number, height: number, scale: number, tone: LobbyNextGoalTone): void {
+    const bevel = 18 * scale;
+    const accent = this.lobbyGoalAccent(tone);
+    graphics.fillColor = rgba(0, 0, 0, 118);
+    this.traceLobbyGoalFrame(graphics, width + 8 * scale, height + 5 * scale, bevel, -3 * scale);
+    graphics.fill();
+    graphics.fillColor = rgba(4, 4, 6, 210);
+    this.traceLobbyGoalFrame(graphics, width, height, bevel, 0);
+    graphics.fill();
+    graphics.fillColor = rgba(accent.r, accent.g, accent.b, tone === 'error' ? 52 : 34);
+    graphics.rect(-width / 2 + 14 * scale, height / 2 - 36 * scale, width - 28 * scale, 26 * scale);
+    graphics.fill();
+    graphics.strokeColor = rgba(165, 119, 58, 178);
+    graphics.lineWidth = Math.max(1, 1 * scale);
+    this.traceLobbyGoalFrame(graphics, width, height, bevel, 0);
+    graphics.stroke();
+    graphics.strokeColor = rgba(accent.r, accent.g, accent.b, 190);
+    graphics.moveTo(-width / 2 + 24 * scale, height / 2 - 35 * scale);
+    graphics.lineTo(width / 2 - 24 * scale, height / 2 - 35 * scale);
+    graphics.stroke();
+  }
+
+  private drawLobbyGoalPill(graphics: Graphics, width: number, height: number, scale: number, tone: LobbyNextGoalTone): void {
+    const accent = this.lobbyGoalAccent(tone);
+    const bevel = 10 * scale;
+    graphics.fillColor = rgba(3, 4, 6, 196);
+    this.traceLobbyGoalFrame(graphics, width, height, bevel, 0);
+    graphics.fill();
+    graphics.strokeColor = rgba(accent.r, accent.g, accent.b, 184);
+    graphics.lineWidth = Math.max(1, 0.9 * scale);
+    this.traceLobbyGoalFrame(graphics, width, height, bevel, 0);
+    graphics.stroke();
+  }
+
+  private traceLobbyGoalFrame(graphics: Graphics, width: number, height: number, bevel: number, yOffset: number): void {
+    graphics.moveTo(-width / 2 + bevel, height / 2 + yOffset);
+    graphics.lineTo(width / 2 - bevel, height / 2 + yOffset);
+    graphics.lineTo(width / 2, height / 2 - bevel + yOffset);
+    graphics.lineTo(width / 2, -height / 2 + bevel + yOffset);
+    graphics.lineTo(width / 2 - bevel, -height / 2 + yOffset);
+    graphics.lineTo(-width / 2 + bevel, -height / 2 + yOffset);
+    graphics.lineTo(-width / 2, -height / 2 + bevel + yOffset);
+    graphics.lineTo(-width / 2, height / 2 - bevel + yOffset);
+    graphics.close();
+  }
+
+  private lobbyGoalAccent(tone: LobbyNextGoalTone): Color {
+    if (tone === 'error') {
+      return rgba(214, 70, 75);
+    }
+    if (tone === 'locked') {
+      return rgba(126, 111, 86);
+    }
+    if (tone === 'recent') {
+      return rgba(104, 202, 226);
+    }
+    if (tone === 'loading') {
+      return rgba(194, 157, 90);
+    }
+    return rgba(222, 174, 83);
+  }
+
+  private addMicroStaminaGlyph(parent: Node, x: number, y: number, size: number, unit: number): void {
+    const node = this.addChildPlainNode(parent, 'LobbyMicroStaminaGlyph', x, y, size, size);
+    const graphics = node.addComponent(Graphics);
+    const half = size / 2;
+    graphics.fillColor = rgba(14, 35, 42, 210);
+    graphics.circle(0, 0, half * 0.92);
+    graphics.fill();
+    graphics.strokeColor = rgba(104, 202, 226, 190);
+    graphics.lineWidth = Math.max(1, 0.8 * unit);
+    graphics.circle(0, 0, half * 0.88);
+    graphics.stroke();
+    graphics.fillColor = rgba(116, 219, 240, 230);
+    graphics.moveTo(-half * 0.04, half * 0.7);
+    graphics.lineTo(half * 0.34, half * 0.06);
+    graphics.lineTo(half * 0.08, half * 0.06);
+    graphics.lineTo(half * 0.26, -half * 0.7);
+    graphics.lineTo(-half * 0.34, -half * 0.02);
+    graphics.lineTo(-half * 0.08, -half * 0.02);
+    graphics.close();
+    graphics.fill();
+  }
+
+  private drawMicroPanel(graphics: Graphics, width: number, height: number, unit: number, fill: Color, stroke: Color): void {
+    const bevel = Math.min(10 * unit, height * 0.42);
+    graphics.fillColor = fill;
+    graphics.moveTo(-width / 2 + bevel, height / 2);
+    graphics.lineTo(width / 2 - bevel, height / 2);
+    graphics.lineTo(width / 2, height / 2 - bevel);
+    graphics.lineTo(width / 2, -height / 2 + bevel);
+    graphics.lineTo(width / 2 - bevel, -height / 2);
+    graphics.lineTo(-width / 2 + bevel, -height / 2);
+    graphics.lineTo(-width / 2, -height / 2 + bevel);
+    graphics.lineTo(-width / 2, height / 2 - bevel);
+    graphics.close();
+    graphics.fill();
+    graphics.strokeColor = stroke;
+    graphics.lineWidth = Math.max(1, 0.9 * unit);
+    graphics.stroke();
   }
 
   private renderLobbyActivityRail(layout: UiLayout): void {
@@ -406,6 +745,8 @@ export class LobbyHudRenderer {
     const group = this.createUiNode('LobbyChallengeRail');
     group.setPosition(new Vec3(groupX, groupY, 0));
     group.addComponent(UITransform).setContentSize(new Size(cardWidth, totalHeight));
+    const railGraphics = group.addComponent(Graphics);
+    this.drawLobbyChallengeRailTrack(railGraphics, cardWidth, totalHeight, scale);
 
     let cursorY = totalHeight / 2 - cardHeight / 2;
     for (const item of visible) {
@@ -426,14 +767,7 @@ export class LobbyHudRenderer {
     group.setPosition(new Vec3((layout.stageLeft + layout.stageRight) / 2, groupY, 0));
     group.addComponent(UITransform).setContentSize(new Size(layout.stageWidth, bandHeight));
     const graphics = group.addComponent(Graphics);
-    graphics.fillColor = rgba(3, 4, 7, 168);
-    graphics.rect(-layout.stageWidth / 2, -bandHeight / 2, layout.stageWidth, bandHeight);
-    graphics.fill();
-    graphics.strokeColor = rgba(160, 119, 61, 88);
-    graphics.lineWidth = Math.max(1, 1 * scale);
-    graphics.moveTo(-layout.stageWidth / 2, bandHeight / 2 - 2 * scale);
-    graphics.lineTo(layout.stageWidth / 2, bandHeight / 2 - 2 * scale);
-    graphics.stroke();
+    this.drawLobbyBottomPlatform(graphics, layout.stageWidth, bandHeight, scale);
 
     const compassSize = 86 * scale;
     this.addLobbyCompass(group, -layout.stageWidth / 2 + hudInsetX + compassSize / 2, 4 * scale, compassSize, scale);
@@ -441,7 +775,7 @@ export class LobbyHudRenderer {
     const adventureWidth = Math.min(320 * scale, layout.stageWidth * 0.24);
     const adventureHeight = 84 * scale;
     const adventureX = layout.stageWidth / 2 - hudInsetX - adventureWidth / 2;
-    this.addLobbyAdventureButton(group, adventureX, 0, adventureWidth, adventureHeight, scale);
+    this.addLobbyAdventureButton(group, adventureX, 6 * scale, adventureWidth, adventureHeight, scale);
 
     const navLeft = -layout.stageWidth / 2 + hudInsetX + compassSize + 30 * scale;
     const navRight = adventureX - adventureWidth / 2 - 28 * scale;
@@ -452,265 +786,76 @@ export class LobbyHudRenderer {
     this.addLobbyChatPreview(group, -layout.stageWidth / 2 + hudInsetX, -bandHeight / 2 + 14 * scale, Math.min(520 * scale, navWidth), scale);
   }
 
-  private lobbyHudScale(layout: UiLayout): number {
-    return clamp(layout.uiScale, 0.62, 1);
+  private drawLobbyBottomPlatform(graphics: Graphics, width: number, height: number, scale: number): void {
+    // 底部横梁拆成上沿、主承托和底部厚度三层，更接近参考图的黑金平台质感。
+    this.drawLobbyBottomPlatformStep(graphics, width, height, height / 2 - 15 * scale, 18 * scale, rgba(26, 18, 13, 132), rgba(185, 135, 65, 116), scale);
+    this.drawLobbyBottomPlatformStep(graphics, width, height, 0, height - 24 * scale, rgba(2, 3, 5, 186), rgba(84, 56, 31, 98), scale);
+    this.drawLobbyBottomPlatformStep(graphics, width, height, -height / 2 + 14 * scale, 30 * scale, rgba(0, 0, 0, 144), rgba(131, 91, 45, 86), scale);
+
+    graphics.fillColor = rgba(0, 0, 0, 78);
+    graphics.rect(-width / 2, -height / 2, 128 * scale, height);
+    graphics.rect(width / 2 - 128 * scale, -height / 2, 128 * scale, height);
+    graphics.fill();
+
+    graphics.fillColor = rgba(121, 14, 20, 30);
+    graphics.rect(width / 2 - 380 * scale, -height / 2 + 8 * scale, 330 * scale, height - 14 * scale);
+    graphics.fill();
+    graphics.fillColor = rgba(210, 39, 49, 22);
+    graphics.rect(-width / 2 + 34 * scale, -height / 2 + 12 * scale, 170 * scale, height - 20 * scale);
+    graphics.fill();
+
+    graphics.strokeColor = rgba(176, 130, 67, 122);
+    graphics.lineWidth = Math.max(1, 1.1 * scale);
+    const segmentCount = 7;
+    const gap = 22 * scale;
+    const segmentWidth = (width - gap * (segmentCount + 1)) / segmentCount;
+    for (let index = 0; index < segmentCount; index += 1) {
+      const start = -width / 2 + gap + index * (segmentWidth + gap);
+      graphics.moveTo(start, height / 2 - 4 * scale);
+      graphics.lineTo(start + segmentWidth, height / 2 - 4 * scale);
+    }
+    graphics.stroke();
   }
 
-  private lobbyHudEdgeInset(layout: UiLayout, axis: 'x' | 'y', scale: number): number {
-    const safeInset = axis === 'x' ? layout.safeInsetX : layout.safeInsetY;
-    const minInset = (axis === 'x' ? 10 : 8) * scale;
-    const maxInset = (axis === 'x' ? 26 : 18) * scale;
-    return clamp(safeInset * 0.38, minInset, maxInset);
-  }
-
-  private applyLobbyPlayerTextStyle(label: Label, scale: number, strong: boolean): void {
-    label.enableOutline = true;
-    label.outlineColor = strong ? rgba(0, 0, 0, 230) : rgba(0, 0, 0, 205);
-    label.outlineWidth = Math.max(1, (strong ? 1.8 : 1.25) * scale);
-  }
-
-  private drawLobbyPlayerInfoFrame(parent: Node, width: number, height: number, scale: number): void {
-    const graphics = parent.addComponent(Graphics);
+  private drawLobbyBottomPlatformStep(graphics: Graphics, width: number, totalHeight: number, centerY: number, height: number, fill: Color, stroke: Color, scale: number): void {
+    const bevel = 18 * scale;
     const left = -width / 2;
     const right = width / 2;
-    const top = height / 2;
-    const avatarCenterX = left + 80 * scale;
-
-    graphics.fillColor = rgba(3, 5, 9, 54);
-    graphics.moveTo(left + 126 * scale, top - 34 * scale);
-    graphics.lineTo(right - 22 * scale, top - 54 * scale);
-    graphics.lineTo(right - 54 * scale, top - 156 * scale);
-    graphics.lineTo(left + 130 * scale, top - 176 * scale);
-    graphics.lineTo(left + 116 * scale, top - 98 * scale);
+    const top = centerY + height / 2;
+    const bottom = centerY - height / 2;
+    graphics.fillColor = fill;
+    graphics.moveTo(left + bevel, top);
+    graphics.lineTo(right - bevel, top);
+    graphics.lineTo(right, top - Math.min(bevel, height * 0.5));
+    graphics.lineTo(right, bottom + Math.min(bevel, height * 0.36));
+    graphics.lineTo(right - bevel * 0.72, bottom);
+    graphics.lineTo(left + bevel * 0.72, bottom);
+    graphics.lineTo(left, bottom + Math.min(bevel, height * 0.36));
+    graphics.lineTo(left, top - Math.min(bevel, height * 0.5));
     graphics.close();
     graphics.fill();
-
-    graphics.fillColor = rgba(16, 18, 22, 48);
-    graphics.moveTo(left + 152 * scale, top - 58 * scale);
-    graphics.lineTo(right - 92 * scale, top - 70 * scale);
-    graphics.lineTo(right - 126 * scale, top - 140 * scale);
-    graphics.lineTo(left + 154 * scale, top - 150 * scale);
-    graphics.close();
-    graphics.fill();
-
-    graphics.strokeColor = rgba(210, 166, 78, 125);
-    graphics.lineWidth = 1.1 * scale;
-    graphics.moveTo(left + 146 * scale, top - 150 * scale);
-    graphics.lineTo(right - 57 * scale, top - 150 * scale);
+    graphics.strokeColor = stroke;
+    graphics.lineWidth = Math.max(1, 0.9 * scale);
     graphics.stroke();
 
-    graphics.fillColor = rgba(90, 53, 17, 215);
-    graphics.moveTo(avatarCenterX - 30 * scale, top - 159 * scale);
-    graphics.lineTo(avatarCenterX + 38 * scale, top - 159 * scale);
-    graphics.lineTo(avatarCenterX + 48 * scale, top - 176 * scale);
-    graphics.lineTo(avatarCenterX + 34 * scale, top - 202 * scale);
-    graphics.lineTo(avatarCenterX - 34 * scale, top - 202 * scale);
-    graphics.lineTo(avatarCenterX - 48 * scale, top - 176 * scale);
-    graphics.close();
-    graphics.fill();
-    graphics.strokeColor = rgba(229, 177, 74, 210);
-    graphics.lineWidth = 1.5 * scale;
+    graphics.strokeColor = rgba(226, 177, 92, 46);
+    graphics.moveTo(left + 42 * scale, Math.min(totalHeight / 2 - 6 * scale, top - 3 * scale));
+    graphics.lineTo(right - 42 * scale, Math.min(totalHeight / 2 - 6 * scale, top - 3 * scale));
     graphics.stroke();
   }
 
-  private addLobbyNameSigil(parent: Node, x: number, y: number, scale: number): void {
-    const sigil = new Node('LobbyPlayerNameSigil');
-    sigil.layer = this.node.layer;
-    parent.addChild(sigil);
-    sigil.setPosition(new Vec3(x, y, 0));
-    sigil.addComponent(UITransform).setContentSize(new Size(24 * scale, 24 * scale));
-    const graphics = sigil.addComponent(Graphics);
-    graphics.strokeColor = rgba(209, 164, 78, 214);
-    graphics.lineWidth = Math.max(1, 1.35 * scale);
-    graphics.moveTo(0, 11 * scale);
-    graphics.lineTo(0, -8 * scale);
-    graphics.moveTo(-8 * scale, 2 * scale);
-    graphics.lineTo(8 * scale, 2 * scale);
-    graphics.arc(0, -5 * scale, 7 * scale, Math.PI * 0.08, Math.PI * 0.92, false);
-    graphics.moveTo(-7 * scale, -5 * scale);
-    graphics.lineTo(-10 * scale, -2 * scale);
-    graphics.moveTo(7 * scale, -5 * scale);
-    graphics.lineTo(10 * scale, -2 * scale);
-    graphics.stroke();
+  private lobbyHudScale(layout: UiLayout): number {
+    return resolveLobbyHudScale(layout);
   }
 
-  private addLobbyPowerUnderline(parent: Node, x: number, y: number, width: number, scale: number): void {
-    const line = new Node('LobbyPlayerPowerUnderline');
-    line.layer = this.node.layer;
-    parent.addChild(line);
-    line.setPosition(new Vec3(x, y, 0));
-    line.addComponent(UITransform).setContentSize(new Size(width, 14 * scale));
-    const graphics = line.addComponent(Graphics);
-    graphics.strokeColor = rgba(178, 137, 72, 130);
-    graphics.lineWidth = Math.max(1, 1 * scale);
-    graphics.moveTo(-width / 2, 0);
-    graphics.lineTo(width / 2, 0);
-    graphics.stroke();
-  }
-
-  private addLobbyResourceItem(parent: Node, item: LobbyResourceItem, x: number, width: number, height: number, scale: number): void {
-    const node = this.addChildPlainNode(parent, `LobbyResourceItem_${item.key}`, x, 0, width, height);
-    const graphics = node.addComponent(Graphics);
-    graphics.fillColor = rgba(5, 6, 9, 130);
-    graphics.rect(-width / 2, -height / 2 + 2 * scale, width, height - 4 * scale);
-    graphics.fill();
-    graphics.strokeColor = rgba(93, 69, 35, 130);
-    graphics.lineWidth = Math.max(1, 1 * scale);
-    graphics.moveTo(-width / 2 + 4 * scale, height / 2 - 2 * scale);
-    graphics.lineTo(width / 2 - 4 * scale, height / 2 - 2 * scale);
-    graphics.moveTo(-width / 2 + 4 * scale, -height / 2 + 2 * scale);
-    graphics.lineTo(width / 2 - 4 * scale, -height / 2 + 2 * scale);
-    graphics.stroke();
-
-    const glyphSize = 22 * scale;
-    this.addLobbyResourceGlyph(node, item.key, -width / 2 + 16 * scale, 0, glyphSize, item.tint, scale);
-    const textX = -width / 2 + 37 * scale;
-    const textWidth = Math.max(28 * scale, width - 66 * scale);
-    const value = this.addChildLabel(
-      node,
-      `LobbyResourceValue_${item.key}`,
-      item.value,
-      textX,
-      0,
-      21 * scale,
-      rgba(245, 222, 168),
-      new Size(textWidth, 28 * scale),
-      HorizontalTextAlignment.LEFT,
-    );
-    value.overflow = Label.Overflow.SHRINK;
-    this.applyLobbyResourceTextStyle(value, scale, true);
-    this.addLobbyDisabledPlus(node, width / 2 - 15 * scale, 0, 16 * scale, scale);
-  }
-
-  private addLobbyResourceGlyph(
-    parent: Node,
-    key: LobbyResourceItem['key'],
-    x: number,
-    y: number,
-    size: number,
-    tint: Color,
-    scale: number,
-  ): void {
-    const glyph = new Node(`LobbyResourceGlyph_${key}`);
-    glyph.layer = this.node.layer;
-    parent.addChild(glyph);
-    glyph.setPosition(new Vec3(x, y, 0));
-    glyph.addComponent(UITransform).setContentSize(new Size(size, size));
-    const graphics = glyph.addComponent(Graphics);
-    graphics.fillColor = rgba(tint.r, tint.g, tint.b, 225);
-    graphics.strokeColor = rgba(18, 13, 8, 220);
-    graphics.lineWidth = Math.max(1, 1 * scale);
-    const half = size / 2;
-
-    if (key === 'stamina') {
-      graphics.moveTo(-half * 0.05, half * 0.9);
-      graphics.lineTo(half * 0.46, half * 0.12);
-      graphics.lineTo(half * 0.12, half * 0.12);
-      graphics.lineTo(half * 0.38, -half * 0.9);
-      graphics.lineTo(-half * 0.5, -half * 0.02);
-      graphics.lineTo(-half * 0.12, -half * 0.02);
-      graphics.close();
-      graphics.fill();
-      graphics.stroke();
-      return;
-    }
-
-    if (key === 'coin') {
-      graphics.circle(0, 0, half * 0.72);
-      graphics.fill();
-      graphics.stroke();
-      graphics.strokeColor = rgba(255, 234, 151, 190);
-      graphics.lineWidth = Math.max(1, 0.8 * scale);
-      graphics.circle(0, 0, half * 0.43);
-      graphics.stroke();
-      return;
-    }
-
-    if (key === 'ruby' || key === 'crystal') {
-      graphics.moveTo(0, half * 0.82);
-      graphics.lineTo(half * 0.74, 0);
-      graphics.lineTo(0, -half * 0.82);
-      graphics.lineTo(-half * 0.74, 0);
-      graphics.close();
-      graphics.fill();
-      graphics.stroke();
-      graphics.strokeColor = rgba(255, 218, 255, 180);
-      graphics.moveTo(-half * 0.43, 0);
-      graphics.lineTo(half * 0.43, 0);
-      graphics.stroke();
-      return;
-    }
+  private lobbyHudEdgeInset(layout: UiLayout, axis: LobbyHudEdgeAxis, scale: number): number {
+    return resolveLobbyHudEdgeInset(layout, axis, scale);
   }
 
   private applyLobbyResourceTextStyle(label: Label, scale: number, strong: boolean): void {
     label.enableOutline = true;
     label.outlineColor = rgba(0, 0, 0, strong ? 220 : 185);
     label.outlineWidth = Math.max(1, (strong ? 1.2 : 0.9) * scale);
-  }
-
-  private lobbySystemIconSize(scale: number): number {
-    return 32 * scale;
-  }
-
-  private lobbySystemIconsWidth(_layout: UiLayout, scale: number): number {
-    const iconSize = this.lobbySystemIconSize(scale);
-    return iconSize * 4 + 14 * scale * 3;
-  }
-
-  private addLobbySystemIcon(parent: Node, key: LobbySystemIconKey, x: number, y: number, size: number, scale: number, hot: boolean): void {
-    const node = this.addChildPlainNode(parent, `LobbySystemIcon_${key}`, x, y, size, size);
-    const button = node.addComponent(Button);
-    node.on(Button.EventType.CLICK, () => this.setStatus('大厅系统入口暂未开放。'), this);
-    this.applyImageButtonFeedback(node, 1.08, 0.94);
-    const graphics = node.addComponent(Graphics);
-    graphics.strokeColor = rgba(206, 171, 112, 230);
-    graphics.fillColor = rgba(198, 159, 96, 230);
-    graphics.lineWidth = Math.max(2, 2.2 * scale);
-    const half = size / 2;
-
-    if (key === 'friends') {
-      graphics.circle(-half * 0.22, half * 0.2, half * 0.2);
-      graphics.fill();
-      graphics.circle(half * 0.22, half * 0.2, half * 0.2);
-      graphics.fill();
-      graphics.moveTo(-half * 0.48, -half * 0.32);
-      graphics.bezierCurveTo(-half * 0.42, -half * 0.02, -half * 0.02, half * 0.02, half * 0.02, -half * 0.32);
-      graphics.stroke();
-      graphics.moveTo(-half * 0.02, -half * 0.32);
-      graphics.bezierCurveTo(half * 0.04, -half * 0.02, half * 0.44, half * 0.02, half * 0.48, -half * 0.32);
-      graphics.stroke();
-    } else if (key === 'mail') {
-      graphics.rect(-half * 0.72, -half * 0.42, half * 1.44, half * 0.9);
-      graphics.stroke();
-      graphics.moveTo(-half * 0.68, half * 0.44);
-      graphics.lineTo(0, -half * 0.08);
-      graphics.lineTo(half * 0.68, half * 0.44);
-      graphics.stroke();
-    } else if (key === 'settings') {
-      graphics.circle(0, 0, half * 0.55);
-      graphics.stroke();
-      graphics.circle(0, 0, half * 0.2);
-      graphics.stroke();
-      for (let i = 0; i < 8; i += 1) {
-        const angle = (Math.PI * 2 * i) / 8;
-        const start = half * 0.68;
-        const end = half * 0.88;
-        graphics.moveTo(Math.cos(angle) * start, Math.sin(angle) * start);
-        graphics.lineTo(Math.cos(angle) * end, Math.sin(angle) * end);
-      }
-      graphics.stroke();
-    } else {
-      for (let i = -1; i <= 1; i += 1) {
-        graphics.moveTo(-half * 0.55, i * half * 0.35);
-        graphics.lineTo(half * 0.55, i * half * 0.35);
-      }
-      graphics.stroke();
-    }
-
-    if (hot) {
-      this.addLobbyRedDot(node, half * 0.42, half * 0.42, 6 * scale, true);
-    }
-    void button;
   }
 
   private addLobbyActivityItem(
@@ -727,28 +872,59 @@ export class LobbyHudRenderer {
   ): void {
     const node = this.addChildPlainNode(parent, `LobbyActivityItem_${icon}`, x, y, width, height);
     node.addComponent(Button);
-    node.on(Button.EventType.CLICK, () => this.setStatus('活动入口暂未开放。'), this);
+    node.on(Button.EventType.CLICK, () => {
+      if (icon === 'event') {
+        this.openLobbyNoticePanel();
+        return;
+      }
+      if (icon === 'summon') {
+        this.openLobbyGachaScene();
+        return;
+      }
+      this.showUnopenedFeature(title, '活动、召唤和运营入口将在后续阶段接入；当前只保留大厅本地展示。');
+    }, this);
     this.applyImageButtonFeedback(node, 1.025, 0.98);
     const graphics = node.addComponent(Graphics);
-    graphics.fillColor = rgba(5, 5, 7, 142);
-    graphics.rect(-width / 2 + 4 * scale, -height / 2 + 4 * scale, width - 8 * scale, height - 8 * scale);
+    // 活动栏当前是本地预览态，用暗金旗帜表达“入口存在但未开放”，避免倒计时/红点误导。
+    graphics.fillColor = rgba(0, 0, 0, 92);
+    this.traceLobbyActivityBanner(graphics, width + 8 * scale, height + 5 * scale, scale, -2 * scale);
     graphics.fill();
-    graphics.strokeColor = hot ? rgba(150, 34, 38, 190) : rgba(116, 86, 50, 135);
-    graphics.lineWidth = Math.max(1, 1.1 * scale);
-    graphics.moveTo(-width / 2 + 5 * scale, height / 2 - 5 * scale);
-    graphics.lineTo(width / 2 - 12 * scale, height / 2 - 5 * scale);
-    graphics.moveTo(-width / 2 + 5 * scale, -height / 2 + 5 * scale);
-    graphics.lineTo(width / 2 - 12 * scale, -height / 2 + 5 * scale);
+    graphics.fillColor = rgba(5, 5, 7, 174);
+    this.traceLobbyActivityBanner(graphics, width, height, scale, 0);
+    graphics.fill();
+    graphics.fillColor = hot ? rgba(113, 18, 24, 156) : rgba(97, 72, 38, 108);
+    graphics.rect(-width / 2 + 3 * scale, -height / 2 + 8 * scale, 4 * scale, height - 16 * scale);
+    graphics.fill();
+    graphics.strokeColor = hot ? rgba(174, 45, 47, 166) : rgba(156, 116, 62, 145);
+    graphics.lineWidth = Math.max(1, 1.15 * scale);
+    this.traceLobbyActivityBanner(graphics, width, height, scale, 0);
+    graphics.stroke();
+    graphics.strokeColor = rgba(231, 191, 103, 74);
+    graphics.moveTo(-width / 2 + 18 * scale, height / 2 - 7 * scale);
+    graphics.lineTo(width / 2 - 28 * scale, height / 2 - 7 * scale);
+    graphics.moveTo(-width / 2 + 18 * scale, -height / 2 + 7 * scale);
+    graphics.lineTo(width / 2 - 26 * scale, -height / 2 + 7 * scale);
     graphics.stroke();
 
     this.addLobbyActivityIcon(node, icon, -width / 2 + 34 * scale, 0, 45 * scale, scale);
-    const titleLabel = this.addChildLabel(node, `LobbyActivityTitle_${icon}`, title, -width / 2 + 66 * scale, 14 * scale, 22 * scale, rgba(243, 218, 164), new Size(width - 76 * scale, 27 * scale), HorizontalTextAlignment.LEFT);
+    const titleLabel = this.addChildLabel(node, `LobbyActivityTitle_${icon}`, title, -width / 2 + 66 * scale, 14 * scale, 22 * scale, rgba(243, 218, 164), new Size(width - 118 * scale, 27 * scale), HorizontalTextAlignment.LEFT);
     titleLabel.overflow = Label.Overflow.SHRINK;
     this.applyLobbyResourceTextStyle(titleLabel, scale, true);
-    const subLabel = this.addChildLabel(node, `LobbyActivitySubline_${icon}`, subline, -width / 2 + 66 * scale, -16 * scale, 20 * scale, hot ? rgba(231, 181, 63) : rgba(199, 169, 108), new Size(width - 76 * scale, 26 * scale), HorizontalTextAlignment.LEFT);
+    const subLabel = this.addChildLabel(node, `LobbyActivitySubline_${icon}`, subline, -width / 2 + 66 * scale, -16 * scale, 19 * scale, hot ? rgba(231, 181, 63) : rgba(199, 169, 108), new Size(width - 118 * scale, 25 * scale), HorizontalTextAlignment.LEFT);
     subLabel.overflow = Label.Overflow.SHRINK;
     this.applyLobbyResourceTextStyle(subLabel, scale, false);
+    this.addLobbyStateBadge(node, 'LobbyActivityPreviewBadge', this.lobbyStateBadgeText(subline), width / 2 - 33 * scale, -12 * scale, 46 * scale, 20 * scale, scale);
     this.addLobbyRedDot(node, width / 2 - 26 * scale, height / 2 - 16 * scale, 6 * scale, hot);
+  }
+
+  private traceLobbyActivityBanner(graphics: Graphics, width: number, height: number, scale: number, yOffset: number): void {
+    graphics.moveTo(-width / 2 + 8 * scale, height / 2 + yOffset);
+    graphics.lineTo(width / 2 - 22 * scale, height / 2 + yOffset);
+    graphics.lineTo(width / 2 - 6 * scale, yOffset);
+    graphics.lineTo(width / 2 - 22 * scale, -height / 2 + yOffset);
+    graphics.lineTo(-width / 2 + 8 * scale, -height / 2 + yOffset);
+    graphics.lineTo(-width / 2, yOffset);
+    graphics.close();
   }
 
   private addLobbyActivityIcon(parent: Node, key: LobbyActivityIconKey, x: number, y: number, size: number, scale: number): void {
@@ -831,22 +1007,69 @@ export class LobbyHudRenderer {
     node.on(Button.EventType.CLICK, () => this.activateLobbyHotspot(parent, label, x, y, scale), this);
     this.applyImageButtonFeedback(node, 1.035, 0.97);
     const graphics = node.addComponent(Graphics);
-    graphics.fillColor = rgba(4, 4, 5, 172);
-    graphics.moveTo(-width / 2 + 12 * scale, height / 2);
-    graphics.lineTo(width / 2 - 12 * scale, height / 2);
-    graphics.lineTo(width / 2, 0);
-    graphics.lineTo(width / 2 - 12 * scale, -height / 2);
-    graphics.lineTo(-width / 2 + 12 * scale, -height / 2);
-    graphics.lineTo(-width / 2, 0);
+    if (hot) {
+      graphics.fillColor = rgba(126, 17, 24, 44);
+      this.traceLobbyPlaque(graphics, width + 24 * scale, height + 18 * scale, scale, -3 * scale);
+      graphics.fill();
+      graphics.fillColor = rgba(218, 164, 70, 28);
+      this.traceLobbyPlaque(graphics, width + 14 * scale, height + 10 * scale, scale, -2 * scale);
+      graphics.fill();
+    }
+    graphics.fillColor = rgba(0, 0, 0, 128);
+    this.traceLobbyPlaque(graphics, width + 9 * scale, height + 7 * scale, scale, -2 * scale);
+    graphics.fill();
+    graphics.fillColor = rgba(48, 8, 11, 92);
+    this.traceLobbyPlaque(graphics, width + 2 * scale, height + 2 * scale, scale, 0);
+    graphics.fill();
+    graphics.fillColor = rgba(4, 4, 5, 196);
+    this.traceLobbyPlaque(graphics, width, height, scale, 0);
+    graphics.fill();
+    graphics.strokeColor = rgba(184, 135, 70, 176);
+    graphics.lineWidth = Math.max(1, 1 * scale);
+    this.traceLobbyPlaque(graphics, width, height, scale, 0);
+    graphics.stroke();
+    graphics.strokeColor = rgba(247, 210, 118, 92);
+    graphics.lineWidth = Math.max(1, 0.8 * scale);
+    this.traceLobbyPlaque(graphics, width - 10 * scale, height - 8 * scale, scale, 0);
+    graphics.stroke();
+    graphics.strokeColor = rgba(235, 200, 124, 88);
+    graphics.moveTo(-width / 2 + 18 * scale, height / 2 - 5 * scale);
+    graphics.lineTo(width / 2 - 18 * scale, height / 2 - 5 * scale);
+    graphics.moveTo(-width / 2 + 18 * scale, -height / 2 + 5 * scale);
+    graphics.lineTo(width / 2 - 18 * scale, -height / 2 + 5 * scale);
+    graphics.stroke();
+    graphics.fillColor = rgba(220, 170, 82, 176);
+    graphics.moveTo(-width / 2 + 18 * scale, 0);
+    graphics.lineTo(-width / 2 + 25 * scale, 4 * scale);
+    graphics.lineTo(-width / 2 + 25 * scale, -4 * scale);
+    graphics.close();
+    graphics.moveTo(width / 2 - 18 * scale, 0);
+    graphics.lineTo(width / 2 - 25 * scale, 4 * scale);
+    graphics.lineTo(width / 2 - 25 * scale, -4 * scale);
     graphics.close();
     graphics.fill();
-    graphics.strokeColor = rgba(145, 106, 55, 140);
-    graphics.lineWidth = Math.max(1, 1 * scale);
-    graphics.stroke();
     const text = this.addChildLabel(node, 'LobbyHotspotLabel', label, 0, 1 * scale, 22 * scale, rgba(236, 208, 145), new Size(width - 18 * scale, height));
     text.overflow = Label.Overflow.SHRINK;
     this.applyLobbyResourceTextStyle(text, scale, true);
     this.addLobbyRedDot(node, width / 2 - 8 * scale, height / 2 - 3 * scale, 5 * scale, hot);
+  }
+
+  private traceLobbyPlaque(graphics: Graphics, width: number, height: number, scale: number, yOffset: number): void {
+    graphics.moveTo(-width / 2 + 18 * scale, height / 2 + yOffset);
+    graphics.lineTo(width / 2 - 18 * scale, height / 2 + yOffset);
+    graphics.lineTo(width / 2 - 8 * scale, height / 2 - 7 * scale + yOffset);
+    graphics.lineTo(width / 2, 4 * scale + yOffset);
+    graphics.lineTo(width / 2 - 7 * scale, yOffset);
+    graphics.lineTo(width / 2, -4 * scale + yOffset);
+    graphics.lineTo(width / 2 - 8 * scale, -height / 2 + 7 * scale + yOffset);
+    graphics.lineTo(width / 2 - 18 * scale, -height / 2 + yOffset);
+    graphics.lineTo(-width / 2 + 18 * scale, -height / 2 + yOffset);
+    graphics.lineTo(-width / 2 + 8 * scale, -height / 2 + 7 * scale + yOffset);
+    graphics.lineTo(-width / 2, -4 * scale + yOffset);
+    graphics.lineTo(-width / 2 + 7 * scale, yOffset);
+    graphics.lineTo(-width / 2, 4 * scale + yOffset);
+    graphics.lineTo(-width / 2 + 8 * scale, height / 2 - 7 * scale + yOffset);
+    graphics.close();
   }
 
   private drawLobbyHotspotHover(node: Node, width: number, height: number, scale: number, visible: boolean): void {
@@ -883,7 +1106,11 @@ export class LobbyHudRenderer {
   }
 
   private activateLobbyHotspot(parent: Node, label: string, x: number, y: number, scale: number): void {
-    this.setStatus(`${label} 暂未开放。`);
+    if (label === '召唤祭坛') {
+      this.openLobbyGachaScene();
+      return;
+    }
+    this.showUnopenedFeature(label, '场景玩法入口暂未开放；当前不会跳转到玩法页面，也不会调用玩法或经济接口。');
     this.playLobbyClickEffect(parent, x, y, scale);
   }
 
@@ -926,22 +1153,29 @@ export class LobbyHudRenderer {
   private addLobbyChallengeCard(parent: Node, title: string, subline: string, tint: Color, hot: boolean, x: number, y: number, width: number, height: number, scale: number): void {
     const node = this.addChildPlainNode(parent, `LobbyChallengeCard_${title}`, x, y, width, height);
     node.addComponent(Button);
-    node.on(Button.EventType.CLICK, () => this.setStatus('挑战入口暂未开放。'), this);
+    node.on(Button.EventType.CLICK, () => this.showUnopenedFeature(title, '挑战副本仍是本地占位；当前不会进入战斗、结算或发放资源。'), this);
     this.applyImageButtonFeedback(node, 1.025, 0.975);
     const graphics = node.addComponent(Graphics);
-    graphics.fillColor = rgba(5, 5, 7, 190);
-    graphics.rect(-width / 2, -height / 2, width, height);
+    graphics.fillColor = rgba(0, 0, 0, 112);
+    this.traceLobbyChallengeCard(graphics, width + 5 * scale, height + 5 * scale, scale, -2 * scale);
     graphics.fill();
-    graphics.fillColor = rgba(tint.r, tint.g, tint.b, 118);
-    graphics.rect(-width / 2 + 5 * scale, -height / 2 + 5 * scale, width - 10 * scale, height - 10 * scale);
+    graphics.fillColor = rgba(5, 5, 7, 202);
+    this.traceLobbyChallengeCard(graphics, width, height, scale, 0);
+    graphics.fill();
+    graphics.fillColor = rgba(tint.r, tint.g, tint.b, 92);
+    this.traceLobbyChallengeCard(graphics, width - 10 * scale, height - 10 * scale, scale, 0);
     graphics.fill();
     this.drawLobbyChallengeArt(graphics, width, height, scale);
     graphics.strokeColor = rgba(131, 93, 50, 185);
     graphics.lineWidth = Math.max(1, 1.2 * scale);
-    graphics.rect(-width / 2 + 1 * scale, -height / 2 + 1 * scale, width - 2 * scale, height - 2 * scale);
+    this.traceLobbyChallengeCard(graphics, width - 2 * scale, height - 2 * scale, scale, 0);
     graphics.stroke();
     graphics.fillColor = rgba(0, 0, 0, 112);
-    graphics.rect(-width / 2 + 4 * scale, -height / 2 + 4 * scale, width - 8 * scale, 36 * scale);
+    graphics.moveTo(-width / 2 + 10 * scale, -height / 2 + 38 * scale);
+    graphics.lineTo(width / 2 - 18 * scale, -height / 2 + 38 * scale);
+    graphics.lineTo(width / 2 - 10 * scale, -height / 2 + 8 * scale);
+    graphics.lineTo(-width / 2 + 8 * scale, -height / 2 + 8 * scale);
+    graphics.close();
     graphics.fill();
     const titleLabel = this.addChildLabel(node, 'LobbyChallengeTitle', title, -width / 2 + 14 * scale, -height / 2 + 30 * scale, 22 * scale, rgba(247, 221, 162), new Size(width - 26 * scale, 28 * scale), HorizontalTextAlignment.LEFT);
     titleLabel.overflow = Label.Overflow.SHRINK;
@@ -949,18 +1183,98 @@ export class LobbyHudRenderer {
     const subLabel = this.addChildLabel(node, 'LobbyChallengeSubline', subline, -width / 2 + 14 * scale, -height / 2 + 10 * scale, 18 * scale, rgba(230, 179, 58), new Size(width - 26 * scale, 23 * scale), HorizontalTextAlignment.LEFT);
     subLabel.overflow = Label.Overflow.SHRINK;
     this.applyLobbyResourceTextStyle(subLabel, scale, false);
+    this.addLobbyStateBadge(node, 'LobbyChallengePreviewBadge', this.lobbyStateBadgeText(subline), width / 2 - 40 * scale, height / 2 - 18 * scale, 52 * scale, 21 * scale, scale);
     this.addLobbyRedDot(node, width / 2 - 9 * scale, height / 2 - 9 * scale, 5 * scale, hot);
   }
 
-  private drawLobbyChallengeArt(graphics: Graphics, width: number, height: number, scale: number): void {
-    graphics.strokeColor = rgba(226, 222, 211, 86);
+  private drawLobbyChallengeRailTrack(graphics: Graphics, width: number, height: number, scale: number): void {
+    // 右侧挑战栏加一条暗金轨道，让卡片像固定在画面边缘的模块。
+    const trackX = width / 2 - 7 * scale;
+    graphics.fillColor = rgba(4, 3, 4, 126);
+    graphics.rect(trackX, -height / 2 - 6 * scale, 9 * scale, height + 12 * scale);
+    graphics.fill();
+    graphics.strokeColor = rgba(164, 119, 58, 105);
     graphics.lineWidth = Math.max(1, 1 * scale);
+    graphics.moveTo(trackX + 2 * scale, -height / 2);
+    graphics.lineTo(trackX + 2 * scale, height / 2);
+    graphics.stroke();
+  }
+
+  private traceLobbyChallengeCard(graphics: Graphics, width: number, height: number, scale: number, yOffset: number): void {
+    graphics.moveTo(-width / 2 + 8 * scale, height / 2 + yOffset);
+    graphics.lineTo(width / 2 - 18 * scale, height / 2 + yOffset);
+    graphics.lineTo(width / 2, height / 2 - 18 * scale + yOffset);
+    graphics.lineTo(width / 2 - 8 * scale, -height / 2 + yOffset);
+    graphics.lineTo(-width / 2 + 14 * scale, -height / 2 + yOffset);
+    graphics.lineTo(-width / 2, -height / 2 + 15 * scale + yOffset);
+    graphics.lineTo(-width / 2 + 4 * scale, height / 2 - 8 * scale + yOffset);
+    graphics.close();
+  }
+
+  private lobbyStateBadgeText(subline: string): string {
+    if (subline.includes('锁定')) {
+      return '锁定';
+    }
+    if (subline.includes('占位')) {
+      return '占位';
+    }
+    if (subline.includes('未开放') || subline.includes('暂未开放')) {
+      return '未开';
+    }
+    return '预览';
+  }
+
+  private addLobbyStateBadge(parent: Node, name: string, text: string, x: number, y: number, width: number, height: number, scale: number): void {
+    const node = this.addChildPlainNode(parent, name, x, y, width, height);
+    const graphics = node.addComponent(Graphics);
+    graphics.fillColor = rgba(6, 5, 5, 182);
+    graphics.moveTo(-width / 2 + 7 * scale, height / 2);
+    graphics.lineTo(width / 2 - 5 * scale, height / 2);
+    graphics.lineTo(width / 2, 0);
+    graphics.lineTo(width / 2 - 5 * scale, -height / 2);
+    graphics.lineTo(-width / 2 + 7 * scale, -height / 2);
+    graphics.lineTo(-width / 2, 0);
+    graphics.close();
+    graphics.fill();
+    graphics.strokeColor = rgba(162, 119, 58, 148);
+    graphics.lineWidth = Math.max(1, 0.9 * scale);
+    graphics.stroke();
+    const label = this.addChildLabel(node, `${name}Label`, text, 0, 0, 14 * scale, rgba(219, 184, 116), new Size(width - 8 * scale, height));
+    label.overflow = Label.Overflow.SHRINK;
+    this.applyLobbyResourceTextStyle(label, scale, false);
+  }
+
+  private drawLobbyChallengeArt(graphics: Graphics, width: number, height: number, scale: number): void {
+    graphics.fillColor = rgba(0, 0, 0, 72);
+    graphics.moveTo(-width / 2 + 8 * scale, height / 2 - 8 * scale);
+    graphics.lineTo(width / 2 - 8 * scale, height / 2 - 8 * scale);
+    graphics.lineTo(width / 2 - 44 * scale, -height / 2 + 40 * scale);
+    graphics.lineTo(-width / 2 + 24 * scale, -height / 2 + 40 * scale);
+    graphics.close();
+    graphics.fill();
+    graphics.fillColor = rgba(0, 0, 0, 74);
+    graphics.moveTo(-width / 2 + 18 * scale, height / 2 - 14 * scale);
+    graphics.lineTo(width / 2 - 28 * scale, height / 2 - 16 * scale);
+    graphics.lineTo(width / 2 - 48 * scale, -height / 2 + 44 * scale);
+    graphics.lineTo(-width / 2 + 36 * scale, -height / 2 + 42 * scale);
+    graphics.close();
+    graphics.fill();
+
+    graphics.strokeColor = rgba(226, 222, 211, 76);
+    graphics.lineWidth = Math.max(1, 0.9 * scale);
     for (let index = 0; index < 5; index += 1) {
       const x = -width / 2 + (34 + index * 27) * scale;
       graphics.moveTo(x, height / 2 - 10 * scale);
       graphics.lineTo(x + 18 * scale, 4 * scale);
       graphics.lineTo(x + 4 * scale, -height / 2 + 39 * scale);
     }
+    graphics.stroke();
+    graphics.fillColor = rgba(235, 48, 58, 34);
+    graphics.circle(width / 2 - 42 * scale, height / 2 - 34 * scale, 28 * scale);
+    graphics.fill();
+    graphics.strokeColor = rgba(236, 195, 113, 72);
+    graphics.moveTo(-width / 2 + 10 * scale, height / 2 - 10 * scale);
+    graphics.lineTo(width / 2 - 12 * scale, height / 2 - 10 * scale);
     graphics.stroke();
   }
 
@@ -992,7 +1306,7 @@ export class LobbyHudRenderer {
   private addLobbyAdventureButton(parent: Node, x: number, y: number, width: number, height: number, scale: number): void {
     const node = this.addChildPlainNode(parent, 'LobbyAdventureButton', x, y, width, height);
     node.addComponent(Button);
-    node.on(Button.EventType.CLICK, () => this.setStatus('冒险入口暂未开放。'), this);
+    node.on(Button.EventType.CLICK, () => this.openLobbyAdventurePanel(), this);
     this.applyImageButtonFeedback(node, 1.025, 0.97);
     const graphics = node.addComponent(Graphics);
     graphics.fillColor = rgba(72, 6, 10, 184);
@@ -1004,38 +1318,331 @@ export class LobbyHudRenderer {
     graphics.lineTo(-width / 2, 0);
     graphics.close();
     graphics.fill();
+    graphics.fillColor = rgba(5, 4, 5, 92);
+    graphics.moveTo(-width / 2 + 38 * scale, height / 2 - 13 * scale);
+    graphics.lineTo(width / 2 - 30 * scale, height / 2 - 13 * scale);
+    graphics.lineTo(width / 2 - 48 * scale, -height / 2 + 13 * scale);
+    graphics.lineTo(-width / 2 + 50 * scale, -height / 2 + 13 * scale);
+    graphics.close();
+    graphics.fill();
     graphics.strokeColor = rgba(163, 35, 40, 210);
     graphics.lineWidth = Math.max(1, 1.5 * scale);
+    graphics.stroke();
+    graphics.strokeColor = rgba(229, 181, 92, 108);
+    graphics.moveTo(-width / 2 + 42 * scale, height / 2 - 9 * scale);
+    graphics.lineTo(width / 2 - 42 * scale, height / 2 - 9 * scale);
     graphics.stroke();
     this.addLobbyCompass(node, -width / 2 + 48 * scale, 0, 66 * scale, scale * 0.78);
     const title = this.addChildLabel(node, 'LobbyAdventureTitle', '冒险', -width / 2 + 104 * scale, 14 * scale, 31 * scale, rgba(249, 220, 166), new Size(width - 130 * scale, 38 * scale), HorizontalTextAlignment.LEFT);
     title.overflow = Label.Overflow.SHRINK;
     this.applyLobbyResourceTextStyle(title, scale, true);
-    const chapter = this.addChildLabel(node, 'LobbyAdventureChapter', '24-15 暗影之堡', -width / 2 + 104 * scale, -20 * scale, 19 * scale, rgba(223, 185, 126), new Size(width - 130 * scale, 27 * scale), HorizontalTextAlignment.LEFT);
+    const chapter = this.addChildLabel(node, 'LobbyAdventureChapter', this.resolveAdventureCtaText(), -width / 2 + 104 * scale, -20 * scale, 19 * scale, rgba(223, 185, 126), new Size(width - 130 * scale, 27 * scale), HorizontalTextAlignment.LEFT);
     chapter.overflow = Label.Overflow.SHRINK;
     this.applyLobbyResourceTextStyle(chapter, scale, false);
+  }
+
+  private resolveAdventureCtaText(): string {
+    const state = this.host.currentLobbyAdventureState();
+    const adventure = state.adventure;
+    if (state.loading && !adventure) {
+      return '主线读取中';
+    }
+    if (!adventure) {
+      return '主线 1-1 暗影城门';
+    }
+    return `主线 ${adventure.recommendedStageName}`;
   }
 
   private addLobbyBottomNav(parent: Node, x: number, y: number, width: number, height: number, scale: number): void {
     const node = this.addChildPlainNode(parent, 'LobbyBottomNav', x, y, width, height);
     const items = LOBBY_NAV_ITEMS;
     const slot = width / items.length;
+    const graphics = node.addComponent(Graphics);
+    graphics.strokeColor = rgba(159, 119, 67, 44);
+    graphics.lineWidth = Math.max(1, 0.8 * scale);
+    for (let index = 1; index < items.length; index += 1) {
+      const splitX = -width / 2 + slot * index;
+      graphics.moveTo(splitX, -34 * scale);
+      graphics.lineTo(splitX, 38 * scale);
+    }
+    graphics.stroke();
     for (let index = 0; index < items.length; index += 1) {
       const item = items[index];
       this.addLobbyNavItem(node, item.key, item.label, item.hot, -width / 2 + slot * index + slot / 2, 6 * scale, slot, height, scale);
     }
   }
 
+  private renderCompactSceneEntrances(layout: UiLayout): void {
+    if (layout.stageWidth >= 900 && layout.stageHeight >= 560) {
+      return;
+    }
+    if (layout.stageHeight < 340) {
+      return;
+    }
+    const scale = this.lobbyHudScale(layout);
+    const hudInsetX = this.lobbyHudEdgeInset(layout, 'x', scale);
+    const hudInsetY = this.lobbyHudEdgeInset(layout, 'y', scale);
+    const columns = layout.stageWidth >= 720 ? 4 : 2;
+    const rows = Math.ceil(LOBBY_SCENE_HOTSPOTS.length / columns);
+    const panelWidth = Math.min(layout.stageWidth - hudInsetX * 2, columns * 110 * scale + 22 * scale);
+    const itemWidth = panelWidth / columns;
+    const itemHeight = 34 * scale;
+    const panelHeight = rows * itemHeight + 18 * scale;
+    const minY = layout.stageBottom + panelHeight / 2 + 10 * scale;
+    const maxY = layout.stageTop - hudInsetY - panelHeight / 2;
+    const panelY = Math.max(minY, Math.min(maxY, layout.stageBottom + layout.stageHeight * 0.36));
+    const group = this.createUiNode('LobbyCompactSceneEntrances');
+    group.setPosition(new Vec3((layout.stageLeft + layout.stageRight) / 2, panelY, 0));
+    group.addComponent(UITransform).setContentSize(new Size(panelWidth, panelHeight));
+    const graphics = group.addComponent(Graphics);
+    this.drawCompactScenePanel(graphics, panelWidth, panelHeight, scale);
+
+    for (let index = 0; index < LOBBY_SCENE_HOTSPOTS.length; index += 1) {
+      const hotspot = LOBBY_SCENE_HOTSPOTS[index];
+      const column = index % columns;
+      const row = Math.floor(index / columns);
+      const x = -panelWidth / 2 + itemWidth * column + itemWidth / 2;
+      const y = panelHeight / 2 - 12 * scale - itemHeight / 2 - row * itemHeight;
+      this.addCompactSceneEntrance(group, hotspot.label, x, y, itemWidth - 8 * scale, itemHeight - 6 * scale, scale);
+    }
+  }
+
+  private drawCompactScenePanel(graphics: Graphics, width: number, height: number, scale: number): void {
+    // 小屏隐藏建筑铭牌时，用本地入口面板保留 8 个场景入口的可达性。
+    graphics.fillColor = rgba(2, 3, 5, 142);
+    graphics.moveTo(-width / 2 + 16 * scale, height / 2);
+    graphics.lineTo(width / 2 - 16 * scale, height / 2);
+    graphics.lineTo(width / 2, height / 2 - 14 * scale);
+    graphics.lineTo(width / 2, -height / 2 + 14 * scale);
+    graphics.lineTo(width / 2 - 16 * scale, -height / 2);
+    graphics.lineTo(-width / 2 + 16 * scale, -height / 2);
+    graphics.lineTo(-width / 2, -height / 2 + 14 * scale);
+    graphics.lineTo(-width / 2, height / 2 - 14 * scale);
+    graphics.close();
+    graphics.fill();
+    graphics.strokeColor = rgba(167, 124, 66, 126);
+    graphics.lineWidth = Math.max(1, 1 * scale);
+    graphics.stroke();
+  }
+
+  private addCompactSceneEntrance(parent: Node, label: string, x: number, y: number, width: number, height: number, scale: number): void {
+    const node = this.addChildPlainNode(parent, `LobbyCompactSceneEntrance_${label}`, x, y, width, height);
+    node.addComponent(Button);
+    node.on(Button.EventType.CLICK, () => this.activateLobbyHotspot(parent, label, x, y, scale), this);
+    this.applyImageButtonFeedback(node, 1.025, 0.97);
+    const graphics = node.addComponent(Graphics);
+    graphics.fillColor = rgba(5, 5, 7, 172);
+    graphics.moveTo(-width / 2 + 8 * scale, height / 2);
+    graphics.lineTo(width / 2 - 8 * scale, height / 2);
+    graphics.lineTo(width / 2, 0);
+    graphics.lineTo(width / 2 - 8 * scale, -height / 2);
+    graphics.lineTo(-width / 2 + 8 * scale, -height / 2);
+    graphics.lineTo(-width / 2, 0);
+    graphics.close();
+    graphics.fill();
+    graphics.strokeColor = rgba(145, 109, 62, 142);
+    graphics.lineWidth = Math.max(1, 0.9 * scale);
+    graphics.stroke();
+    const text = this.addChildLabel(node, 'LobbyCompactSceneEntranceLabel', label, 0, 0, 16 * scale, rgba(226, 198, 137), new Size(width - 12 * scale, height));
+    text.overflow = Label.Overflow.SHRINK;
+    this.applyLobbyResourceTextStyle(text, scale, false);
+  }
+
+  private renderCompactActionEntrances(layout: UiLayout): void {
+    const sideRailsVisible = layout.stageWidth >= 1000 && layout.stageHeight >= 520;
+    const bottomHudVisible = layout.stageWidth >= 900 && layout.stageHeight >= 500;
+    if (sideRailsVisible && bottomHudVisible) {
+      return;
+    }
+    if (layout.stageHeight < 220) {
+      return;
+    }
+    const scale = this.lobbyHudScale(layout);
+    const hudInsetX = this.lobbyHudEdgeInset(layout, 'x', scale);
+    const hudInsetY = this.lobbyHudEdgeInset(layout, 'y', scale);
+    const entries = this.filterCompactActionEntries(this.compactActionEntries(), layout);
+    if (entries.length === 0) {
+      return;
+    }
+    const columns = layout.stageWidth >= 720 && entries.length > 2 ? 4 : 2;
+    const rows = Math.ceil(entries.length / columns);
+    const panelWidth = Math.min(layout.stageWidth - hudInsetX * 2, columns * 116 * scale + 20 * scale);
+    const itemWidth = panelWidth / columns;
+    const itemHeight = (layout.stageHeight < 300 ? 30 : 32) * scale;
+    const panelHeight = rows * itemHeight + 18 * scale;
+    const bottomReserved = bottomHudVisible ? 106 * scale : layout.stageHeight < 300 ? 6 * scale : 10 * scale;
+    const minY = layout.stageBottom + bottomReserved + panelHeight / 2;
+    const maxY = layout.stageTop - hudInsetY - panelHeight / 2;
+    if (minY > maxY) {
+      return;
+    }
+    const panelY = minY;
+    const group = this.createUiNode('LobbyCompactActionEntrances');
+    group.setPosition(new Vec3((layout.stageLeft + layout.stageRight) / 2, panelY, 0));
+    group.addComponent(UITransform).setContentSize(new Size(panelWidth, panelHeight));
+    const graphics = group.addComponent(Graphics);
+    this.drawCompactActionPanel(graphics, panelWidth, panelHeight, scale);
+
+    for (let index = 0; index < entries.length; index += 1) {
+      const entry = entries[index];
+      const column = index % columns;
+      const row = Math.floor(index / columns);
+      const x = -panelWidth / 2 + itemWidth * column + itemWidth / 2;
+      const y = panelHeight / 2 - 12 * scale - itemHeight / 2 - row * itemHeight;
+      this.addCompactActionEntrance(
+        group,
+        entry.label,
+        entry.detail,
+        Boolean(entry.notice),
+        x,
+        y,
+        itemWidth - 8 * scale,
+        itemHeight - 6 * scale,
+        scale,
+        Boolean(entry.codex),
+        Boolean(entry.heroRoster),
+        Boolean(entry.adventure),
+        Boolean(entry.gacha),
+      );
+    }
+  }
+
+  private compactActionEntries(): Array<{ label: string; detail: string; notice?: boolean; codex?: boolean; heroRoster?: boolean; adventure?: boolean; gacha?: boolean }> {
+    // 小屏隐藏侧栏/底栏时，用本地快捷入口保留大厅模块的可达性。
+    return [
+      { label: '活动', detail: '活动公告只读展示；当前不进入玩法或改变玩家资源。', notice: true },
+      { label: '召唤', detail: '召唤祭坛只做视觉预览；当前不会扣资源、发奖或更新保底。', gacha: true },
+      { label: '挑战', detail: '挑战副本暂未开放；当前不会进入战斗、结算或发放资源。' },
+      { label: '冒险', detail: '主线章节只读展示；当前不会进入战斗或产生进度写入。', adventure: true },
+      { label: '聊天', detail: '聊天系统暂未开放；当前仅展示本地欢迎语，不连接聊天服务，也不会发送消息。' },
+      { label: '图鉴', detail: '英雄图鉴只读预览；当前不会进入养成或改变英雄状态。', codex: true },
+      { label: '英雄', detail: '英雄队列只读展示；当前不会升级、升星、觉醒或写入成长进度。', heroRoster: true },
+      { label: '背包', detail: '背包入口暂未开放；当前不会使用、出售或发放任何道具。' },
+      { label: '任务', detail: '任务系统暂未开放；当前不会领取奖励或写入任务进度。' },
+      { label: '商店', detail: '商店入口暂未开放；当前不会购买、兑换或消耗资源。' },
+    ];
+  }
+
+  private filterCompactActionEntries(
+    entries: Array<{ label: string; detail: string; notice?: boolean; codex?: boolean; heroRoster?: boolean; adventure?: boolean; gacha?: boolean }>,
+    layout: UiLayout,
+  ): Array<{ label: string; detail: string; notice?: boolean; codex?: boolean; heroRoster?: boolean; adventure?: boolean; gacha?: boolean }> {
+    if (layout.stageHeight >= 300) {
+      return entries;
+    }
+    // 极矮视口下优先保留主流程和只读信息入口，避免完整快捷面板挤压背景与底栏。
+    return entries.filter((entry) => entry.notice || entry.adventure || entry.heroRoster || entry.codex || entry.gacha);
+  }
+
+  private drawCompactActionPanel(graphics: Graphics, width: number, height: number, scale: number): void {
+    graphics.fillColor = rgba(2, 3, 5, 166);
+    graphics.moveTo(-width / 2 + 14 * scale, height / 2);
+    graphics.lineTo(width / 2 - 14 * scale, height / 2);
+    graphics.lineTo(width / 2, height / 2 - 13 * scale);
+    graphics.lineTo(width / 2, -height / 2 + 13 * scale);
+    graphics.lineTo(width / 2 - 14 * scale, -height / 2);
+    graphics.lineTo(-width / 2 + 14 * scale, -height / 2);
+    graphics.lineTo(-width / 2, -height / 2 + 13 * scale);
+    graphics.lineTo(-width / 2, height / 2 - 13 * scale);
+    graphics.close();
+    graphics.fill();
+    graphics.strokeColor = rgba(174, 126, 63, 138);
+    graphics.lineWidth = Math.max(1, 1 * scale);
+    graphics.stroke();
+    graphics.strokeColor = rgba(226, 177, 92, 48);
+    graphics.moveTo(-width / 2 + 24 * scale, height / 2 - 6 * scale);
+    graphics.lineTo(width / 2 - 24 * scale, height / 2 - 6 * scale);
+    graphics.stroke();
+  }
+
+  private addCompactActionEntrance(parent: Node, label: string, detail: string, notice: boolean, x: number, y: number, width: number, height: number, scale: number, codex = false, heroRoster = false, adventure = false, gacha = false): void {
+    const node = this.addChildPlainNode(parent, `LobbyCompactAction_${label}`, x, y, width, height);
+    node.addComponent(Button);
+    node.on(Button.EventType.CLICK, () => {
+      if (notice) {
+        this.openLobbyNoticePanel();
+        return;
+      }
+      if (codex) {
+        this.openLobbyCodexPanel();
+        return;
+      }
+      if (heroRoster) {
+        this.openLobbyHeroRosterPanel();
+        return;
+      }
+      if (adventure) {
+        this.openLobbyAdventurePanel();
+        return;
+      }
+      if (gacha) {
+        this.openLobbyGachaScene();
+        return;
+      }
+      this.showUnopenedFeature(label, detail);
+    }, this);
+    this.applyImageButtonFeedback(node, 1.025, 0.97);
+    const graphics = node.addComponent(Graphics);
+    graphics.fillColor = rgba(5, 5, 7, 184);
+    graphics.moveTo(-width / 2 + 8 * scale, height / 2);
+    graphics.lineTo(width / 2 - 8 * scale, height / 2);
+    graphics.lineTo(width / 2, 0);
+    graphics.lineTo(width / 2 - 8 * scale, -height / 2);
+    graphics.lineTo(-width / 2 + 8 * scale, -height / 2);
+    graphics.lineTo(-width / 2, 0);
+    graphics.close();
+    graphics.fill();
+    graphics.strokeColor = rgba(145, 109, 62, 150);
+    graphics.lineWidth = Math.max(1, 0.9 * scale);
+    graphics.stroke();
+    const text = this.addChildLabel(node, 'LobbyCompactActionLabel', label, 0, 0, Math.max(11, 15 * scale), rgba(226, 198, 137), new Size(width - 12 * scale, height));
+    text.overflow = Label.Overflow.SHRINK;
+    this.applyLobbyResourceTextStyle(text, scale, false);
+  }
+
   private addLobbyNavItem(parent: Node, key: LobbyNavIconKey, label: string, hot: boolean, x: number, y: number, width: number, height: number, scale: number): void {
     const node = this.addChildPlainNode(parent, `LobbyNavItem_${key}`, x, y, width, height);
     node.addComponent(Button);
-    node.on(Button.EventType.CLICK, () => this.setStatus('底部导航暂未开放。'), this);
+    node.on(Button.EventType.CLICK, () => {
+      if (key === 'codex') {
+        this.openLobbyCodexPanel();
+        return;
+      }
+      if (key === 'hero') {
+        this.openLobbyHeroRosterPanel();
+        return;
+      }
+      this.showUnopenedFeature(label, '底部导航入口暂未开放；当前不会进入养成、背包、商店或其他写入型系统。');
+    }, this);
     this.applyImageButtonFeedback(node, 1.04, 0.97);
+    const graphics = node.addComponent(Graphics);
+    this.drawLobbyNavSlot(graphics, width, height, scale, hot);
     this.addLobbyNavIcon(node, key, 0, 13 * scale, 29 * scale, scale);
     const text = this.addChildLabel(node, `LobbyNavLabel_${key}`, label, 0, -26 * scale, 19 * scale, rgba(190, 167, 119), new Size(width, 25 * scale));
     text.overflow = Label.Overflow.SHRINK;
     this.applyLobbyResourceTextStyle(text, scale, false);
     this.addLobbyRedDot(node, 17 * scale, 30 * scale, 5 * scale, hot);
+  }
+
+  private drawLobbyNavSlot(graphics: Graphics, width: number, height: number, scale: number, hot: boolean): void {
+    const slotWidth = Math.min(width - 6 * scale, 72 * scale);
+    const baseY = 2 * scale;
+    graphics.fillColor = hot ? rgba(43, 8, 10, 112) : rgba(7, 7, 8, 94);
+    graphics.moveTo(-slotWidth / 2 + 10 * scale, baseY + 30 * scale);
+    graphics.lineTo(slotWidth / 2 - 10 * scale, baseY + 30 * scale);
+    graphics.lineTo(slotWidth / 2, baseY + 15 * scale);
+    graphics.lineTo(slotWidth / 2 - 10 * scale, baseY - 1 * scale);
+    graphics.lineTo(-slotWidth / 2 + 10 * scale, baseY - 1 * scale);
+    graphics.lineTo(-slotWidth / 2, baseY + 15 * scale);
+    graphics.close();
+    graphics.fill();
+    graphics.strokeColor = hot ? rgba(181, 55, 50, 138) : rgba(143, 111, 70, 120);
+    graphics.lineWidth = Math.max(1, 0.95 * scale);
+    graphics.stroke();
+    graphics.strokeColor = rgba(219, 178, 98, 46);
+    graphics.moveTo(-slotWidth / 2 + 12 * scale, -36 * scale);
+    graphics.lineTo(slotWidth / 2 - 12 * scale, -36 * scale);
+    graphics.stroke();
   }
 
   private addLobbyNavIcon(parent: Node, key: LobbyNavIconKey, x: number, y: number, size: number, scale: number): void {
@@ -1115,25 +1722,27 @@ export class LobbyHudRenderer {
       return;
     }
     const node = this.addChildPlainNode(parent, 'LobbyChatPreview', x + width / 2, y, width, 24 * scale);
+    node.addComponent(Button);
+    node.on(Button.EventType.CLICK, () => this.showUnopenedFeature('世界聊天', '聊天系统暂未开放；当前仅展示本地欢迎语，不连接聊天服务，也不会发送消息。'), this);
+    this.applyPointerCursor(node);
     const graphics = node.addComponent(Graphics);
-    graphics.fillColor = rgba(0, 0, 0, 92);
-    graphics.rect(-width / 2, -12 * scale, width, 24 * scale);
+    graphics.fillColor = rgba(0, 0, 0, 112);
+    graphics.moveTo(-width / 2 + 10 * scale, 12 * scale);
+    graphics.lineTo(width / 2 - 10 * scale, 12 * scale);
+    graphics.lineTo(width / 2, 0);
+    graphics.lineTo(width / 2 - 10 * scale, -12 * scale);
+    graphics.lineTo(-width / 2 + 10 * scale, -12 * scale);
+    graphics.lineTo(-width / 2, 0);
+    graphics.close();
     graphics.fill();
-    this.addChildLabel(node, 'LobbyChatBubble', '...', -width / 2 + 15 * scale, 0, 18 * scale, rgba(177, 157, 112), new Size(35 * scale, 22 * scale));
-    const text = this.addChildLabel(node, 'LobbyChatText', '[世界] LootChain: 欢迎来到LootChain的世界！', -width / 2 + 44 * scale, 0, 16 * scale, rgba(178, 169, 130), new Size(width - 50 * scale, 24 * scale), HorizontalTextAlignment.LEFT);
-    text.overflow = Label.Overflow.SHRINK;
-  }
-
-  private addLobbyDisabledPlus(parent: Node, x: number, y: number, size: number, scale: number): void {
-    const node = this.addChildPlainNode(parent, 'LobbyResourceDisabledPlus', x, y, size, size);
-    const graphics = node.addComponent(Graphics);
-    graphics.strokeColor = rgba(177, 135, 84, 160);
-    graphics.lineWidth = Math.max(1, 2 * scale);
-    graphics.moveTo(-size * 0.35, 0);
-    graphics.lineTo(size * 0.35, 0);
-    graphics.moveTo(0, -size * 0.35);
-    graphics.lineTo(0, size * 0.35);
+    graphics.strokeColor = rgba(139, 104, 63, 82);
+    graphics.lineWidth = Math.max(1, 0.9 * scale);
     graphics.stroke();
+    const channel = this.addChildLabel(node, 'LobbyChatChannel', '[世界]', -width / 2 + 39 * scale, 0, 16 * scale, rgba(112, 214, 254), new Size(64 * scale, 22 * scale), HorizontalTextAlignment.LEFT);
+    channel.overflow = Label.Overflow.SHRINK;
+    this.applyLobbyResourceTextStyle(channel, scale, false);
+    const text = this.addChildLabel(node, 'LobbyChatText', 'LootChain: 欢迎来到LootChain的世界！', -width / 2 + 102 * scale, 0, 16 * scale, rgba(178, 169, 130), new Size(width - 110 * scale, 24 * scale), HorizontalTextAlignment.LEFT);
+    text.overflow = Label.Overflow.SHRINK;
   }
 
   private addLobbyRedDot(parent: Node, x: number, y: number, size: number, visible: boolean): void {

@@ -14,6 +14,11 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * XHR 封装。
+ *
+ * Cocos Web 预览里保持最小依赖：统一 baseUrl、token header、业务 code 判断和错误包装。
+ */
 export class HttpClient {
   private baseUrl: string;
 
@@ -50,6 +55,7 @@ export class HttpClient {
 
       const auth = this.tokenStore.authHeader();
       if (auth) {
+        // token 名称由后端返回，避免客户端硬编码 Authorization 之类字段名。
         xhr.setRequestHeader(auth.name, auth.value);
       }
 

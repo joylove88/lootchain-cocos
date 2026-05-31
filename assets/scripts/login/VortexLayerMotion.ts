@@ -1,6 +1,7 @@
 import { _decorator, Component, Node, Vec3, UIOpacity } from 'cc';
 const { ccclass, property } = _decorator;
 
+/** 旋涡图层运动脚本：负责旋转、缩放呼吸和透明度脉冲。 */
 @ccclass('VortexLayerMotion')
 export class VortexLayerMotion extends Component {
     @property

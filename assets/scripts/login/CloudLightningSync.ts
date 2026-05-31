@@ -1,6 +1,7 @@
 import { _decorator, Component, ParticleSystem2D, SpriteFrame, Sprite, Node, UITransform } from 'cc';
 const { ccclass, property } = _decorator;
 
+/** 闪电同步脚本：随机切换闪电帧，并用遮罩高度做快速显隐。 */
 @ccclass('CloudLightningSync')
 export class CloudLightningSync extends Component {
   @property(Node) lightningMask: Node | null = null;

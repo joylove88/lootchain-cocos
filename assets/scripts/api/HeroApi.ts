@@ -6,6 +6,7 @@ import type {
   UserHeroListItemVO,
 } from '../types/HeroTypes';
 
+/** 英雄相关接口封装；当前大厅入口仍是占位，不在 Cocos-only 登录阶段主动调用。 */
 export class HeroApi {
   constructor(private readonly http: HttpClient) {}
 

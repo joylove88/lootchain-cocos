@@ -2,6 +2,7 @@ import { _decorator, Component, ParticleSystem2D } from 'cc';
 
 const { ccclass, property } = _decorator;
 
+/** 粒子发射器轨道脚本：让粒子沿椭圆运动，并可跟随切线方向发射。 */
 @ccclass('VortexEmitterOrbit')
 export class VortexEmitterOrbit extends Component {
 

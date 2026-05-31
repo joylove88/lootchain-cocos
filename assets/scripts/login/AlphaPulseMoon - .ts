@@ -2,6 +2,7 @@ import { _decorator, Component, Vec3 } from 'cc';
 
 const { ccclass } = _decorator;
 
+/** 月亮/核心光效缩放脉冲脚本：只做轻微呼吸，不改变节点位置。 */
 @ccclass('AlphaPulse')
 export class AlphaPulse extends Component {
 

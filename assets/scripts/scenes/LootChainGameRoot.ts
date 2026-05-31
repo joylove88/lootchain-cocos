@@ -1,5 +1,6 @@
 import {
   _decorator,
+  BlockInputEvents,
   Button,
   Color,
   Component,
@@ -10,106 +11,93 @@ import {
   Label,
   Node,
   input,
-  resources,
   Size,
   Sprite,
   SpriteFrame,
-  Texture2D,
-  UIOpacity,
-  UITransform,
-  Vec3,
-  VerticalTextAlignment,
   VideoClip,
-  VideoPlayer,
-  view,
 } from 'cc';
 import { AppConfig } from '../app/AppConfig';
 import { lootChainApi, LootChainApi } from '../api/LootChainApi';
-import { ApiError } from '../net/HttpClient';
 import type { PlayerLobbyProfileVO } from '../types/PlayerTypes';
+import { AdaptiveStageLayoutResolver, type AdaptiveStageLayoutHost } from './AdaptiveStageLayoutResolver';
+import { StatusPresenter, type StatusPresenterHost } from './StatusPresenter';
+import { UiContentRootController, type UiContentRootHost } from './UiContentRootController';
+import { UiPrimitiveFactory, type ButtonVisualState, type UiPrimitiveFactoryHost } from './UiPrimitiveFactory';
+import {
+  compactResourceValue as compactUiResourceValue,
+  formatInteger as formatUiInteger,
+  trimText as trimUiText,
+} from './UiTextFormatter';
+import { UiSpriteFrameCache, type UiSpriteFrameCacheHost, type UiSpriteFrameOverrides } from './UiSpriteFrameCache';
+import { GachaSceneRenderer, type GachaSceneHost } from './gacha/GachaSceneRenderer';
+import { LoginFlow, type LoginFlowHost } from './login/LoginFlow';
+import {
+  LoginRenderer,
+  type LoginRendererHost,
+} from './login/LoginRenderer';
+import { ProtagonistCreateFlow, type ProtagonistCreateFlowHost } from './protagonist/ProtagonistCreateFlow';
+import { ProtagonistCreateRenderer, type ProtagonistCreateRendererHost } from './protagonist/ProtagonistCreateRenderer';
+import {
+  LobbyBackgroundController,
+  type LobbyBackgroundHost,
+} from './lobby/LobbyBackgroundController';
+import { LobbyAdventureLoader, type LobbyAdventureLoaderHost } from './lobby/LobbyAdventureLoader';
+import { LobbyAdventurePanelRenderer, type LobbyAdventurePanelHost } from './lobby/LobbyAdventurePanelRenderer';
+import { LobbyAvatarRenderer, type LobbyAvatarHost } from './lobby/LobbyAvatarRenderer';
+import { LobbyBattleFlow, type LobbyBattleFlowHost } from './lobby/LobbyBattleFlow';
+import { LobbyBattlePreviewPanelRenderer, type LobbyBattlePreviewPanelHost } from './lobby/LobbyBattlePreviewPanelRenderer';
+import { LobbyCodexLoader, type LobbyCodexLoaderHost } from './lobby/LobbyCodexLoader';
+import { LobbyCodexPanelRenderer, type LobbyCodexPanelHost } from './lobby/LobbyCodexPanelRenderer';
+import { LobbyFormationPanelRenderer, type LobbyFormationPanelHost } from './lobby/LobbyFormationPanelRenderer';
+import { LobbyHeroDetailPanelRenderer, type LobbyHeroDetailPanelHost } from './lobby/LobbyHeroDetailPanelRenderer';
+import { LobbyHeroRosterLoader, type LobbyHeroRosterLoaderHost } from './lobby/LobbyHeroRosterLoader';
+import { LobbyHeroRosterPanelRenderer, type LobbyHeroRosterPanelHost } from './lobby/LobbyHeroRosterPanelRenderer';
 import { LobbyHudRenderer, type LobbyHudHost } from './lobby/LobbyHudRenderer';
+import type { UiLayout } from './lobby/LobbyHudTypes';
+import { LobbyLoadingFlow, type LobbyLoadingFlowHost } from './lobby/LobbyLoadingFlow';
+import { LobbyLoadingRenderer, type LobbyLoadingHost } from './lobby/LobbyLoadingRenderer';
+import { LobbyNoticeLoader, type LobbyNoticeLoaderHost } from './lobby/LobbyNoticeLoader';
+import { LobbyNoticePanelRenderer, type LobbyNoticePanelHost } from './lobby/LobbyNoticePanelRenderer';
+import { LobbyProfileDialogRenderer, type LobbyProfileDialogHost } from './lobby/LobbyProfileDialogRenderer';
+import { LobbyProfileLoader, type LobbyProfileLoaderHost } from './lobby/LobbyProfileLoader';
+import type { LobbyAdventurePanelState, LobbyAdventureStageVO } from '../types/LobbyAdventureTypes';
+import type { LobbyBattlePanelState } from './lobby/LobbyBattleState';
+import type { LobbyCodexPanelState } from '../types/LobbyCodexTypes';
+import type { LobbyHeroItemVO, LobbyHeroRosterPanelState } from '../types/LobbyHeroTypes';
+import type { LobbyNoticePanelState } from '../types/LobbyNoticeTypes';
+import type { ProtagonistCreateFormState, ProtagonistForm, ProtagonistGender } from '../types/ProtagonistTypes';
 
 const { ccclass, property } = _decorator;
 
 type AsyncAction = () => Promise<void>;
-type ButtonVisualState = 'hover' | 'normal' | 'pressed';
 type CursorDocument = { body?: { style?: { cursor: string } } };
-type ViewName = 'login' | 'loginDialog' | 'loading' | 'lobby';
-
-function rgba(red: number, green: number, blue: number, alpha = 255): Color {
-  return new Color(red, green, blue, alpha);
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
-interface UiLayout {
-  width: number;
-  height: number;
-  stageWidth: number;
-  stageHeight: number;
-  stageLeft: number;
-  stageRight: number;
-  stageTop: number;
-  stageBottom: number;
-  safeLeft: number;
-  safeRight: number;
-  safeTop: number;
-  safeBottom: number;
-  safeWidth: number;
-  safeHeight: number;
-  safeInsetX: number;
-  safeInsetY: number;
-  uiScale: number;
-  contentWidth: number;
-  topY: number;
-  inputHeight: number;
-  buttonHeight: number;
-  statusWidth: number;
-  bodyFont: number;
-}
-
-interface StageBounds {
-  width: number;
-  height: number;
-  centerX: number;
-  centerY: number;
-}
-
-interface RailButtonAsset {
-  label: string;
-  path: string;
-}
-
-const UI_ASSETS = {
-  logo: 'ui/login/login_logo/spriteFrame',
-  mainButton: 'ui/login/login_button_main/spriteFrame',
-  lobbyPlayerInfoPanel: 'ui/lobby/lobby_player_info_panel/spriteFrame',
-  rightRail: [
-    { label: '谕言', path: 'ui/login/side_btn_prophecy/spriteFrame' },
-    { label: '客服', path: 'ui/login/side_btn_service/spriteFrame' },
-    { label: '公告', path: 'ui/login/side_btn_notice/spriteFrame' },
-    { label: '修复', path: 'ui/login/side_btn_repair/spriteFrame' },
-  ] satisfies RailButtonAsset[],
+type ViewName =
+  | 'login'
+  | 'loginDialog'
+  | 'protagonistCreate'
+  | 'loading'
+  | 'lobby'
+  | 'profile'
+  | 'adventure'
+  | 'battle'
+  | 'codex'
+  | 'formation'
+  | 'heroes'
+  | 'heroDetail'
+  | 'notice'
+  | 'gacha'
+  | 'placeholder';
+type LobbyPlaceholderDialogState = {
+  title: string;
+  detail: string;
 };
 
-const SHOW_LOGIN_BRAND = true;
-const SHOW_RIGHT_RAIL = true;
-const USE_IMAGE_LOGIN_BUTTON = true;
-const SHOW_DIALOG_THIRD_PARTY_LOGIN = true;
-const LOGIN_REFERENCE_WIDTH = 1920;
-const LOGIN_REFERENCE_HEIGHT = 1080;
-const LOGIN_STAGE_NODE_NAMES = ['BG_Main', 'FG_Architecture'] as const;
-const LOBBY_VIDEO_PATH = 'lobby/lobby_bg_loop';
-const LOBBY_POSTER_PATH = 'lobby/lobby_bg_poster';
-const USE_LOBBY_NATIVE_VIDEO_BACKGROUND = true;
-const LOBBY_POSTER_FADE_DURATION = 0.4;
-const LOBBY_PROFILE_SERVER_NAME = '本地开发服';
-const LOBBY_PROFILE_PLACEHOLDER = '-';
-const MIN_VISIBLE_WIDTH = 320;
-const MIN_VISIBLE_HEIGHT = 180;
-
+/**
+ * Cocos 场景根组件。
+ *
+ * 这里只保留根职责：生命周期、视图切换、资源/资料调度，以及给各渲染模块提供 host wrapper。
+ * 具体 UI 绘制、登录流程、loading 流程和背景控制都拆到独立模块，避免大厅代码继续堆在根组件里。
+ */
 @ccclass('LootChainGameRoot')
 export class LootChainGameRoot extends Component {
   @property(SpriteFrame)
@@ -122,33 +110,55 @@ export class LootChainGameRoot extends Component {
   rightRailFrames: SpriteFrame[] = [];
 
   private readonly api: LootChainApi = lootChainApi;
+  private readonly layoutResolver = new AdaptiveStageLayoutResolver(this as unknown as AdaptiveStageLayoutHost);
+  private readonly statusPresenter = new StatusPresenter(this as unknown as StatusPresenterHost);
+  private readonly contentRootController = new UiContentRootController(this as unknown as UiContentRootHost);
+  private readonly uiSpriteFrameCache = new UiSpriteFrameCache(this as unknown as UiSpriteFrameCacheHost);
+  private readonly uiPrimitiveFactory = new UiPrimitiveFactory(
+    this as unknown as UiPrimitiveFactoryHost,
+    this.uiSpriteFrameCache,
+    () => this.uiSpriteFrameOverrides(),
+  );
+  private readonly gachaSceneRenderer = new GachaSceneRenderer(this as unknown as GachaSceneHost);
+  private readonly loginFlow = new LoginFlow(this.api.auth, {
+    apiBaseUrl: AppConfig.apiBaseUrl,
+    defaultDevUserId: AppConfig.defaultDevUserId,
+  }, this as unknown as LoginFlowHost);
+  private readonly loginRenderer = new LoginRenderer(this as unknown as LoginRendererHost);
+  private readonly protagonistCreateFlow = new ProtagonistCreateFlow(this.api.protagonist, this as unknown as ProtagonistCreateFlowHost);
+  private readonly protagonistCreateRenderer = new ProtagonistCreateRenderer(this as unknown as ProtagonistCreateRendererHost);
+  private readonly lobbyBackgroundController = new LobbyBackgroundController(this as unknown as LobbyBackgroundHost);
+  private readonly lobbyAdventureLoader = new LobbyAdventureLoader(this.api.lobbyAdventure, this as unknown as LobbyAdventureLoaderHost);
+  private readonly lobbyAdventurePanelRenderer = new LobbyAdventurePanelRenderer(this as unknown as LobbyAdventurePanelHost);
+  private readonly lobbyAvatarRenderer = new LobbyAvatarRenderer(this as unknown as LobbyAvatarHost);
+  private readonly lobbyBattleFlow = new LobbyBattleFlow(this.api.battle, this as unknown as LobbyBattleFlowHost);
+  private readonly lobbyBattlePreviewPanelRenderer = new LobbyBattlePreviewPanelRenderer(this as unknown as LobbyBattlePreviewPanelHost);
   private readonly lobbyHudRenderer = new LobbyHudRenderer(this as unknown as LobbyHudHost);
-  private readonly spriteFrames = new Map<string, SpriteFrame>();
-  private readonly loadingSpriteFrames = new Set<string>();
-  private accountInput: EditBox | null = null;
-  private passwordInput: EditBox | null = null;
-  private statusLabel: Label | null = null;
-  private contentRoot: Node | null = null;
+  private readonly lobbyLoadingFlow = new LobbyLoadingFlow(this as unknown as LobbyLoadingFlowHost);
+  private readonly lobbyLoadingRenderer = new LobbyLoadingRenderer(this as unknown as LobbyLoadingHost);
+  private readonly lobbyCodexLoader = new LobbyCodexLoader(this.api.lobbyCodex, this as unknown as LobbyCodexLoaderHost);
+  private readonly lobbyCodexPanelRenderer = new LobbyCodexPanelRenderer(this as unknown as LobbyCodexPanelHost);
+  private readonly lobbyFormationPanelRenderer = new LobbyFormationPanelRenderer(this as unknown as LobbyFormationPanelHost);
+  private readonly lobbyHeroDetailPanelRenderer = new LobbyHeroDetailPanelRenderer(this as unknown as LobbyHeroDetailPanelHost);
+  private readonly lobbyHeroRosterLoader = new LobbyHeroRosterLoader(this.api.lobbyHero, this as unknown as LobbyHeroRosterLoaderHost);
+  private readonly lobbyHeroRosterPanelRenderer = new LobbyHeroRosterPanelRenderer(this as unknown as LobbyHeroRosterPanelHost);
+  private readonly lobbyNoticeLoader = new LobbyNoticeLoader(this.api.lobbyNotice, this as unknown as LobbyNoticeLoaderHost);
+  private readonly lobbyNoticePanelRenderer = new LobbyNoticePanelRenderer(this as unknown as LobbyNoticePanelHost);
+  private readonly lobbyProfileDialogRenderer = new LobbyProfileDialogRenderer(this as unknown as LobbyProfileDialogHost);
+  private readonly lobbyProfileLoader = new LobbyProfileLoader(this.api.profile, AppConfig.defaultDevUserId, this as unknown as LobbyProfileLoaderHost);
   private currentView: ViewName = 'login';
   private layoutKey = '';
-  private lastTokenName = '';
-  private agreementAccepted = true;
-  private loadingProgress = 0;
-  private loadingMessage = '准备进入游戏...';
-  private loadingError = '';
-  private resourceLoadTicket = 0;
-  private lobbyPosterFrame: SpriteFrame | null = null;
-  private lobbyVideoClip: VideoClip | null = null;
-  private lobbyVideoPlayer: VideoPlayer | null = null;
-  private lobbyPosterOpacity: UIOpacity | null = null;
-  private lobbyPosterFadeTimer = 0;
-  private lobbyPosterFading = false;
-  private lobbyPosterHidden = false;
-  private lobbyProfile: PlayerLobbyProfileVO | null = null;
   private lobbyProfileOpen = false;
-  private lobbyProfileLoading = false;
-  private lobbyProfileError = '';
-  private lastDevUserId = AppConfig.defaultDevUserId;
+  private lobbyAdventurePanelOpen = false;
+  private lobbyBattlePreviewPanelOpen = false;
+  private lobbyCodexPanelOpen = false;
+  private lobbyFormationPanelOpen = false;
+  private lobbyHeroDetailHeroId: number | null = null;
+  private lobbyHeroRosterPanelOpen = false;
+  private lobbyNoticePanelOpen = false;
+  private lobbyPlaceholderDialog: LobbyPlaceholderDialogState | null = null;
+  private selectedLobbyStageCode: string | null = null;
+  private selectedLobbyFormationHeroIds: number[] = [];
 
   start(): void {
     // 登录验收必须从真实点击开始，避免历史 token 让预览直接进入通过态。
@@ -171,16 +181,46 @@ export class LootChainGameRoot extends Component {
   onDestroy(): void {
     input.off(Input.EventType.MOUSE_DOWN, this.tryPlayLobbyVideo, this);
     input.off(Input.EventType.TOUCH_START, this.tryPlayLobbyVideo, this);
+    this.loginFlow.cancel();
+    this.protagonistCreateFlow.cancel();
+    this.lobbyLoadingFlow.cancel();
+    this.lobbyAdventureLoader.cancel();
+    this.lobbyBattleFlow.cancel();
+    this.lobbyCodexLoader.cancel();
+    this.lobbyHeroRosterLoader.cancel();
+    this.lobbyNoticeLoader.cancel();
+    this.lobbyProfileLoader.cancel();
     this.releaseLobbyVideoRuntime();
   }
 
   private renderCurrentView(): void {
+    // 所有视图入口集中在这里，resize 或状态变化时按 currentView 重绘。
     if (this.currentView === 'lobby') {
+      if (this.lobbyBackgroundController.isRendered()) {
+        this.refreshLobbyViewPreservingBackground();
+        return;
+      }
       this.renderLobby();
+      return;
+    }
+    if (this.currentView === 'battle') {
+      this.renderBattleScene();
+      return;
+    }
+    if (this.currentView === 'gacha') {
+      this.renderGachaScene();
+      return;
+    }
+    if (this.isLobbyScenePageView(this.currentView)) {
+      this.renderLobbyScenePage();
       return;
     }
     if (this.currentView === 'loading') {
       this.renderLoading();
+      return;
+    }
+    if (this.currentView === 'protagonistCreate') {
+      this.renderProtagonistCreate();
       return;
     }
     if (this.currentView === 'loginDialog') {
@@ -193,104 +233,86 @@ export class LootChainGameRoot extends Component {
   private renderLogin(): void {
     this.currentView = 'login';
     const layout = this.renderBase();
-    if (SHOW_LOGIN_BRAND) {
-      this.renderLoginBrand(layout);
-    }
-    if (SHOW_RIGHT_RAIL) {
-      this.renderRightRail(layout);
-    }
-    const centerX = (layout.stageLeft + layout.stageRight) / 2;
-    const buttonWidth = clamp(layout.contentWidth * 0.34, 300 * layout.uiScale, 450 * layout.uiScale);
-    const buttonHeight = Math.round(buttonWidth * 0.23);
-    const buttonY = layout.safeBottom + Math.max(12 * layout.uiScale, layout.safeHeight * 0.02) + buttonHeight / 2;
-    if (USE_IMAGE_LOGIN_BUTTON) {
-      this.addImageButton(
-        'MainAccountLoginButton',
-        UI_ASSETS.mainButton,
-        '账号登录',
-        centerX,
-        buttonY,
-        () => this.renderLoginDialog(),
-        layout,
-        buttonWidth,
-        buttonHeight,
-        Math.max(18 * layout.uiScale, layout.bodyFont + 7 * layout.uiScale),
-      );
-    } else {
-      this.addGoldButton('账号登录', centerX, buttonY, () => this.renderLoginDialog(), layout, Math.min(320 * layout.uiScale, layout.contentWidth * 0.3), 48 * layout.uiScale);
-    }
-    this.addStatus('等待圣契召唤。', layout, buttonY + buttonHeight / 2 + 28 * layout.uiScale);
+    this.loginRenderer.renderLogin(layout);
   }
 
   private renderLoginDialog(): void {
     this.currentView = 'loginDialog';
     const layout = this.renderBase();
-    if (SHOW_LOGIN_BRAND) {
-      this.renderLoginBrand(layout);
-    }
-    if (SHOW_RIGHT_RAIL) {
-      this.renderRightRail(layout);
-    }
-    this.addRect('DialogDim', 0, 0, layout.width, layout.height, rgba(0, 0, 0, 88));
-
-    const centerX = (layout.stageLeft + layout.stageRight) / 2;
-    const centerY = (layout.stageTop + layout.stageBottom) / 2;
-    const panelWidth = Math.min(620 * layout.uiScale, layout.contentWidth * 0.7);
-    const panelHeight = (SHOW_DIALOG_THIRD_PARTY_LOGIN ? 560 : 430) * layout.uiScale;
-    const panelY = centerY - layout.stageHeight * 0.08;
-    const inputWidth = Math.min(430 * layout.uiScale, panelWidth - 130 * layout.uiScale);
-    this.addBeveledPanel('LoginDialogPanel', centerX, panelY, panelWidth, panelHeight, rgba(10, 8, 9, 226), rgba(214, 177, 94, 230), 18 * layout.uiScale);
-    const titleY = panelY + (SHOW_DIALOG_THIRD_PARTY_LOGIN ? 210 : 168) * layout.uiScale;
-    const accountLabelY = panelY + (SHOW_DIALOG_THIRD_PARTY_LOGIN ? 138 : 102) * layout.uiScale;
-    const accountInputY = panelY + (SHOW_DIALOG_THIRD_PARTY_LOGIN ? 98 : 62) * layout.uiScale;
-    const passwordLabelY = panelY + (SHOW_DIALOG_THIRD_PARTY_LOGIN ? 48 : 12) * layout.uiScale;
-    const passwordInputY = panelY + (SHOW_DIALOG_THIRD_PARTY_LOGIN ? 8 : -28) * layout.uiScale;
-    const enterButtonY = panelY + (SHOW_DIALOG_THIRD_PARTY_LOGIN ? -70 : -96) * layout.uiScale;
-    const thirdPartyY = panelY - 162 * layout.uiScale;
-    const agreementY = SHOW_DIALOG_THIRD_PARTY_LOGIN ? panelY - 226 * layout.uiScale : panelY - 164 * layout.uiScale;
-    this.addLabel('账号登录', centerX, titleY, 30 * layout.uiScale, rgba(245, 210, 122), new Size(panelWidth - 80 * layout.uiScale, 46 * layout.uiScale));
-
-    this.addLabel('账号 / 邮箱', centerX, accountLabelY, 17 * layout.uiScale, rgba(215, 210, 198), new Size(inputWidth, 28 * layout.uiScale));
-    this.accountInput = this.addFramedEditBox(String(AppConfig.defaultDevUserId), centerX, accountInputY, inputWidth, layout);
-    this.addLabel('密码', centerX, passwordLabelY, 17 * layout.uiScale, rgba(215, 210, 198), new Size(inputWidth, 28 * layout.uiScale));
-    this.passwordInput = this.addFramedEditBox('', centerX, passwordInputY, inputWidth, layout, true);
-
-    this.addGoldButton('进入游戏', centerX, enterButtonY, () => this.run(() => this.login()), layout, Math.min(360 * layout.uiScale, inputWidth), 54 * layout.uiScale);
-    if (SHOW_DIALOG_THIRD_PARTY_LOGIN) {
-      this.renderThirdPartyLogin(thirdPartyY, layout, centerX);
-    }
-    this.renderAgreement(agreementY, layout, centerX);
-    this.addButton('返回', centerX - panelWidth / 2 + 68 * layout.uiScale, panelY + panelHeight / 2 - 42 * layout.uiScale, () => this.renderLogin(), layout, 92 * layout.uiScale, 38 * layout.uiScale);
-    this.addStatus('当前阶段只接入 dev-login；账号为数字时作为 User ID。', layout);
+    this.loginRenderer.renderLoginDialog(layout, {
+      agreementAccepted: this.loginFlow.agreementAccepted,
+      defaultDevUserId: this.loginFlow.defaultDevUserId,
+    });
   }
 
   private renderLoading(): void {
     this.currentView = 'loading';
     const layout = this.renderBase();
-    const centerX = (layout.stageLeft + layout.stageRight) / 2;
-    const centerY = (layout.stageTop + layout.stageBottom) / 2;
+    this.lobbyLoadingRenderer.render(layout, this.lobbyLoadingFlow.state);
+  }
 
-    this.addRect('LoadingMask', 0, 0, layout.width, layout.height, rgba(3, 3, 5, 210));
-    const panelWidth = Math.min(660 * layout.uiScale, layout.contentWidth * 0.72);
-    const panelHeight = 260 * layout.uiScale;
-    const panelY = centerY - 12 * layout.uiScale;
-    this.addBeveledPanel('LoadingPanel', centerX, panelY, panelWidth, panelHeight, rgba(10, 8, 10, 232), rgba(214, 177, 94, 230), 18 * layout.uiScale);
-    this.addLabel('资源加载中', centerX, panelY + 74 * layout.uiScale, 32 * layout.uiScale, rgba(245, 210, 122), new Size(panelWidth - 70 * layout.uiScale, 54 * layout.uiScale));
-    this.addLabel(this.loadingError || this.loadingMessage, centerX, panelY + 26 * layout.uiScale, 17 * layout.uiScale, this.loadingError ? rgba(255, 107, 124) : rgba(215, 210, 198), new Size(panelWidth - 96 * layout.uiScale, 42 * layout.uiScale));
-    this.addProgressBar(centerX, panelY - 24 * layout.uiScale, panelWidth - 120 * layout.uiScale, 20 * layout.uiScale, clamp(this.loadingProgress, 0, 1));
-    this.addLabel(`${Math.round(clamp(this.loadingProgress, 0, 1) * 100)}%`, centerX, panelY - 64 * layout.uiScale, 18 * layout.uiScale, rgba(127, 214, 255), new Size(panelWidth - 110 * layout.uiScale, 34 * layout.uiScale));
-    if (this.loadingError) {
-      this.addGoldButton('重试加载', centerX, panelY - 104 * layout.uiScale, () => this.startLobbyLoading(), layout, Math.min(260 * layout.uiScale, panelWidth - 130 * layout.uiScale), 46 * layout.uiScale);
-    }
+  private renderProtagonistCreate(): void {
+    this.currentView = 'protagonistCreate';
+    const layout = this.renderBase();
+    this.protagonistCreateRenderer.render(layout, this.protagonistCreateFlow.currentState());
   }
 
   private renderLobby(): void {
     this.currentView = 'lobby';
     const layout = this.renderBase();
+    // 大厅只保留主界面 HUD；功能入口统一进入独立逻辑场景，不再作为弹框覆盖大厅。
     this.renderLobbyBackground(layout);
     this.renderLobbyHud(layout);
-    if (this.lobbyProfileOpen) {
+  }
+
+  private renderBattleScene(): void {
+    this.currentView = 'battle';
+    const layout = this.renderBase();
+    // 战斗从大厅弹框升级为全屏逻辑视图，但仍复用现有 no-reward battle flow。
+    this.renderLobbyBattlePreviewPanel(layout);
+  }
+
+  private renderGachaScene(): void {
+    this.currentView = 'gacha';
+    const layout = this.renderBase();
+    // 抽奖页当前只做独立场景预览，不能从这里接入扣费、发奖、保底或兑换写入。
+    this.gachaSceneRenderer.render(layout);
+  }
+
+  private renderLobbyScenePage(): void {
+    const layout = this.renderBase();
+    // 功能页仍复用大厅动态背景作统一世界底图，但不渲染大厅 HUD，避免看起来像弹框。
+    this.renderLobbyBackground(layout);
+    if (this.currentView === 'profile') {
       this.renderPlayerProfileDialog(layout);
+      return;
+    }
+    if (this.currentView === 'adventure') {
+      this.renderLobbyAdventurePanel(layout);
+      return;
+    }
+    if (this.currentView === 'codex') {
+      this.renderLobbyCodexPanel(layout);
+      return;
+    }
+    if (this.currentView === 'formation') {
+      this.renderLobbyFormationPanel(layout);
+      return;
+    }
+    if (this.currentView === 'heroes') {
+      this.renderLobbyHeroRosterPanel(layout);
+      return;
+    }
+    if (this.currentView === 'heroDetail') {
+      this.renderLobbyHeroDetailPanel(layout);
+      return;
+    }
+    if (this.currentView === 'notice') {
+      this.renderLobbyNoticePanel(layout);
+      return;
+    }
+    if (this.currentView === 'placeholder') {
+      this.renderLobbyPlaceholderDialog(layout);
     }
   }
 
@@ -299,133 +321,235 @@ export class LootChainGameRoot extends Component {
   }
 
   private refreshLobbyOverlay(): void {
+    if (this.isLobbyScenePageView(this.currentView)) {
+      this.renderCurrentView();
+      return;
+    }
     if (this.currentView !== 'lobby') {
       return;
     }
+    // 大厅态只刷新 HUD；功能页已经独立成逻辑场景，会走整页重绘。
     const layout = this.resolveLayout();
+    this.applyRootSize(layout);
+    this.setPointerCursor(false);
+    this.resizeLobbyBackground(layout);
+    this.rerenderLobbyOverlay(layout);
+  }
+
+  private refreshLobbyViewPreservingBackground(): void {
+    if (this.currentView !== 'lobby') {
+      return;
+    }
+    // 资源补帧或窗口尺寸变化时保留现有背景视频，只重排背景尺寸和 HUD 覆盖层。
+    const layout = this.resolveLayout();
+    this.applyRootSize(layout);
+    this.setPointerCursor(false);
+    this.resizeLobbyBackground(layout);
+    this.rerenderLobbyOverlay(layout);
+  }
+
+  private rerenderLobbyOverlay(layout: UiLayout): void {
+    this.removeNodeFromContent('LobbyAtmosphereOverlay');
     this.removeNodeFromContent('LobbyPlayerInfoButton');
     this.removeNodeFromContent('LobbyResourceBar');
     this.removeNodeFromContent('LobbySystemIcons');
     this.removeNodeFromContent('LobbyActivityRail');
     this.removeNodeFromContent('LobbySceneHotspots');
+    this.removeNodeFromContent('LobbyGoalTracker');
+    this.removeNodeFromContent('LobbyCompactGoalTracker');
+    this.removeNodeFromContent('LobbyMicroGoalChip');
     this.removeNodeFromContent('LobbyChallengeRail');
     this.removeNodeFromContent('LobbyBottomHud');
+    this.removeNodeFromContent('LobbyCompactActionEntrances');
+    this.removeNodeFromContent('LobbyCompactSceneEntrances');
+    this.removeLobbyAdventurePanel();
+    this.removeLobbyBattlePreviewPanel();
+    this.removeLobbyCodexPanel();
+    this.removeLobbyFormationPanel();
+    this.removeLobbyHeroDetailPanel();
+    this.removeLobbyHeroRosterPanel();
+    this.removeLobbyNoticePanel();
     this.removePlayerProfileDialog();
+    this.removeLobbyPlaceholderDialog();
     this.renderLobbyHud(layout);
-    if (this.lobbyProfileOpen) {
-      this.renderPlayerProfileDialog(layout);
-    }
     this.layoutKey = this.makeLayoutKey();
   }
 
   private renderPlayerProfileDialog(layout: UiLayout): void {
-    const profile = this.currentLobbyProfile();
-    const dim = this.addRect('LobbyProfileDim', 0, 0, layout.width, layout.height, rgba(0, 0, 0, 126));
-    dim.node.addComponent(Button);
-    dim.node.on(Button.EventType.CLICK, () => this.closePlayerProfileDialog(), this);
+    this.lobbyProfileDialogRenderer.render(layout);
+  }
 
-    const panelWidth = Math.min(840 * layout.uiScale, Math.max(260 * layout.uiScale, layout.safeWidth - 24 * layout.uiScale));
-    const panelHeight = Math.min(620 * layout.uiScale, Math.max(280 * layout.uiScale, layout.safeHeight - 24 * layout.uiScale));
-    const panelX = (layout.stageLeft + layout.stageRight) / 2;
-    const panelY = (layout.stageTop + layout.stageBottom) / 2;
+  private renderLobbyAdventurePanel(layout: UiLayout): void {
+    this.lobbyAdventurePanelRenderer.render(layout);
+  }
+
+  private renderLobbyBattlePreviewPanel(layout: UiLayout): void {
+    this.lobbyBattlePreviewPanelRenderer.render(layout);
+  }
+
+  private renderLobbyCodexPanel(layout: UiLayout): void {
+    this.lobbyCodexPanelRenderer.render(layout);
+  }
+
+  private renderLobbyFormationPanel(layout: UiLayout): void {
+    this.lobbyFormationPanelRenderer.render(layout);
+  }
+
+  private renderLobbyHeroDetailPanel(layout: UiLayout): void {
+    this.lobbyHeroDetailPanelRenderer.render(layout);
+  }
+
+  private renderLobbyHeroRosterPanel(layout: UiLayout): void {
+    this.lobbyHeroRosterPanelRenderer.render(layout);
+  }
+
+  private renderLobbyNoticePanel(layout: UiLayout): void {
+    this.lobbyNoticePanelRenderer.render(layout);
+  }
+
+  private renderLobbyPlaceholderDialog(layout: UiLayout): void {
+    const dialog = this.lobbyPlaceholderDialog;
+    if (!dialog) {
+      return;
+    }
+    const scale = Math.max(0.7, Math.min(1, layout.uiScale));
+    const centerX = (layout.stageLeft + layout.stageRight) / 2;
+    const centerY = (layout.stageTop + layout.stageBottom) / 2;
+    const pagePadding = Math.max(16 * scale, Math.min(34 * scale, layout.safeWidth * 0.026));
+    const panelWidth = Math.max(280 * scale, layout.safeWidth - pagePadding * 2);
+    const panelHeight = Math.max(220 * scale, layout.safeHeight - pagePadding * 2);
+
+    // 未开放入口以独立场景页承载，只给本地反馈，不承载任何跳转、领取、购买或经济写入逻辑。
+    const dim = this.addRect('LobbyPlaceholderDim', centerX, centerY, layout.width, layout.height, new Color(0, 0, 0, 142));
+    dim.node.addComponent(BlockInputEvents);
+
     const panel = this.addBeveledPanelNode(
-      'LobbyProfilePanel',
-      panelX,
-      panelY,
+      'LobbyPlaceholderPanel',
+      centerX,
+      centerY,
       panelWidth,
       panelHeight,
-      rgba(8, 7, 10, 238),
-      rgba(215, 170, 82, 238),
-      20 * layout.uiScale,
+      new Color(8, 7, 9, 238),
+      new Color(185, 138, 58, 220),
+      16 * scale,
     );
-    panel.addComponent(Button);
-
-    this.addChildLabel(
+    // 面板本体阻挡输入事件，避免点击弹框内容区时穿透到遮罩关闭弹框。
+    panel.addComponent(BlockInputEvents);
+    const titleLabel = this.addChildLabel(
       panel,
-      'LobbyProfileTitle',
-      '玩家资料',
+      'LobbyPlaceholderTitle',
+      dialog.title,
       0,
-      panelHeight / 2 - 46 * layout.uiScale,
-      Math.max(18, 30 * layout.uiScale),
-      rgba(245, 210, 122),
-      new Size(panelWidth - 160 * layout.uiScale, 46 * layout.uiScale),
+      panelHeight / 2 - 48 * scale,
+      26 * scale,
+      new Color(247, 222, 165),
+      new Size(panelWidth - 58 * scale, 38 * scale),
     );
+    titleLabel.overflow = Label.Overflow.SHRINK;
+    titleLabel.enableOutline = true;
+    titleLabel.outlineColor = new Color(0, 0, 0, 215);
+    titleLabel.outlineWidth = Math.max(1, 1.4 * scale);
 
-    const closeSize = 42 * layout.uiScale;
-    const closeNode = new Node('LobbyProfileCloseButton');
-    closeNode.layer = this.node.layer;
-    panel.addChild(closeNode);
-    closeNode.setPosition(new Vec3(panelWidth / 2 - 38 * layout.uiScale, panelHeight / 2 - 36 * layout.uiScale, 0));
-    closeNode.addComponent(UITransform).setContentSize(new Size(closeSize, closeSize));
-    const closeGraphics = closeNode.addComponent(Graphics);
-    this.drawButtonFrame(closeGraphics, closeSize, closeSize, 'normal');
-    closeNode.addComponent(Button);
-    closeNode.on(Button.EventType.CLICK, () => this.closePlayerProfileDialog(), this);
-    this.applyPointerCursor(closeNode);
-    this.addChildLabel(closeNode, 'Label', 'X', 0, 1 * layout.uiScale, Math.max(15, 20 * layout.uiScale), rgba(245, 210, 122), new Size(closeSize, closeSize));
-
-    const avatarSize = 126 * layout.uiScale;
-    const avatarX = -panelWidth / 2 + 118 * layout.uiScale;
-    const avatarY = panelHeight / 2 - 132 * layout.uiScale;
-    this.addLobbyAvatar(panel, avatarX, avatarY, avatarSize, profile.displayName);
-    this.addChildLabel(
+    const subtitle = this.addChildLabel(
       panel,
-      'LobbyProfileName',
-      profile.displayName,
-      avatarX + 96 * layout.uiScale,
-      avatarY + 30 * layout.uiScale,
-      Math.max(17, 28 * layout.uiScale),
-      rgba(250, 226, 164),
-      new Size(panelWidth - 260 * layout.uiScale, 40 * layout.uiScale),
-      HorizontalTextAlignment.LEFT,
-    );
-    this.addChildLabel(
-      panel,
-      'LobbyProfileSubline',
-      `UID ${profile.userId}  |  ${LOBBY_PROFILE_SERVER_NAME}`,
-      avatarX + 96 * layout.uiScale,
-      avatarY - 8 * layout.uiScale,
-      Math.max(12, 17 * layout.uiScale),
-      rgba(209, 199, 176),
-      new Size(panelWidth - 280 * layout.uiScale, 30 * layout.uiScale),
-      HorizontalTextAlignment.LEFT,
-    );
-    this.addChildLabel(
-      panel,
-      'LobbyProfileStatus',
-      this.profileStatusText(profile),
-      avatarX + 96 * layout.uiScale,
-      avatarY - 42 * layout.uiScale,
-      Math.max(12, 16 * layout.uiScale),
-      this.lobbyProfileError ? rgba(255, 162, 92) : rgba(127, 214, 255),
-      new Size(panelWidth - 280 * layout.uiScale, 28 * layout.uiScale),
-      HorizontalTextAlignment.LEFT,
-    );
-
-    const rowTop = avatarY - 104 * layout.uiScale;
-    const columnWidth = (panelWidth - 104 * layout.uiScale) / 2;
-    const leftX = -panelWidth / 4 + 16 * layout.uiScale;
-    const rightX = panelWidth / 4 - 16 * layout.uiScale;
-    const rowGap = 46 * layout.uiScale;
-    this.addProfileRow(panel, '等级', `Lv.${profile.playerLevel}`, leftX, rowTop, columnWidth, layout);
-    this.addProfileRow(panel, '经验', this.formatInteger(profile.exp), rightX, rowTop, columnWidth, layout);
-    this.addProfileRow(panel, '战力', this.formatInteger(profile.combatPower), leftX, rowTop - rowGap, columnWidth, layout);
-    this.addProfileRow(panel, '体力', `${this.formatInteger(profile.stamina)}/${this.formatInteger(profile.maxStamina)}`, rightX, rowTop - rowGap, columnWidth, layout);
-    this.addProfileRow(panel, '账号状态', profile.accountStatus, leftX, rowTop - rowGap * 2, columnWidth, layout);
-    this.addProfileRow(panel, '登录方式', profile.loginMethod, rightX, rowTop - rowGap * 2, columnWidth, layout);
-    this.addProfileRow(panel, '钱包绑定', profile.walletBound ? '已绑定' : '未绑定', leftX, rowTop - rowGap * 3, columnWidth, layout);
-    this.addProfileRow(panel, '钱包地址', this.maskWalletAddress(profile.walletAddress), rightX, rowTop - rowGap * 3, columnWidth, layout);
-
-    this.addChildLabel(
-      panel,
-      'LobbyProfileReadonlyNote',
-      '当前阶段仅展示只读资料；头像、昵称、绑定、登出等操作暂不开放。',
+      'LobbyPlaceholderSubtitle',
+      this.placeholderSubtitle(dialog.title, dialog.detail),
       0,
-      -panelHeight / 2 + 34 * layout.uiScale,
-      Math.max(11, 15 * layout.uiScale),
-      rgba(173, 158, 130),
-      new Size(panelWidth - 90 * layout.uiScale, 28 * layout.uiScale),
+      panelHeight / 2 - 88 * scale,
+      21 * scale,
+      new Color(218, 170, 76),
+      new Size(panelWidth - 72 * scale, 30 * scale),
     );
+    subtitle.overflow = Label.Overflow.SHRINK;
+
+    const detail = this.addChildLabel(
+      panel,
+      'LobbyPlaceholderDetail',
+      dialog.detail,
+      0,
+      0,
+      18 * scale,
+      new Color(210, 196, 166),
+      new Size(panelWidth - 74 * scale, Math.max(58 * scale, panelHeight - 202 * scale)),
+    );
+    detail.lineHeight = 27 * scale;
+    detail.overflow = Label.Overflow.RESIZE_HEIGHT;
+
+    if (panelHeight >= 230 * scale) {
+      const boundary = this.addChildLabel(
+        panel,
+        'LobbyPlaceholderBoundaryNote',
+        this.placeholderBoundaryNote(dialog.detail),
+        0,
+        -panelHeight / 2 + 84 * scale,
+        15 * scale,
+        new Color(168, 146, 104),
+        new Size(panelWidth - 80 * scale, 26 * scale),
+      );
+      boundary.overflow = Label.Overflow.SHRINK;
+    }
+
+    const okWidth = Math.min(180 * scale, panelWidth - 82 * scale);
+    const okHeight = 44 * scale;
+    const okButton = this.addChildPlainNode(panel, 'LobbyPlaceholderOkButton', 0, -panelHeight / 2 + 48 * scale, okWidth, okHeight);
+    this.drawBeveledPanelOnNode(okButton, okWidth, okHeight, new Color(22, 18, 17, 224), new Color(185, 138, 58, 218), 12 * scale);
+    okButton.addComponent(Button);
+    okButton.on(Button.EventType.CLICK, () => this.closeLobbyPlaceholderDialog(), this);
+    this.applyImageButtonFeedback(okButton, 1.025, 0.975);
+    this.addChildLabel(okButton, 'LobbyPlaceholderOkLabel', '返回大厅', 0, 0, 20 * scale, new Color(245, 210, 122), new Size(okWidth, okHeight));
+  }
+
+  private placeholderSubtitle(title: string, detail: string): string {
+    if (title.startsWith('资源：')) {
+      return '只读/占位资源';
+    }
+    if (detail.includes('聊天系统')) {
+      return '本地聊天预览';
+    }
+    if (detail.includes('系统入口')) {
+      return '系统入口占位';
+    }
+    if (detail.includes('战斗') || detail.includes('结算')) {
+      return '玩法未开放';
+    }
+    return '功能暂未开放';
+  }
+
+  private placeholderBoundaryNote(detail: string): string {
+    if (detail.includes('只读')) {
+      return '当前仅展示资料，不提供任何增减入口。';
+    }
+    return '当前仅本地展示，不跳转、不发奖、不写入经济数据。';
+  }
+
+  private isLobbyScenePageView(view: ViewName): boolean {
+    return view === 'profile'
+      || view === 'adventure'
+      || view === 'codex'
+      || view === 'formation'
+      || view === 'heroes'
+      || view === 'heroDetail'
+      || view === 'notice'
+      || view === 'placeholder';
+  }
+
+  private returnToLobbyFromScenePage(): void {
+    this.lobbyProfileOpen = false;
+    this.lobbyAdventurePanelOpen = false;
+    this.lobbyCodexPanelOpen = false;
+    this.lobbyFormationPanelOpen = false;
+    this.lobbyHeroDetailHeroId = null;
+    this.lobbyHeroRosterPanelOpen = false;
+    this.lobbyNoticePanelOpen = false;
+    this.lobbyPlaceholderDialog = null;
+    this.currentView = 'lobby';
+    this.renderLobby();
+  }
+
+  private renderCurrentLobbyScenePage(): void {
+    if (this.isLobbyScenePageView(this.currentView)) {
+      this.renderCurrentView();
+    }
   }
 
 
@@ -458,26 +582,27 @@ export class LootChainGameRoot extends Component {
 
 
   private openPlayerProfileDialog(): void {
-    if (this.lobbyProfileOpen) {
+    if (this.lobbyProfileOpen && this.currentView === 'profile') {
       return;
     }
     this.lobbyProfileOpen = true;
-    if (this.currentView === 'lobby') {
-      this.removePlayerProfileDialog();
-      this.renderPlayerProfileDialog(this.resolveLayout());
-      this.layoutKey = this.makeLayoutKey();
-    }
+    this.lobbyAdventurePanelOpen = false;
+    this.lobbyBattlePreviewPanelOpen = false;
+    this.lobbyCodexPanelOpen = false;
+    this.lobbyFormationPanelOpen = false;
+    this.lobbyHeroDetailHeroId = null;
+    this.lobbyHeroRosterPanelOpen = false;
+    this.lobbyNoticePanelOpen = false;
+    this.lobbyPlaceholderDialog = null;
+    this.currentView = 'profile';
+    this.renderCurrentView();
   }
 
   private closePlayerProfileDialog(): void {
     if (!this.lobbyProfileOpen) {
       return;
     }
-    this.lobbyProfileOpen = false;
-    if (this.currentView === 'lobby') {
-      this.removePlayerProfileDialog();
-      this.layoutKey = this.makeLayoutKey();
-    }
+    this.returnToLobbyFromScenePage();
   }
 
   private removePlayerProfileDialog(): void {
@@ -485,91 +610,536 @@ export class LootChainGameRoot extends Component {
     this.removeNodeFromContent('LobbyProfilePanel');
   }
 
-  private async loadLobbyProfile(userId: number): Promise<void> {
-    this.lobbyProfileLoading = true;
-    this.lobbyProfileError = '';
-    if (this.currentView === 'lobby') {
-      this.refreshLobbyOverlay();
+  private openLobbyAdventurePanel(): void {
+    this.lobbyAdventurePanelOpen = true;
+    this.lobbyBattlePreviewPanelOpen = false;
+    this.lobbyCodexPanelOpen = false;
+    this.lobbyFormationPanelOpen = false;
+    this.lobbyHeroDetailHeroId = null;
+    this.lobbyHeroRosterPanelOpen = false;
+    this.lobbyNoticePanelOpen = false;
+    this.lobbyProfileOpen = false;
+    this.lobbyPlaceholderDialog = null;
+    this.currentView = 'adventure';
+    this.renderCurrentView();
+    void this.loadLobbyAdventure();
+    void this.loadLobbyBattleRecent();
+  }
+
+  private closeLobbyAdventurePanel(): void {
+    if (!this.lobbyAdventurePanelOpen) {
+      return;
     }
-    try {
-      const profile = await this.api.profile.lobbyProfile();
-      if (userId !== this.lastDevUserId) {
+    this.returnToLobbyFromScenePage();
+  }
+
+  private removeLobbyAdventurePanel(): void {
+    this.removeNodeFromContent('LobbyAdventureDim');
+    this.removeNodeFromContent('LobbyAdventurePanel');
+  }
+
+  private reloadLobbyAdventure(): void {
+    void this.loadLobbyAdventure(true);
+    void this.loadLobbyBattleRecent(true);
+  }
+
+  private currentLobbyAdventureState(): LobbyAdventurePanelState {
+    return this.lobbyAdventureLoader.currentState();
+  }
+
+  private selectLobbyAdventureStage(stageCode: string): void {
+    const resolvedStageCode = this.resolveLobbyStageCode(stageCode);
+    if (!resolvedStageCode) {
+      this.rejectInvalidLobbyStageSelection();
+      return;
+    }
+    const stage = this.findLobbyAdventureStage(resolvedStageCode);
+    if (!stage) {
+      this.setStatus('该主线关卡暂不可选，请刷新冒险面板。');
+      return;
+    }
+    if (!stage.unlocked) {
+      this.setStatus(`${stage.stageName} 尚未解锁，当前只展示预告。`);
+      return;
+    }
+    // 只保存本地本次关卡选择，让详情、编队和战斗预览保持同一目标；不写入主线进度。
+    this.selectedLobbyStageCode = resolvedStageCode;
+    this.setStatus(`已选择 ${stage.stageName}，可进入编队确认。`);
+    if (this.currentView === 'adventure' && this.lobbyAdventurePanelOpen) {
+      this.renderCurrentView();
+    }
+  }
+
+  private previewLockedLobbyAdventureStage(stageCode: string): void {
+    const resolvedStageCode = this.resolveLobbyStageCode(stageCode);
+    if (!resolvedStageCode) {
+      this.rejectInvalidLobbyStageSelection();
+      return;
+    }
+    const stage = this.findLobbyAdventureStage(resolvedStageCode);
+    if (!stage) {
+      this.setStatus('该主线关卡暂不可选，请刷新冒险面板。');
+      return;
+    }
+    if (stage.unlocked) {
+      this.selectLobbyAdventureStage(resolvedStageCode);
+      return;
+    }
+    // 锁定关卡只展示原因，不写入本地选择，也不会打开编队或触发 battle start。
+    this.setStatus(`${stage.stageName} 尚未解锁，当前只展示预告，不会进入编队。`);
+  }
+
+  private openLobbyBattlePreviewPanel(stageCode: string): void {
+    const resolvedStageCode = this.resolveLobbyStageCode(stageCode);
+    if (!resolvedStageCode) {
+      this.rejectInvalidLobbyStageSelection();
+      return;
+    }
+    const stage = this.findLobbyAdventureStage(resolvedStageCode);
+    if (!stage) {
+      this.setStatus('该主线关卡暂不可选，请刷新冒险面板。');
+      this.openLobbyAdventurePanel();
+      return;
+    }
+    if (!stage.unlocked) {
+      this.previewLockedLobbyAdventureStage(resolvedStageCode);
+      this.openLobbyAdventurePanel();
+      return;
+    }
+    const reuseExistingBattleState = this.isLobbyBattleFlowBusyForStage(resolvedStageCode);
+    this.selectedLobbyStageCode = resolvedStageCode;
+    if (!reuseExistingBattleState) {
+      this.lobbyBattleFlow.prepare(this.selectedLobbyStageCode);
+    }
+    this.lobbyBattlePreviewPanelOpen = true;
+    this.lobbyAdventurePanelOpen = false;
+    this.lobbyCodexPanelOpen = false;
+    this.lobbyFormationPanelOpen = false;
+    this.lobbyHeroDetailHeroId = null;
+    this.lobbyHeroRosterPanelOpen = false;
+    this.lobbyNoticePanelOpen = false;
+    this.lobbyProfileOpen = false;
+    this.lobbyPlaceholderDialog = null;
+    this.removePlayerProfileDialog();
+    this.removeLobbyAdventurePanel();
+    this.removeLobbyCodexPanel();
+    this.removeLobbyFormationPanel();
+    this.removeLobbyHeroDetailPanel();
+    this.removeLobbyHeroRosterPanel();
+    this.removeLobbyNoticePanel();
+    this.removeLobbyPlaceholderDialog();
+    this.removeLobbyBattlePreviewPanel();
+    this.currentView = 'battle';
+    this.renderBattleScene();
+    const startStageCode = resolvedStageCode;
+    if (reuseExistingBattleState) {
+      return;
+    }
+    void this.loadLobbyHeroRoster().then(() => {
+      if (this.currentView !== 'battle' || !this.lobbyBattlePreviewPanelOpen || this.selectedLobbyStageCode !== startStageCode || this.isLobbyBattleFlowBusyForStage(startStageCode)) {
         return;
       }
-      this.lobbyProfile = this.normalizeLobbyProfile(profile);
-      this.lobbyProfileError = '';
-    } catch (error) {
-      if (userId !== this.lastDevUserId) {
-        return;
+      this.startLobbyBattleSession();
+    });
+  }
+
+  private closeLobbyBattlePreviewPanel(): void {
+    if (!this.lobbyBattlePreviewPanelOpen) {
+      return;
+    }
+    this.lobbyBattlePreviewPanelOpen = false;
+    this.lobbyFormationPanelOpen = true;
+    this.currentView = 'formation';
+    this.renderCurrentView();
+  }
+
+  private removeLobbyBattlePreviewPanel(): void {
+    this.removeNodeFromContent('LobbyBattlePreviewDim');
+    this.removeNodeFromContent('LobbyBattlePreviewPanel');
+    this.removeNodeFromContent('LobbyBattleSceneRoot');
+  }
+
+  private refreshLobbyBattlePreviewPanel(): void {
+    if (!this.lobbyBattlePreviewPanelOpen) {
+      return;
+    }
+    if (this.currentView === 'battle') {
+      this.renderBattleScene();
+      return;
+    }
+    if (this.currentView !== 'lobby') {
+      return;
+    }
+    this.removeLobbyBattlePreviewPanel();
+    this.renderLobbyBattlePreviewPanel(this.resolveLayout());
+    this.layoutKey = this.makeLayoutKey();
+  }
+
+  private currentLobbyBattleState(): LobbyBattlePanelState {
+    return this.lobbyBattleFlow.currentState();
+  }
+
+  private isLobbyBattleFlowBusyForStage(stageCode: string): boolean {
+    const state = this.lobbyBattleFlow.currentState();
+    return state.stageCode === stageCode && (state.starting || !!state.start || state.settling || !!state.settlement);
+  }
+
+  private startLobbyBattleSession(): void {
+    if (!this.selectedLobbyStageCode) {
+      this.rejectInvalidLobbyStageSelection();
+      return;
+    }
+    this.reconcileLobbyFormationSelection();
+    void this.lobbyBattleFlow.start(this.selectedLobbyStageCode);
+  }
+
+  private settleLobbyBattleSession(): void {
+    void this.lobbyBattleFlow.settle();
+  }
+
+  private returnToLobbyFromBattlePreview(): void {
+    // 回到大厅时结束战斗表现计时，并回读只读大厅数据，保证闭环后的 HUD 与入口状态是最新快照。
+    this.lobbyBattlePreviewPanelOpen = false;
+    this.lobbyFormationPanelOpen = false;
+    this.lobbyBattleFlow.cancel(true);
+    this.currentView = 'lobby';
+    this.removeLobbyBattlePreviewPanel();
+    this.removeLobbyFormationPanel();
+    this.renderLobby();
+    this.refreshLobbyReadonlyStateAfterBattle();
+  }
+
+  private openLobbyCodexPanel(): void {
+    this.lobbyAdventurePanelOpen = false;
+    this.lobbyBattlePreviewPanelOpen = false;
+    this.lobbyCodexPanelOpen = true;
+    this.lobbyFormationPanelOpen = false;
+    this.lobbyHeroDetailHeroId = null;
+    this.lobbyHeroRosterPanelOpen = false;
+    this.lobbyNoticePanelOpen = false;
+    this.lobbyProfileOpen = false;
+    this.lobbyPlaceholderDialog = null;
+    this.currentView = 'codex';
+    this.renderCurrentView();
+    void this.loadLobbyCodex();
+  }
+
+  private openLobbyFormationPanel(stageCode?: string): void {
+    const resolvedStageCode = this.resolveLobbyStageCode(stageCode);
+    if (!resolvedStageCode) {
+      this.rejectInvalidLobbyStageSelection();
+      return;
+    }
+    const stage = this.findLobbyAdventureStage(resolvedStageCode);
+    if (!stage) {
+      this.setStatus('该主线关卡暂不可选，请刷新冒险面板。');
+      this.openLobbyAdventurePanel();
+      return;
+    }
+    if (!stage.unlocked) {
+      this.previewLockedLobbyAdventureStage(resolvedStageCode);
+      this.openLobbyAdventurePanel();
+      return;
+    }
+    // 编队入口也重复校验 unlock，防止未来 UI 误把锁定关卡传进来。
+    this.selectedLobbyStageCode = resolvedStageCode;
+    this.lobbyFormationPanelOpen = true;
+    this.lobbyAdventurePanelOpen = false;
+    this.lobbyBattlePreviewPanelOpen = false;
+    this.lobbyCodexPanelOpen = false;
+    this.lobbyHeroDetailHeroId = null;
+    this.lobbyHeroRosterPanelOpen = false;
+    this.lobbyNoticePanelOpen = false;
+    this.lobbyProfileOpen = false;
+    this.lobbyPlaceholderDialog = null;
+    this.currentView = 'formation';
+    this.renderCurrentView();
+    void this.loadLobbyHeroRoster();
+  }
+
+  private closeLobbyFormationPanel(): void {
+    if (!this.lobbyFormationPanelOpen) {
+      return;
+    }
+    this.returnToLobbyFromScenePage();
+  }
+
+  private removeLobbyFormationPanel(): void {
+    this.removeNodeFromContent('LobbyFormationDim');
+    this.removeNodeFromContent('LobbyFormationPanel');
+  }
+
+  private closeLobbyCodexPanel(): void {
+    if (!this.lobbyCodexPanelOpen) {
+      return;
+    }
+    this.returnToLobbyFromScenePage();
+  }
+
+  private removeLobbyCodexPanel(): void {
+    this.removeNodeFromContent('LobbyCodexDim');
+    this.removeNodeFromContent('LobbyCodexPanel');
+  }
+
+  private reloadLobbyCodex(): void {
+    void this.loadLobbyCodex(true);
+  }
+
+  private currentLobbyCodexState(): LobbyCodexPanelState {
+    return this.lobbyCodexLoader.currentState();
+  }
+
+  private openLobbyHeroRosterPanel(): void {
+    this.lobbyHeroRosterPanelOpen = true;
+    this.lobbyHeroDetailHeroId = null;
+    this.lobbyAdventurePanelOpen = false;
+    this.lobbyBattlePreviewPanelOpen = false;
+    this.lobbyCodexPanelOpen = false;
+    this.lobbyFormationPanelOpen = false;
+    this.lobbyNoticePanelOpen = false;
+    this.lobbyProfileOpen = false;
+    this.lobbyPlaceholderDialog = null;
+    this.currentView = 'heroes';
+    this.renderCurrentView();
+    void this.loadLobbyHeroRoster();
+  }
+
+  private closeLobbyHeroRosterPanel(): void {
+    if (!this.lobbyHeroRosterPanelOpen) {
+      return;
+    }
+    this.returnToLobbyFromScenePage();
+  }
+
+  private removeLobbyHeroRosterPanel(): void {
+    this.removeNodeFromContent('LobbyHeroRosterDim');
+    this.removeNodeFromContent('LobbyHeroRosterPanel');
+  }
+
+  private reloadLobbyHeroRoster(): void {
+    void this.loadLobbyHeroRoster(true);
+  }
+
+  private currentLobbyHeroRosterState(): LobbyHeroRosterPanelState {
+    return this.lobbyHeroRosterLoader.currentState();
+  }
+
+  private openLobbyHeroDetail(heroId: number): void {
+    const hero = this.lobbyHeroRosterLoader.currentState().heroes.find((item) => item.id === heroId);
+    if (!hero || hero.rarity.toUpperCase() === 'EX' || hero.heroCode.toUpperCase().startsWith('EX_')) {
+      this.setStatus('该英雄当前不可查看详情。');
+      return;
+    }
+    this.lobbyHeroDetailHeroId = hero.id;
+    this.lobbyHeroRosterPanelOpen = true;
+    this.currentView = 'heroDetail';
+    this.renderCurrentView();
+  }
+
+  private closeLobbyHeroDetailPanel(): void {
+    if (this.lobbyHeroDetailHeroId === null) {
+      return;
+    }
+    this.returnToLobbyFromScenePage();
+  }
+
+  private backToLobbyHeroRosterPanel(): void {
+    this.lobbyHeroDetailHeroId = null;
+    this.lobbyHeroRosterPanelOpen = true;
+    this.currentView = 'heroes';
+    this.renderCurrentView();
+  }
+
+  private removeLobbyHeroDetailPanel(): void {
+    this.removeNodeFromContent('LobbyHeroDetailDim');
+    this.removeNodeFromContent('LobbyHeroDetailPanel');
+  }
+
+  private currentLobbyHeroDetailHero(): LobbyHeroItemVO | null {
+    if (this.lobbyHeroDetailHeroId === null) {
+      return null;
+    }
+    return this.lobbyHeroRosterLoader.currentState().heroes.find((hero) => hero.id === this.lobbyHeroDetailHeroId) ?? null;
+  }
+
+  private currentLobbySelectedStageCode(): string {
+    return this.selectedLobbyStageCode ?? '未选择关卡';
+  }
+
+  private currentLobbyFormationHeroIds(): number[] {
+    return this.resolveLobbyFormationHeroIds();
+  }
+
+  private toggleLobbyFormationHero(heroId: number): void {
+    const heroes = this.selectableLobbyHeroes();
+    const hero = heroes.find((item) => item.id === heroId);
+    if (!hero) {
+      this.setStatus('该英雄当前不可上阵。');
+      return;
+    }
+    const current = this.resolveLobbyFormationHeroIds();
+    if (hero.protagonist) {
+      this.setStatus('主角当前固定为队长，不能从本次阵容移除。');
+      return;
+    }
+    if (current.includes(hero.id)) {
+      this.selectedLobbyFormationHeroIds = this.normalizeLobbyFormationHeroIds(current.filter((id) => id !== hero.id));
+      this.setStatus(`${hero.heroName} 已移出本次阵容。`);
+    } else {
+      const next = [...current];
+      if (next.length >= 5) {
+        const replaceIndex = next.findIndex((id) => !heroes.find((item) => item.id === id)?.protagonist);
+        next[replaceIndex >= 0 ? replaceIndex : next.length - 1] = hero.id;
+      } else {
+        next.push(hero.id);
       }
-      this.lobbyProfile = null;
-      this.lobbyProfileError = error instanceof Error ? error.message : String(error);
-      console.warn('[LootChain] lobby profile load failed:', error);
-    } finally {
-      if (userId !== this.lastDevUserId) {
-        return;
-      }
-      this.lobbyProfileLoading = false;
-      if (this.currentView === 'lobby') {
+      this.selectedLobbyFormationHeroIds = this.normalizeLobbyFormationHeroIds(next);
+      this.setStatus(`${hero.heroName} 已加入本次阵容。`);
+    }
+    if (this.currentView === 'formation' && this.lobbyFormationPanelOpen) {
+      this.renderCurrentView();
+    }
+  }
+
+  private openLobbyNoticePanel(): void {
+    this.lobbyNoticePanelOpen = true;
+    this.lobbyAdventurePanelOpen = false;
+    this.lobbyBattlePreviewPanelOpen = false;
+    this.lobbyCodexPanelOpen = false;
+    this.lobbyFormationPanelOpen = false;
+    this.lobbyHeroDetailHeroId = null;
+    this.lobbyHeroRosterPanelOpen = false;
+    this.lobbyProfileOpen = false;
+    this.lobbyPlaceholderDialog = null;
+    this.currentView = 'notice';
+    this.renderCurrentView();
+    void this.loadLobbyNotices();
+  }
+
+  private openLobbyGachaScene(): void {
+    this.lobbyProfileOpen = false;
+    this.lobbyAdventurePanelOpen = false;
+    this.lobbyBattlePreviewPanelOpen = false;
+    this.lobbyCodexPanelOpen = false;
+    this.lobbyFormationPanelOpen = false;
+    this.lobbyHeroDetailHeroId = null;
+    this.lobbyHeroRosterPanelOpen = false;
+    this.lobbyNoticePanelOpen = false;
+    this.lobbyPlaceholderDialog = null;
+    this.currentView = 'gacha';
+    this.renderCurrentView();
+    this.setStatus('已进入召唤预览页，当前不会扣资源或发放英雄。');
+  }
+
+  private closeGachaScene(): void {
+    if (this.currentView !== 'gacha') {
+      return;
+    }
+    this.currentView = 'lobby';
+    this.renderLobby();
+  }
+
+  private closeLobbyNoticePanel(): void {
+    if (!this.lobbyNoticePanelOpen) {
+      return;
+    }
+    this.returnToLobbyFromScenePage();
+  }
+
+  private removeLobbyNoticePanel(): void {
+    this.removeNodeFromContent('LobbyNoticeDim');
+    this.removeNodeFromContent('LobbyNoticePanel');
+  }
+
+  private reloadLobbyNotices(): void {
+    void this.loadLobbyNotices(true);
+  }
+
+  private currentLobbyNoticeState(): LobbyNoticePanelState {
+    return this.lobbyNoticeLoader.currentState();
+  }
+
+  private openLobbyPlaceholderDialog(title: string, detail?: string): void {
+    const safeTitle = this.trimText(title || '大厅入口');
+    const safeDetail = this.trimText(detail || '当前阶段仅开放登录、大厅只读展示和玩家资料查看。该入口暂不连接玩法或经济写接口。');
+    this.lobbyPlaceholderDialog = {
+      title: safeTitle,
+      detail: safeDetail,
+    };
+    this.lobbyProfileOpen = false;
+    this.lobbyAdventurePanelOpen = false;
+    this.lobbyBattlePreviewPanelOpen = false;
+    this.lobbyCodexPanelOpen = false;
+    this.lobbyFormationPanelOpen = false;
+    this.lobbyHeroDetailHeroId = null;
+    this.lobbyHeroRosterPanelOpen = false;
+    this.lobbyNoticePanelOpen = false;
+    this.setStatus(`${safeTitle} 暂未开放。`);
+    this.currentView = 'placeholder';
+    this.renderCurrentView();
+  }
+
+  private closeLobbyPlaceholderDialog(): void {
+    if (!this.lobbyPlaceholderDialog) {
+      return;
+    }
+    this.returnToLobbyFromScenePage();
+  }
+
+  private removeLobbyPlaceholderDialog(): void {
+    this.removeNodeFromContent('LobbyPlaceholderDim');
+    this.removeNodeFromContent('LobbyPlaceholderPanel');
+  }
+
+  private async loadLobbyProfile(userId: number): Promise<void> {
+    await this.lobbyProfileLoader.load(userId);
+  }
+
+  private async loadLobbyNotices(force = false): Promise<void> {
+    await this.lobbyNoticeLoader.load(force);
+  }
+
+  private async loadLobbyCodex(force = false): Promise<void> {
+    await this.lobbyCodexLoader.load(force);
+  }
+
+  private async loadLobbyHeroRoster(force = false): Promise<void> {
+    await this.lobbyHeroRosterLoader.load(force);
+    if (this.reconcileLobbyFormationSelection()) {
+      if (this.currentView === 'formation' || this.currentView === 'heroes' || this.currentView === 'heroDetail') {
+        this.renderCurrentView();
+      } else if (this.currentView === 'lobby') {
         this.refreshLobbyOverlay();
       }
     }
   }
 
+  private async loadLobbyAdventure(force = false): Promise<void> {
+    await this.lobbyAdventureLoader.load(force);
+  }
+
+  private async loadLobbyBattleRecent(force = false): Promise<void> {
+    await this.lobbyBattleFlow.loadRecentBattles(force);
+  }
+
+  private refreshLobbyReadonlyStateAfterBattle(): void {
+    const profile = this.currentLobbyProfile();
+    void this.loadLobbyProfile(profile.userId);
+    void this.loadLobbyAdventure(true);
+    void this.loadLobbyHeroRoster(true);
+    void this.loadLobbyBattleRecent(true);
+  }
+
   private currentLobbyProfile(): PlayerLobbyProfileVO {
-    return this.lobbyProfile ?? this.fallbackLobbyProfile();
+    return this.lobbyProfileLoader.currentProfile();
   }
 
-  private fallbackLobbyProfile(): PlayerLobbyProfileVO {
-    return {
-      userId: this.lastDevUserId,
-      displayName: 'LootChain',
-      username: `player${this.lastDevUserId}`,
-      nickname: null,
-      avatar: null,
-      playerLevel: 1,
-      exp: 0,
-      stamina: 0,
-      maxStamina: 120,
-      combatPower: 0,
-      status: null,
-      accountStatus: this.lobbyProfileError ? '资料占位' : '读取中',
-      walletBound: false,
-      walletAddress: null,
-      loginMethod: 'dev-login',
-    };
+  private isLobbyProfileLoading(): boolean {
+    return this.lobbyProfileLoader.loading;
   }
 
-  private normalizeLobbyProfile(profile: PlayerLobbyProfileVO): PlayerLobbyProfileVO {
-    const userId = this.positiveInteger(profile.userId, this.lastDevUserId);
-    const displayName = this.safeText(profile.displayName || profile.nickname || profile.username || `Player${userId}`);
-    return {
-      userId,
-      displayName,
-      username: profile.username ?? null,
-      nickname: profile.nickname ?? null,
-      avatar: profile.avatar ?? null,
-      playerLevel: this.positiveInteger(profile.playerLevel, 1),
-      exp: this.positiveInteger(profile.exp, 0),
-      stamina: this.positiveInteger(profile.stamina, 0),
-      maxStamina: this.positiveInteger(profile.maxStamina, 120),
-      combatPower: this.positiveInteger(profile.combatPower, 0),
-      status: profile.status ?? null,
-      accountStatus: this.safeText(profile.accountStatus || '未知'),
-      walletBound: Boolean(profile.walletBound),
-      walletAddress: profile.walletAddress ?? null,
-      loginMethod: this.safeText(profile.loginMethod || 'dev-login'),
-    };
-  }
-
-  private profileStatusText(profile: PlayerLobbyProfileVO): string {
-    if (this.lobbyProfileLoading) {
-      return '资料读取中...';
-    }
-    if (this.lobbyProfileError) {
-      return '资料接口暂不可用，已使用本地占位';
-    }
-    return `账号状态：${profile.accountStatus}`;
+  private getLobbyProfileError(): string {
+    return this.lobbyProfileLoader.error;
   }
 
   private renderBase(): UiLayout {
@@ -578,629 +1148,192 @@ export class LootChainGameRoot extends Component {
     this.layoutKey = this.makeLayoutKey();
     this.setPointerCursor(false);
     this.releaseLobbyVideoRuntime();
-    this.ensureContentRoot().removeAllChildren();
+    this.statusPresenter.reset();
+    // 整页重绘会清空 UI 根；局部 overlay 刷新不要走这个路径。
+    this.contentRootController.clear();
     return layout;
   }
 
-  private renderLoginBrand(layout: UiLayout): void {
-    const logoWidth = clamp(layout.stageWidth * 0.23, 210 * layout.uiScale, 320 * layout.uiScale);
-    const logoHeight = Math.round(logoWidth * 0.51);
-    const logoX = layout.safeLeft + logoWidth / 2;
-    const logoY = layout.safeTop - logoHeight / 2;
-    if (!this.addSprite('LoginLogo', UI_ASSETS.logo, logoX, logoY, logoWidth, logoHeight)) {
-      this.addLabel('LOOTCHAIN', logoX, logoY + 22 * layout.uiScale, 46 * layout.uiScale, rgba(245, 210, 122), new Size(logoWidth * 1.35, 62 * layout.uiScale));
-      this.addLabel('SILENT GODS', logoX, logoY - 30 * layout.uiScale, 17 * layout.uiScale, rgba(214, 177, 94), new Size(logoWidth * 1.2, 28 * layout.uiScale));
-    }
-  }
-
-  private renderRightRail(layout: UiLayout): void {
-    const railWidth = 76 * layout.uiScale;
-    const railHeight = 74 * layout.uiScale;
-    const x = layout.safeRight - railWidth / 2;
-    const yStart = layout.safeTop - Math.max(8 * layout.uiScale, layout.safeInsetY * 0.4) - railHeight / 2;
-    const railGap = 84 * layout.uiScale;
-    UI_ASSETS.rightRail.forEach((asset, index) => {
-      this.addRailImageButton(asset, x, yStart - index * railGap, layout);
-    });
-  }
-
-  private renderThirdPartyLogin(y: number, layout: UiLayout, centerX = 0): void {
-    this.addLabel('其他登录方式', centerX, y + 30 * layout.uiScale, 16 * layout.uiScale, rgba(214, 177, 94), new Size(260 * layout.uiScale, 28 * layout.uiScale));
-    const labels = ['G', 'A', 'D', 'X'];
-    const gap = 68 * layout.uiScale;
-    labels.forEach((label, index) => {
-      const x = centerX + (index - (labels.length - 1) / 2) * gap;
-      this.addDiamondButton(label, x, y - 8 * layout.uiScale, () => this.setStatus('第三方登录暂未开放。'), layout);
-    });
-  }
-
-  private renderAgreement(y: number, layout: UiLayout, centerX = 0): void {
-    const boxSize = 24 * layout.uiScale;
-    const x = centerX - 152 * layout.uiScale;
-    this.addButton(this.agreementAccepted ? '✓' : '', x, y, () => {
-      this.agreementAccepted = !this.agreementAccepted;
-      this.renderLoginDialog();
-    }, layout, boxSize, boxSize);
-    this.addLabel('我已阅读并同意《用户协议》和《隐私政策》', centerX + 54 * layout.uiScale, y, 16 * layout.uiScale, rgba(215, 210, 198), new Size(430 * layout.uiScale, 34 * layout.uiScale));
-  }
-
   private renderLobbyBackground(layout: UiLayout): void {
-    if (this.lobbyPosterFrame) {
-      const posterNode = this.createUiNode('Lobby_BG_Poster');
-      posterNode.setPosition(Vec3.ZERO);
-      posterNode.addComponent(UITransform).setContentSize(new Size(layout.width, layout.height));
-      this.lobbyPosterOpacity = posterNode.addComponent(UIOpacity);
-      this.lobbyPosterOpacity.opacity = 255;
-      const poster = posterNode.addComponent(Sprite);
-      poster.type = Sprite.Type.SIMPLE;
-      poster.sizeMode = Sprite.SizeMode.CUSTOM;
-      poster.spriteFrame = this.lobbyPosterFrame;
-    } else {
-      this.addRect('Lobby_BG_Fallback', 0, 0, layout.width, layout.height, rgba(5, 4, 7, 255));
-    }
+    this.lobbyBackgroundController.render(layout);
+  }
 
-    if (!USE_LOBBY_NATIVE_VIDEO_BACKGROUND || !this.lobbyVideoClip) {
-      return;
-    }
-
-    const videoNode = this.createUiNode('Lobby_BG_Video');
-    videoNode.setPosition(Vec3.ZERO);
-    videoNode.addComponent(UITransform).setContentSize(new Size(layout.width, layout.height));
-    const video = videoNode.addComponent(VideoPlayer);
-    video.clip = this.lobbyVideoClip;
-    video.mute = true;
-    video.volume = 0;
-    video.loop = true;
-    video.playOnAwake = false;
-    video.fullScreenOnAwake = false;
-    video.keepAspectRatio = false;
-    video.stayOnBottom = true;
-    this.lobbyVideoPlayer = video;
-    videoNode.on(VideoPlayer.EventType.READY_TO_PLAY, this.onLobbyVideoReady, this);
-    videoNode.on(VideoPlayer.EventType.PLAYING, this.onLobbyVideoPlaying, this);
-    videoNode.on(VideoPlayer.EventType.COMPLETED, this.onLobbyVideoCompleted, this);
-    videoNode.on(VideoPlayer.EventType.ERROR, this.onLobbyVideoError, this);
-    this.tryPlayLobbyVideo();
-    this.scheduleOnce(() => this.tryPlayLobbyVideo(), 0.1);
-    this.scheduleOnce(() => {
-      if (!this.lobbyPosterHidden) {
-        this.tryPlayLobbyVideo();
-      }
-    }, 1.0);
+  private resizeLobbyBackground(layout: UiLayout): void {
+    this.lobbyBackgroundController.resize(layout);
   }
 
   private tryPlayLobbyVideo(): void {
-    if (!USE_LOBBY_NATIVE_VIDEO_BACKGROUND || this.currentView !== 'lobby' || !this.lobbyVideoPlayer) {
-      return;
-    }
-    try {
-      this.lobbyVideoPlayer.mute = true;
-      this.lobbyVideoPlayer.volume = 0;
-      this.lobbyVideoPlayer.play();
-    } catch (error) {
-      console.warn('[LootChain] lobby background video play failed:', error);
-    }
-  }
-
-  private onLobbyVideoReady(): void {
-    this.tryPlayLobbyVideo();
-  }
-
-  private onLobbyVideoPlaying(): void {
-    if (!this.lobbyPosterOpacity || this.lobbyPosterHidden) {
-      return;
-    }
-    this.lobbyPosterFadeTimer = 0;
-    this.lobbyPosterFading = true;
-  }
-
-  private onLobbyVideoCompleted(): void {
-    if (!this.lobbyVideoPlayer) {
-      return;
-    }
-    try {
-      this.lobbyVideoPlayer.currentTime = 0;
-      this.lobbyVideoPlayer.play();
-    } catch (error) {
-      console.warn('[LootChain] lobby background video replay failed:', error);
-    }
-  }
-
-  private onLobbyVideoError(): void {
-    console.warn('[LootChain] lobby background video error; keeping poster background');
-    if (this.lobbyPosterOpacity) {
-      this.lobbyPosterOpacity.opacity = 255;
-    }
-    this.lobbyPosterFading = false;
-    this.lobbyPosterHidden = false;
+    this.lobbyBackgroundController.tryPlay();
   }
 
   private updateLobbyPosterFade(deltaTime: number): void {
-    if (!this.lobbyPosterFading || !this.lobbyPosterOpacity) {
-      return;
-    }
-    this.lobbyPosterFadeTimer += deltaTime;
-    const progress = clamp(this.lobbyPosterFadeTimer / LOBBY_POSTER_FADE_DURATION, 0, 1);
-    this.lobbyPosterOpacity.opacity = 255 * (1 - progress);
-    if (progress >= 1) {
-      this.lobbyPosterOpacity.opacity = 0;
-      this.lobbyPosterFading = false;
-      this.lobbyPosterHidden = true;
-    }
+    this.lobbyBackgroundController.update(deltaTime);
   }
 
   private releaseLobbyVideoRuntime(): void {
-    const video = this.lobbyVideoPlayer;
-    if (video) {
-      video.node.off(VideoPlayer.EventType.READY_TO_PLAY, this.onLobbyVideoReady, this);
-      video.node.off(VideoPlayer.EventType.PLAYING, this.onLobbyVideoPlaying, this);
-      video.node.off(VideoPlayer.EventType.COMPLETED, this.onLobbyVideoCompleted, this);
-      video.node.off(VideoPlayer.EventType.ERROR, this.onLobbyVideoError, this);
-      try {
-        video.stop();
-      } catch (error) {
-        console.warn('[LootChain] lobby background video stop failed:', error);
-      }
-    }
-    this.lobbyVideoPlayer = null;
-    this.lobbyPosterOpacity = null;
-    this.lobbyPosterFadeTimer = 0;
-    this.lobbyPosterFading = false;
-    this.lobbyPosterHidden = false;
+    this.lobbyBackgroundController.release();
   }
 
-  private addLobbyAvatar(parent: Node, x: number, y: number, size: number, displayName: string): void {
-    const avatarNode = new Node('LobbyPlayerAvatar');
-    avatarNode.layer = this.node.layer;
-    parent.addChild(avatarNode);
-    avatarNode.setPosition(new Vec3(x, y, 0));
-    avatarNode.addComponent(UITransform).setContentSize(new Size(size, size));
-    const graphics = avatarNode.addComponent(Graphics);
-    const radius = size / 2;
-
-    graphics.fillColor = rgba(15, 10, 7, 230);
-    graphics.circle(0, 0, radius * 1.08);
-    graphics.fill();
-    graphics.strokeColor = rgba(95, 67, 31, 190);
-    graphics.lineWidth = Math.max(2, size * 0.04);
-    graphics.circle(0, 0, radius * 1.03);
-    graphics.stroke();
-    graphics.strokeColor = rgba(205, 160, 73, 210);
-    graphics.lineWidth = Math.max(1, size * 0.015);
-    graphics.arc(0, 0, radius * 1.08, Math.PI * 0.74, Math.PI * 1.34, false);
-    graphics.stroke();
-    graphics.arc(0, 0, radius * 1.08, Math.PI * 1.74, Math.PI * 0.34, false);
-    graphics.stroke();
-
-    this.drawAvatarFrameOrnaments(graphics, size);
-
-    graphics.fillColor = rgba(8, 9, 13, 252);
-    graphics.circle(0, 0, radius * 0.98);
-    graphics.fill();
-
-    graphics.fillColor = rgba(24, 28, 36, 246);
-    graphics.circle(0, -radius * 0.02, radius * 0.78);
-    graphics.fill();
-
-    this.drawArmoredAvatarPortrait(graphics, size);
-
-    graphics.strokeColor = rgba(37, 25, 15, 255);
-    graphics.lineWidth = Math.max(2, size * 0.065);
-    graphics.circle(0, 0, radius * 0.96 - graphics.lineWidth / 2);
-    graphics.stroke();
-    graphics.strokeColor = rgba(232, 186, 82, 240);
-    graphics.lineWidth = Math.max(2, size * 0.026);
-    graphics.circle(0, 0, radius * 0.82);
-    graphics.stroke();
-
-    graphics.strokeColor = rgba(255, 228, 150, 170);
-    graphics.lineWidth = Math.max(1, size * 0.011);
-    graphics.arc(0, 0, radius * 0.72, Math.PI * 0.08, Math.PI * 0.58, false);
-    graphics.stroke();
-
-    const crest = this.safeText(displayName).slice(0, 1).toUpperCase() || 'L';
-    this.addChildLabel(avatarNode, 'AvatarCrestLetter', crest, 0, -size * 0.34, Math.max(10, size * 0.13), rgba(238, 208, 142), new Size(size * 0.44, size * 0.18));
+  private isLobbyViewActive(): boolean {
+    return this.currentView === 'lobby' || this.isLobbyScenePageView(this.currentView);
   }
 
-  private drawAvatarFrameOrnaments(graphics: Graphics, size: number): void {
-    const scale = size / 104;
-    const top = size * 0.56;
-    const bottom = -size * 0.56;
-    const left = -size * 0.56;
-    const right = size * 0.56;
-    graphics.fillColor = rgba(108, 77, 34, 190);
-    graphics.moveTo(0, top + 7 * scale);
-    graphics.lineTo(8 * scale, top - 5 * scale);
-    graphics.lineTo(0, top - 15 * scale);
-    graphics.lineTo(-8 * scale, top - 5 * scale);
-    graphics.close();
-    graphics.fill();
-    graphics.moveTo(0, bottom - 7 * scale);
-    graphics.lineTo(8 * scale, bottom + 5 * scale);
-    graphics.lineTo(0, bottom + 15 * scale);
-    graphics.lineTo(-8 * scale, bottom + 5 * scale);
-    graphics.close();
-    graphics.fill();
-
-    graphics.strokeColor = rgba(206, 162, 78, 165);
-    graphics.lineWidth = 1.2 * scale;
-    graphics.moveTo(left - 6 * scale, 0);
-    graphics.lineTo(left + 12 * scale, 0);
-    graphics.moveTo(right - 12 * scale, 0);
-    graphics.lineTo(right + 6 * scale, 0);
-    graphics.stroke();
-  }
-
-  private drawArmoredAvatarPortrait(graphics: Graphics, size: number): void {
-    const scale = size / 104;
-    graphics.fillColor = rgba(7, 8, 12, 250);
-    graphics.moveTo(-27 * scale, -26 * scale);
-    graphics.lineTo(-16 * scale, -4 * scale);
-    graphics.lineTo(0, 6 * scale);
-    graphics.lineTo(17 * scale, -4 * scale);
-    graphics.lineTo(30 * scale, -28 * scale);
-    graphics.lineTo(22 * scale, -39 * scale);
-    graphics.lineTo(-22 * scale, -39 * scale);
-    graphics.close();
-    graphics.fill();
-
-    graphics.fillColor = rgba(83, 86, 96, 245);
-    graphics.moveTo(-26 * scale, 12 * scale);
-    graphics.lineTo(-14 * scale, 34 * scale);
-    graphics.lineTo(0, 41 * scale);
-    graphics.lineTo(15 * scale, 34 * scale);
-    graphics.lineTo(27 * scale, 12 * scale);
-    graphics.lineTo(18 * scale, -11 * scale);
-    graphics.lineTo(-18 * scale, -11 * scale);
-    graphics.close();
-    graphics.fill();
-
-    graphics.fillColor = rgba(19, 20, 25, 245);
-    graphics.moveTo(-20 * scale, 10 * scale);
-    graphics.lineTo(-9 * scale, 27 * scale);
-    graphics.lineTo(0, 31 * scale);
-    graphics.lineTo(10 * scale, 27 * scale);
-    graphics.lineTo(21 * scale, 10 * scale);
-    graphics.lineTo(12 * scale, -18 * scale);
-    graphics.lineTo(-12 * scale, -18 * scale);
-    graphics.close();
-    graphics.fill();
-
-    graphics.fillColor = rgba(168, 145, 116, 238);
-    graphics.moveTo(-8 * scale, 8 * scale);
-    graphics.lineTo(0, 21 * scale);
-    graphics.lineTo(9 * scale, 8 * scale);
-    graphics.lineTo(6 * scale, -10 * scale);
-    graphics.lineTo(-6 * scale, -10 * scale);
-    graphics.close();
-    graphics.fill();
-
-    graphics.strokeColor = rgba(219, 173, 74, 210);
-    graphics.lineWidth = 1.7 * scale;
-    graphics.moveTo(-28 * scale, 12 * scale);
-    graphics.lineTo(0, 42 * scale);
-    graphics.lineTo(29 * scale, 12 * scale);
-    graphics.moveTo(0, 38 * scale);
-    graphics.lineTo(0, -18 * scale);
-    graphics.stroke();
-
-    graphics.strokeColor = rgba(221, 45, 48, 170);
-    graphics.lineWidth = 1.3 * scale;
-    graphics.moveTo(-18 * scale, -9 * scale);
-    graphics.lineTo(18 * scale, -9 * scale);
-    graphics.stroke();
-  }
-
-
-  private addProfileRow(parent: Node, label: string, value: string, x: number, y: number, width: number, layout: UiLayout): void {
-    const height = 34 * layout.uiScale;
-    const row = this.addChildBeveledPanelNode(parent, `LobbyProfileRow_${label}`, x, y, width, height, rgba(18, 15, 16, 184), rgba(91, 70, 39, 190), 8 * layout.uiScale);
-    this.addChildLabel(
-      row,
-      'RowLabel',
-      label,
-      -width / 2 + 18 * layout.uiScale,
-      0,
-      Math.max(11, 15 * layout.uiScale),
-      rgba(178, 159, 119),
-      new Size(width * 0.35, height),
-      HorizontalTextAlignment.LEFT,
-    );
-    this.addChildLabel(
-      row,
-      'RowValue',
-      value || LOBBY_PROFILE_PLACEHOLDER,
-      width * 0.05,
-      0,
-      Math.max(12, 16 * layout.uiScale),
-      rgba(236, 216, 169),
-      new Size(width * 0.56, height),
-      HorizontalTextAlignment.LEFT,
-    );
-  }
-
-  private addBeveledPanelNode(name: string, x: number, y: number, width: number, height: number, fill: Color, stroke: Color, bevel = 10): Node {
-    const node = this.createUiNode(name);
-    node.setPosition(new Vec3(x, y, 0));
-    this.drawBeveledPanelOnNode(node, width, height, fill, stroke, bevel);
-    return node;
-  }
-
-  private addChildBeveledPanelNode(parent: Node, name: string, x: number, y: number, width: number, height: number, fill: Color, stroke: Color, bevel = 10): Node {
-    const node = new Node(name);
-    node.layer = this.node.layer;
-    parent.addChild(node);
-    node.setPosition(new Vec3(x, y, 0));
-    this.drawBeveledPanelOnNode(node, width, height, fill, stroke, bevel);
-    return node;
-  }
-
-  private addChildPlainNode(parent: Node, name: string, x: number, y: number, width: number, height: number): Node {
-    const node = new Node(name);
-    node.layer = this.node.layer;
-    parent.addChild(node);
-    node.setPosition(new Vec3(x, y, 0));
-    node.addComponent(UITransform).setContentSize(new Size(width, height));
-    return node;
-  }
-
-  private drawBeveledPanelOnNode(node: Node, width: number, height: number, fill: Color, stroke: Color, bevel: number): Graphics {
-    node.addComponent(UITransform).setContentSize(new Size(width, height));
-    const graphics = node.addComponent(Graphics);
-    graphics.fillColor = fill;
-    this.traceBeveledRect(graphics, width, height, bevel);
-    graphics.fill();
-    graphics.strokeColor = stroke;
-    graphics.lineWidth = 2;
-    this.traceBeveledRect(graphics, width, height, bevel);
-    graphics.stroke();
-    return graphics;
-  }
-
-  private async login(): Promise<void> {
-    if (!this.agreementAccepted) {
-      this.setStatus('请先同意用户协议和隐私政策。');
-      return;
-    }
-
-    const account = this.accountInput?.string.trim() || String(AppConfig.defaultDevUserId);
-    const userId = this.resolveDevUserId(account);
-    this.api.setApiBaseUrl(AppConfig.apiBaseUrl);
-    this.setStatus(`登录请求：${AppConfig.apiBaseUrl}`);
-    try {
-      const token = await this.api.auth.devLogin(userId);
-      this.lastDevUserId = userId;
-      this.lobbyProfile = null;
-      this.lobbyProfileOpen = false;
-      this.lobbyProfileError = '';
-      this.lastTokenName = token.tokenName;
-      this.startLobbyLoading();
-      void this.loadLobbyProfile(userId);
-    } catch (error) {
-      this.setStatus(this.formatApiError(error, AppConfig.apiBaseUrl));
-    }
-  }
-
-  private startLobbyLoading(): void {
-    const ticket = ++this.resourceLoadTicket;
-    this.loadingProgress = 0.04;
-    this.loadingMessage = `登录成功：${this.lastTokenName || 'player-token'}，准备资源清单...`;
-    this.loadingError = '';
+  private showLobbyLoadingView(): void {
     this.currentView = 'loading';
     this.renderLoading();
-    this.loadLobbyResources(ticket).catch((error: unknown) => {
-      if (ticket !== this.resourceLoadTicket) {
-        return;
-      }
-      const message = error instanceof Error ? error.message : String(error);
-      this.loadingProgress = 0;
-      this.loadingError = `资源加载失败：${message}`;
-      this.renderLoading();
-    });
   }
 
-  private async loadLobbyResources(ticket: number): Promise<void> {
-    await this.setLoadingProgress(ticket, 0.16, '检查大厅背景资源...');
-    this.lobbyPosterFrame = await this.loadSpriteFrameResource(LOBBY_POSTER_PATH);
-    if (USE_LOBBY_NATIVE_VIDEO_BACKGROUND) {
-      await this.setLoadingProgress(ticket, 0.48, '大厅首帧准备完成，加载动态背景...');
-      this.lobbyVideoClip = await this.loadVideoClipResource(LOBBY_VIDEO_PATH);
-      await this.setLoadingProgress(ticket, 0.82, '大厅动态背景准备完成，整理界面状态...');
-    } else {
-      this.lobbyVideoClip = null;
-      await this.setLoadingProgress(ticket, 0.82, '大厅静态背景准备完成，整理界面状态...');
+  private refreshLobbyLoadingView(): void {
+    if (this.currentView === 'loading') {
+      this.renderLoading();
     }
-    await this.setLoadingProgress(ticket, 1, '资源加载完成，进入圣契大厅...');
-    if (ticket !== this.resourceLoadTicket) {
-      return;
-    }
+  }
+
+  private setLobbyBackgroundResources(posterFrame: SpriteFrame, videoClip: VideoClip | null): void {
+    this.lobbyBackgroundController.setResources(posterFrame, videoClip);
+  }
+
+  private enterLobbyView(): void {
     this.currentView = 'lobby';
     this.renderLobby();
   }
 
-  private async setLoadingProgress(ticket: number, progress: number, message: string): Promise<void> {
-    if (ticket !== this.resourceLoadTicket) {
-      return;
-    }
-    this.loadingProgress = progress;
-    this.loadingMessage = message;
-    this.loadingError = '';
-    if (this.currentView === 'loading') {
-      this.renderLoading();
-    }
-    await this.delay(80);
+  private addLobbyAvatar(parent: Node, x: number, y: number, size: number, displayName: string): void {
+    this.lobbyAvatarRenderer.add(parent, x, y, size, displayName);
   }
 
-  private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => {
-      setTimeout(resolve, ms);
-    });
+
+  private addBeveledPanelNode(name: string, x: number, y: number, width: number, height: number, fill: Color, stroke: Color, bevel = 10): Node {
+    return this.uiPrimitiveFactory.addBeveledPanelNode(name, x, y, width, height, fill, stroke, bevel);
   }
 
-  private loadVideoClipResource(path: string): Promise<VideoClip> {
-    return new Promise((resolve, reject) => {
-      resources.load(path, VideoClip, (error, clip) => {
-        if (error || !clip) {
-          reject(error ?? new Error(`video clip not found: ${path}`));
-          return;
-        }
-        resolve(clip);
-      });
-    });
+  private addChildBeveledPanelNode(parent: Node, name: string, x: number, y: number, width: number, height: number, fill: Color, stroke: Color, bevel = 10): Node {
+    return this.uiPrimitiveFactory.addChildBeveledPanelNode(parent, name, x, y, width, height, fill, stroke, bevel);
   }
 
-  private loadSpriteFrameResource(path: string): Promise<SpriteFrame> {
-    return new Promise((resolve, reject) => {
-      resources.load(`${path}/spriteFrame`, SpriteFrame, (spriteError, spriteFrame) => {
-        if (!spriteError && spriteFrame) {
-          resolve(spriteFrame);
-          return;
-        }
-
-        resources.load(`${path}/texture`, Texture2D, (textureError, texture) => {
-          if (textureError || !texture) {
-            reject(textureError ?? spriteError ?? new Error(`sprite frame not found: ${path}`));
-            return;
-          }
-          const runtimeSpriteFrame = new SpriteFrame();
-          runtimeSpriteFrame.texture = texture;
-          resolve(runtimeSpriteFrame);
-        });
-      });
-    });
+  private addChildPlainNode(parent: Node, name: string, x: number, y: number, width: number, height: number): Node {
+    return this.uiPrimitiveFactory.addChildPlainNode(parent, name, x, y, width, height);
   }
 
-  private resolveDevUserId(account: string): number {
-    const parsed = Number(account);
-    if (Number.isFinite(parsed) && parsed > 0) {
-      return parsed;
-    }
-    return AppConfig.defaultDevUserId;
+  private drawBeveledPanelOnNode(node: Node, width: number, height: number, fill: Color, stroke: Color, bevel: number): Graphics {
+    return this.uiPrimitiveFactory.drawBeveledPanelOnNode(node, width, height, fill, stroke, bevel);
+  }
+
+  private setLoginInputs(accountInput: EditBox | null, passwordInput: EditBox | null): void {
+    this.loginFlow.setInputs(accountInput, passwordInput);
+  }
+
+  private setProtagonistNameInput(input: EditBox | null): void {
+    this.protagonistCreateFlow.setNameInput(input);
+  }
+
+  private openLoginDialog(): void {
+    this.renderLoginDialog();
+  }
+
+  private submitLogin(): void {
+    this.run(() => this.loginFlow.login());
+  }
+
+  private toggleLoginAgreement(): void {
+    this.loginFlow.toggleAgreement();
+    this.renderLoginDialog();
+  }
+
+  private showProtagonistCreateView(): void {
+    this.renderProtagonistCreate();
+  }
+
+  private handleLoginSuccess(userId: number, tokenName: string): void {
+    this.protagonistCreateFlow.handleLoginSuccess(userId, tokenName);
+  }
+
+  private selectProtagonistGender(gender: ProtagonistGender): void {
+    this.protagonistCreateFlow.selectGender(gender);
+  }
+
+  private previewProtagonistForm(form: ProtagonistForm): void {
+    this.protagonistCreateFlow.previewForm(form);
+  }
+
+  private submitProtagonistCreate(): void {
+    this.protagonistCreateFlow.submitCreate();
+  }
+
+  private setApiBaseUrl(baseUrl: string): void {
+    this.api.setApiBaseUrl(baseUrl);
+  }
+
+  private resetLobbyProfileForLogin(userId: number): void {
+    // 切换登录用户时必须清空上一位玩家资料，防止大厅左上角短暂显示旧数据。
+    this.lobbyProfileLoader.resetForLogin(userId);
+    this.lobbyAdventureLoader.resetForLogin();
+    this.lobbyBattleFlow.resetForLogin();
+    this.lobbyCodexLoader.resetForLogin();
+    this.lobbyHeroRosterLoader.resetForLogin();
+    this.lobbyNoticeLoader.resetForLogin();
+    this.selectedLobbyStageCode = null;
+    this.selectedLobbyFormationHeroIds = [];
+    this.lobbyProfileOpen = false;
+    this.lobbyAdventurePanelOpen = false;
+    this.lobbyBattlePreviewPanelOpen = false;
+    this.lobbyCodexPanelOpen = false;
+    this.lobbyFormationPanelOpen = false;
+    this.lobbyHeroDetailHeroId = null;
+    this.lobbyHeroRosterPanelOpen = false;
+    this.lobbyNoticePanelOpen = false;
+    this.lobbyPlaceholderDialog = null;
+  }
+
+  private loadLobbyProfileAfterLogin(userId: number): void {
+    void this.loadLobbyProfile(userId);
+    void this.loadLobbyNotices();
+    void this.loadLobbyAdventure();
+    void this.loadLobbyBattleRecent();
+  }
+
+  private startLobbyLoading(tokenName: string): void {
+    this.lobbyLoadingFlow.start(tokenName);
+  }
+
+  private currentProtagonistCreateState(): ProtagonistCreateFormState {
+    return this.protagonistCreateFlow.currentState();
+  }
+
+  private retryLobbyLoading(): void {
+    this.lobbyLoadingFlow.retry(this.loginFlow.lastTokenName);
   }
 
   private addStatus(text: string, layout?: UiLayout, y?: number): void {
-    const currentLayout = layout ?? this.resolveLayout();
-    const statusY = y ?? currentLayout.safeBottom + Math.max(8 * currentLayout.uiScale, currentLayout.safeHeight * 0.01);
-    const centerX = (currentLayout.stageLeft + currentLayout.stageRight) / 2;
-    this.statusLabel = this.addLabel(text, centerX, statusY, currentLayout.bodyFont, rgba(127, 214, 255), new Size(currentLayout.statusWidth, 48 * currentLayout.uiScale));
+    this.statusPresenter.add(text, layout, y);
   }
 
   private setStatus(text: string): void {
-    if (!this.statusLabel) {
-      this.addStatus(text);
-      return;
-    }
-    this.statusLabel.string = this.trimText(text);
+    this.statusPresenter.set(text);
   }
 
   private addLabel(text: string, x: number, y: number, size = 20, color = new Color(230, 230, 230), contentSize?: Size): Label {
-    const node = this.createUiNode('Label');
-    node.setPosition(new Vec3(x, y, 0));
-    const transform = node.addComponent(UITransform);
-    transform.setContentSize(contentSize ?? new Size(this.resolveLayout().statusWidth, 80));
-    const label = node.addComponent(Label);
-    label.string = this.trimText(text);
-    label.fontSize = size;
-    label.lineHeight = size + 8;
-    label.color = color;
-    label.horizontalAlign = HorizontalTextAlignment.CENTER;
-    label.verticalAlign = VerticalTextAlignment.CENTER;
-    label.overflow = Label.Overflow.RESIZE_HEIGHT;
-    return label;
+    return this.uiPrimitiveFactory.addLabel(text, x, y, size, color, contentSize);
   }
 
   private addEditBox(initialText: string, x: number, y: number, width: number, layout?: UiLayout, password = false): EditBox {
-    const currentLayout = layout ?? this.resolveLayout();
-    const node = this.createUiNode('EditBox');
-    node.setPosition(new Vec3(x, y, 0));
-    node.addComponent(UITransform).setContentSize(new Size(width, currentLayout.inputHeight));
-    const editBox = node.addComponent(EditBox);
-    editBox.maxLength = 256;
-    editBox.placeholder = '';
-    if (password) {
-      editBox.inputFlag = EditBox.InputFlag.PASSWORD;
-    }
-
-    const textNode = new Node('TextLabel');
-    textNode.layer = node.layer;
-    node.addChild(textNode);
-    textNode.setPosition(Vec3.ZERO);
-    textNode.addComponent(UITransform).setContentSize(new Size(width - 28, currentLayout.inputHeight));
-    const textLabel = textNode.addComponent(Label);
-    textLabel.fontSize = Math.max(13, currentLayout.bodyFont - 1);
-    textLabel.lineHeight = currentLayout.bodyFont + 5;
-    textLabel.color = rgba(231, 226, 214);
-    textLabel.horizontalAlign = HorizontalTextAlignment.LEFT;
-    textLabel.verticalAlign = VerticalTextAlignment.CENTER;
-    textLabel.overflow = Label.Overflow.CLAMP;
-
-    const placeholderNode = new Node('PlaceholderLabel');
-    placeholderNode.layer = node.layer;
-    node.addChild(placeholderNode);
-    placeholderNode.setPosition(Vec3.ZERO);
-    placeholderNode.addComponent(UITransform).setContentSize(new Size(width - 28, currentLayout.inputHeight));
-    const placeholderLabel = placeholderNode.addComponent(Label);
-    placeholderLabel.fontSize = Math.max(13, currentLayout.bodyFont - 1);
-    placeholderLabel.lineHeight = currentLayout.bodyFont + 5;
-    placeholderLabel.color = rgba(120, 114, 105);
-    placeholderLabel.horizontalAlign = HorizontalTextAlignment.LEFT;
-    placeholderLabel.verticalAlign = VerticalTextAlignment.CENTER;
-    placeholderLabel.overflow = Label.Overflow.CLAMP;
-    placeholderLabel.string = '';
-
-    editBox.textLabel = textLabel;
-    editBox.placeholderLabel = placeholderLabel;
-    editBox.string = initialText;
-    if (password) {
-      editBox.inputFlag = EditBox.InputFlag.PASSWORD;
-      this.applyPasswordMask(editBox, textLabel);
-    }
-    return editBox;
+    return this.uiPrimitiveFactory.addEditBox(initialText, x, y, width, layout, password);
   }
 
   private applyPasswordMask(editBox: EditBox, textLabel: Label): void {
-    const mask = () => {
-      textLabel.string = '*'.repeat(editBox.string.length);
-    };
-    mask();
-    editBox.node.on(EditBox.EventType.TEXT_CHANGED, mask, this);
-    editBox.node.on(EditBox.EventType.EDITING_DID_ENDED, mask, this);
-    editBox.node.on(EditBox.EventType.EDITING_RETURN, mask, this);
+    this.uiPrimitiveFactory.applyPasswordMask(editBox, textLabel);
   }
 
   private addFramedEditBox(initialText: string, x: number, y: number, width: number, layout: UiLayout, password = false): EditBox {
-    this.addBeveledPanel('InputFrame', x, y, width + 28, layout.inputHeight + 8, rgba(8, 7, 9, 220), rgba(185, 138, 58, 190), 8);
-    return this.addEditBox(initialText, x, y, width, layout, password);
+    return this.uiPrimitiveFactory.addFramedEditBox(initialText, x, y, width, layout, password);
   }
 
   private addButton(text: string, x: number, y: number, callback: () => void, layout?: UiLayout, width?: number, height?: number): Button {
-    const currentLayout = layout ?? this.resolveLayout();
-    const buttonWidth = width ?? 140;
-    const buttonHeight = height ?? currentLayout.buttonHeight;
-    const node = this.createUiNode(`Button_${text || 'empty'}`);
-    node.setPosition(new Vec3(x, y, 0));
-    node.addComponent(UITransform).setContentSize(new Size(buttonWidth, buttonHeight));
-    this.applyButtonVisual(node, buttonWidth, buttonHeight);
-    const button = node.addComponent(Button);
-    node.on(Button.EventType.CLICK, callback, this);
-
-    const labelNode = new Node('Label');
-    labelNode.layer = node.layer;
-    node.addChild(labelNode);
-    labelNode.setPosition(Vec3.ZERO);
-    labelNode.addComponent(UITransform).setContentSize(new Size(buttonWidth, buttonHeight));
-    const label = labelNode.addComponent(Label);
-    label.string = text;
-    label.fontSize = Math.max(14, Math.min(currentLayout.bodyFont + 2, buttonHeight * 0.46));
-    label.lineHeight = label.fontSize + 8;
-    label.horizontalAlign = HorizontalTextAlignment.CENTER;
-    label.verticalAlign = VerticalTextAlignment.CENTER;
-    label.color = rgba(245, 210, 122);
-    return button;
+    return this.uiPrimitiveFactory.addButton(text, x, y, callback, layout, width, height);
   }
 
   private addGoldButton(text: string, x: number, y: number, callback: () => void, layout: UiLayout, width: number, height: number): Button {
-    return this.addButton(text, x, y, callback, layout, width, height);
+    return this.uiPrimitiveFactory.addGoldButton(text, x, y, callback, layout, width, height);
   }
 
   private addImageButton(
@@ -1215,98 +1348,11 @@ export class LootChainGameRoot extends Component {
     height: number,
     fontSize: number,
   ): Button {
-    const frame = this.resolveUiSpriteFrame(assetPath);
-    if (!frame) {
-      this.requestSpriteFrame(assetPath);
-      return this.addGoldButton(text, x, y, callback, layout, Math.min(width * 0.74, layout.contentWidth * 0.52), Math.min(height * 0.56, 72 * layout.uiScale));
-    }
-
-    const node = this.createUiNode(name);
-    node.setPosition(new Vec3(x, y, 0));
-    const transform = node.addComponent(UITransform);
-    const sprite = node.addComponent(Sprite);
-    sprite.type = Sprite.Type.SIMPLE;
-    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
-    sprite.spriteFrame = frame;
-    transform.setContentSize(new Size(width, height));
-    const button = node.addComponent(Button);
-    node.on(Button.EventType.CLICK, callback, this);
-    this.applyImageButtonFeedback(node);
-
-    const iconScale = Math.max(0.5, Math.min(0.62, fontSize / 46));
-    this.addAccountGlyph(node, -54 * layout.uiScale, -1 * layout.uiScale, iconScale);
-    this.addChildLabel(node, 'Label', text, 22 * layout.uiScale, 0, fontSize, rgba(235, 213, 166), new Size(width * 0.58, height * 0.52));
-    return button;
-  }
-
-  private addRailImageButton(asset: RailButtonAsset, x: number, y: number, layout: UiLayout): Button {
-    const railWidth = 76 * layout.uiScale;
-    const railHeight = 74 * layout.uiScale;
-    const iconSize = 46 * layout.uiScale;
-    const node = this.createUiNode(`Rail_${asset.label}`);
-    node.setPosition(new Vec3(x, y, 0));
-    node.addComponent(UITransform).setContentSize(new Size(railWidth, railHeight));
-    const button = node.addComponent(Button);
-    node.on(Button.EventType.CLICK, () => this.setStatus('该入口为登录页占位，当前阶段暂未开放。'), this);
-    this.applyImageButtonFeedback(node);
-
-    if (!this.addSprite('Icon', asset.path, 0, 15 * layout.uiScale, iconSize, iconSize, node)) {
-      this.addDiamondButton('', x, y + 14, () => this.setStatus('该入口为登录页占位，当前阶段暂未开放。'), layout);
-    }
-    this.addChildLabel(node, 'Label', asset.label, 0, -27 * layout.uiScale, Math.max(13, 18 * layout.uiScale), rgba(229, 196, 122), new Size(72 * layout.uiScale, 28 * layout.uiScale));
-    return button;
-  }
-
-  private addDiamondButton(text: string, x: number, y: number, callback: () => void, layout: UiLayout): Button {
-    const size = 48 * layout.uiScale;
-    const node = this.createUiNode(`Diamond_${text}`);
-    node.setPosition(new Vec3(x, y, 0));
-    node.angle = 45;
-    node.addComponent(UITransform).setContentSize(new Size(size, size));
-    const graphics = node.addComponent(Graphics);
-    graphics.fillColor = rgba(10, 8, 9, 232);
-    graphics.strokeColor = rgba(185, 138, 58, 210);
-    graphics.lineWidth = 2;
-    graphics.rect(-size / 2, -size / 2, size, size);
-    graphics.fill();
-    graphics.stroke();
-    const button = node.addComponent(Button);
-    node.on(Button.EventType.CLICK, callback, this);
-    this.applyPointerCursor(node);
-
-    const labelNode = new Node('Label');
-    labelNode.layer = node.layer;
-    node.addChild(labelNode);
-    labelNode.angle = -45;
-    labelNode.setPosition(Vec3.ZERO);
-    labelNode.addComponent(UITransform).setContentSize(new Size(size, size));
-    const label = labelNode.addComponent(Label);
-    label.string = text;
-    label.fontSize = Math.max(14, layout.bodyFont + 2);
-    label.lineHeight = label.fontSize + 8;
-    label.horizontalAlign = HorizontalTextAlignment.CENTER;
-    label.verticalAlign = VerticalTextAlignment.CENTER;
-    label.color = rgba(245, 210, 122);
-    return button;
+    return this.uiPrimitiveFactory.addImageButton(name, assetPath, text, x, y, callback, layout, width, height, fontSize);
   }
 
   private addSprite(name: string, assetPath: string, x: number, y: number, width: number, height: number, parent?: Node): Sprite | null {
-    const frame = this.resolveUiSpriteFrame(assetPath);
-    if (!frame) {
-      this.requestSpriteFrame(assetPath);
-      return null;
-    }
-    const node = new Node(name);
-    node.layer = this.node.layer;
-    (parent ?? this.ensureContentRoot()).addChild(node);
-    node.setPosition(new Vec3(x, y, 0));
-    const transform = node.addComponent(UITransform);
-    const sprite = node.addComponent(Sprite);
-    sprite.type = Sprite.Type.SIMPLE;
-    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
-    sprite.spriteFrame = frame;
-    transform.setContentSize(new Size(width, height));
-    return sprite;
+    return this.uiPrimitiveFactory.addSprite(name, assetPath, x, y, width, height, parent);
   }
 
   private addChildLabel(
@@ -1320,136 +1366,39 @@ export class LootChainGameRoot extends Component {
     contentSize: Size,
     horizontalAlign: HorizontalTextAlignment = HorizontalTextAlignment.CENTER,
   ): Label {
-    const labelNode = new Node(name);
-    labelNode.layer = this.node.layer;
-    parent.addChild(labelNode);
-    labelNode.setPosition(new Vec3(this.resolveAlignedLabelX(x, contentSize.width, horizontalAlign), y, 0));
-    labelNode.addComponent(UITransform).setContentSize(contentSize);
-    const label = labelNode.addComponent(Label);
-    label.string = this.trimText(text);
-    label.fontSize = size;
-    label.lineHeight = size + 8;
-    label.horizontalAlign = horizontalAlign;
-    label.verticalAlign = VerticalTextAlignment.CENTER;
-    label.overflow = Label.Overflow.CLAMP;
-    label.color = color;
-    return label;
+    return this.uiPrimitiveFactory.addChildLabel(parent, name, text, x, y, size, color, contentSize, horizontalAlign);
   }
 
   private resolveAlignedLabelX(x: number, width: number, horizontalAlign: HorizontalTextAlignment): number {
-    if (horizontalAlign === HorizontalTextAlignment.LEFT) {
-      return x + width / 2;
-    }
-    if (horizontalAlign === HorizontalTextAlignment.RIGHT) {
-      return x - width / 2;
-    }
-    return x;
+    return this.uiPrimitiveFactory.resolveAlignedLabelX(x, width, horizontalAlign);
   }
 
   private addAccountGlyph(parent: Node, x: number, y: number, scale: number): void {
-    const iconNode = new Node('AccountGlyph');
-    iconNode.layer = this.node.layer;
-    parent.addChild(iconNode);
-    iconNode.setPosition(new Vec3(x, y, 0));
-    iconNode.setScale(new Vec3(scale, scale, 1));
-    iconNode.addComponent(UITransform).setContentSize(new Size(34, 38));
-    const graphics = iconNode.addComponent(Graphics);
-    graphics.fillColor = rgba(226, 203, 154, 246);
-    graphics.circle(0, 10, 11);
-    graphics.fill();
-    graphics.rect(-10, -16, 20, 18);
-    graphics.fill();
-    graphics.circle(0, -16, 10);
-    graphics.fill();
+    this.uiPrimitiveFactory.addAccountGlyph(parent, x, y, scale);
   }
 
   private addRect(name: string, x: number, y: number, width: number, height: number, fill: Color, stroke?: Color, lineWidth = 1): Graphics {
-    const node = this.createUiNode(name);
-    node.setPosition(new Vec3(x, y, 0));
-    node.addComponent(UITransform).setContentSize(new Size(width, height));
-    const graphics = node.addComponent(Graphics);
-    graphics.fillColor = fill;
-    graphics.rect(-width / 2, -height / 2, width, height);
-    graphics.fill();
-    if (stroke) {
-      graphics.strokeColor = stroke;
-      graphics.lineWidth = lineWidth;
-      graphics.rect(-width / 2, -height / 2, width, height);
-      graphics.stroke();
-    }
-    return graphics;
+    return this.uiPrimitiveFactory.addRect(name, x, y, width, height, fill, stroke, lineWidth);
   }
 
   private addBeveledPanel(name: string, x: number, y: number, width: number, height: number, fill: Color, stroke: Color, bevel = 10): Graphics {
-    const node = this.createUiNode(name);
-    node.setPosition(new Vec3(x, y, 0));
-    node.addComponent(UITransform).setContentSize(new Size(width, height));
-    const graphics = node.addComponent(Graphics);
-    graphics.fillColor = fill;
-    this.traceBeveledRect(graphics, width, height, bevel);
-    graphics.fill();
-    graphics.strokeColor = stroke;
-    graphics.lineWidth = 2;
-    this.traceBeveledRect(graphics, width, height, bevel);
-    graphics.stroke();
-    return graphics;
+    return this.uiPrimitiveFactory.addBeveledPanel(name, x, y, width, height, fill, stroke, bevel);
   }
 
   private addProgressBar(x: number, y: number, width: number, height: number, progress: number): void {
-    const background = this.addRect('LoadingProgressTrack', x, y, width, height, rgba(8, 7, 9, 236), rgba(185, 138, 58, 210), 2);
-    background.lineWidth = 2;
-    const fillWidth = Math.max(0, width * clamp(progress, 0, 1));
-    if (fillWidth <= 0) {
-      return;
-    }
-    const fillNode = this.createUiNode('LoadingProgressFill');
-    fillNode.setPosition(new Vec3(x - width / 2 + fillWidth / 2, y, 0));
-    fillNode.addComponent(UITransform).setContentSize(new Size(fillWidth, height - 6));
-    const fill = fillNode.addComponent(Graphics);
-    fill.fillColor = rgba(201, 39, 61, 230);
-    fill.rect(-fillWidth / 2, -(height - 6) / 2, fillWidth, height - 6);
-    fill.fill();
-    fill.strokeColor = rgba(245, 210, 122, 180);
-    fill.lineWidth = 1;
-    fill.rect(-fillWidth / 2, -(height - 6) / 2, fillWidth, height - 6);
-    fill.stroke();
+    this.uiPrimitiveFactory.addProgressBar(x, y, width, height, progress);
   }
 
   private applyButtonVisual(node: Node, width: number, height: number): void {
-    const graphics = node.addComponent(Graphics);
-    this.drawButtonFrame(graphics, width, height, 'normal');
-    this.applyPointerCursor(node);
-    node.on(Node.EventType.MOUSE_ENTER, () => this.drawButtonFrame(graphics, width, height, 'hover'), this);
-    node.on(Node.EventType.MOUSE_LEAVE, () => {
-      node.setScale(Vec3.ONE);
-      this.drawButtonFrame(graphics, width, height, 'normal');
-    }, this);
-    node.on(Node.EventType.TOUCH_START, () => {
-      node.setScale(new Vec3(0.96, 0.96, 1));
-      this.drawButtonFrame(graphics, width, height, 'pressed');
-    }, this);
-    node.on(Node.EventType.TOUCH_END, () => {
-      node.setScale(Vec3.ONE);
-      this.drawButtonFrame(graphics, width, height, 'hover');
-    }, this);
-    node.on(Node.EventType.TOUCH_CANCEL, () => {
-      node.setScale(Vec3.ONE);
-      this.drawButtonFrame(graphics, width, height, 'normal');
-    }, this);
+    this.uiPrimitiveFactory.applyButtonVisual(node, width, height);
   }
 
   private applyImageButtonFeedback(node: Node, hoverScale = 1.035, pressedScale = 0.975): void {
-    this.applyPointerCursor(node);
-    node.on(Node.EventType.MOUSE_ENTER, () => node.setScale(new Vec3(hoverScale, hoverScale, 1)), this);
-    node.on(Node.EventType.MOUSE_LEAVE, () => node.setScale(Vec3.ONE), this);
-    node.on(Node.EventType.TOUCH_START, () => node.setScale(new Vec3(pressedScale, pressedScale, 1)), this);
-    node.on(Node.EventType.TOUCH_END, () => node.setScale(Vec3.ONE), this);
-    node.on(Node.EventType.TOUCH_CANCEL, () => node.setScale(Vec3.ONE), this);
+    this.uiPrimitiveFactory.applyImageButtonFeedback(node, hoverScale, pressedScale);
   }
 
   private applyPointerCursor(node: Node): void {
-    node.on(Node.EventType.MOUSE_ENTER, () => this.setPointerCursor(true), this);
-    node.on(Node.EventType.MOUSE_LEAVE, () => this.setPointerCursor(false), this);
+    this.uiPrimitiveFactory.applyPointerCursor(node);
   }
 
   private setPointerCursor(enabled: boolean): void {
@@ -1461,110 +1410,31 @@ export class LootChainGameRoot extends Component {
   }
 
   private preloadUiSprites(): void {
-    if (!SHOW_LOGIN_BRAND && !SHOW_RIGHT_RAIL && !USE_IMAGE_LOGIN_BUTTON) {
-      return;
-    }
-    if (SHOW_LOGIN_BRAND && !this.logoFrame) {
-      this.requestSpriteFrame(UI_ASSETS.logo);
-    }
-    if (USE_IMAGE_LOGIN_BUTTON && !this.mainButtonFrame) {
-      this.requestSpriteFrame(UI_ASSETS.mainButton);
-    }
-    if (SHOW_RIGHT_RAIL && this.rightRailFrames.length < UI_ASSETS.rightRail.length) {
-      UI_ASSETS.rightRail.forEach((asset) => this.requestSpriteFrame(asset.path));
-    }
-    this.requestSpriteFrame(UI_ASSETS.lobbyPlayerInfoPanel);
+    this.uiSpriteFrameCache.preload(this.uiSpriteFrameOverrides());
   }
 
-  private requestSpriteFrame(path: string): void {
-    if (this.spriteFrames.has(path) || this.loadingSpriteFrames.has(path)) {
-      return;
-    }
-    this.loadingSpriteFrames.add(path);
-    resources.load(path, SpriteFrame, (error, frame) => {
-      this.loadingSpriteFrames.delete(path);
-      if (error) {
-        console.warn(`[LootChain] UI sprite load failed: ${path}`, error);
-        return;
-      }
-      if (!error && frame) {
-        this.spriteFrames.set(path, frame);
-        if (this.node.isValid) {
-          this.renderCurrentView();
-        }
-      }
-    });
-  }
-
-  private resolveUiSpriteFrame(path: string): SpriteFrame | undefined {
-    if (path === UI_ASSETS.logo && this.logoFrame) {
-      return this.logoFrame;
-    }
-    if (path === UI_ASSETS.mainButton && this.mainButtonFrame) {
-      return this.mainButtonFrame;
-    }
-    const railIndex = UI_ASSETS.rightRail.findIndex((asset) => asset.path === path);
-    if (railIndex >= 0 && this.rightRailFrames[railIndex]) {
-      return this.rightRailFrames[railIndex];
-    }
-    return this.spriteFrames.get(path);
+  private uiSpriteFrameOverrides(): UiSpriteFrameOverrides {
+    return {
+      logoFrame: this.logoFrame,
+      mainButtonFrame: this.mainButtonFrame,
+      rightRailFrames: this.rightRailFrames,
+    };
   }
 
   private drawButtonFrame(graphics: Graphics, width: number, height: number, state: ButtonVisualState): void {
-    graphics.clear();
-    const fill = state === 'pressed' ? rgba(78, 20, 25, 232) : state === 'hover' ? rgba(62, 47, 30, 236) : rgba(22, 18, 17, 224);
-    const stroke = state === 'pressed' ? rgba(201, 39, 61, 235) : state === 'hover' ? rgba(245, 210, 122, 245) : rgba(185, 138, 58, 218);
-    graphics.fillColor = fill;
-    this.traceBeveledRect(graphics, width, height, Math.min(16, height * 0.28));
-    graphics.fill();
-    graphics.strokeColor = stroke;
-    graphics.lineWidth = state === 'normal' ? 2 : 3;
-    this.traceBeveledRect(graphics, width, height, Math.min(16, height * 0.28));
-    graphics.stroke();
-  }
-
-  private traceBeveledRect(graphics: Graphics, width: number, height: number, bevel: number): void {
-    const left = -width / 2;
-    const right = width / 2;
-    const top = height / 2;
-    const bottom = -height / 2;
-    const cut = Math.min(bevel, width / 5, height / 3);
-    graphics.moveTo(left + cut, top);
-    graphics.lineTo(right - cut, top);
-    graphics.lineTo(right, top - cut);
-    graphics.lineTo(right, bottom + cut);
-    graphics.lineTo(right - cut, bottom);
-    graphics.lineTo(left + cut, bottom);
-    graphics.lineTo(left, bottom + cut);
-    graphics.lineTo(left, top - cut);
-    graphics.close();
+    this.uiPrimitiveFactory.drawButtonFrame(graphics, width, height, state);
   }
 
   private createUiNode(name: string): Node {
-    const node = new Node(name);
-    node.layer = this.node.layer;
-    this.ensureContentRoot().addChild(node);
-    return node;
+    return this.contentRootController.createNode(name);
   }
 
   private removeNodeFromContent(name: string): void {
-    const node = this.contentRoot?.getChildByName(name);
-    if (!node) {
-      return;
-    }
-    node.removeFromParent();
-    node.destroy();
+    this.contentRootController.removeNode(name);
   }
 
   private ensureContentRoot(): Node {
-    if (this.contentRoot?.isValid) {
-      return this.contentRoot;
-    }
-    const root = new Node('LootChainCocosLoginUIRoot');
-    root.layer = this.node.layer;
-    this.node.addChild(root);
-    this.contentRoot = root;
-    return root;
+    return this.contentRootController.ensure();
   }
 
   private run(action: AsyncAction): void {
@@ -1575,174 +1445,103 @@ export class LootChainGameRoot extends Component {
     });
   }
 
-  private formatApiError(error: unknown, fallbackBaseUrl: string): string {
-    if (error instanceof ApiError) {
-      const requestUrl = error.requestUrl || `${fallbackBaseUrl}/api/player/auth/dev-login`;
-      return `登录失败：${error.message}\ncode=${error.code}\nurl=${requestUrl}\n检查 lootchain-game 是否运行在 http://localhost:8081。`;
-    }
-    const message = error instanceof Error ? error.message : String(error);
-    return `登录失败：${message}\nurl=${fallbackBaseUrl}/api/player/auth/dev-login`;
-  }
-
-  private maskWalletAddress(address?: string | null): string {
-    const clean = this.safeText(address || '');
-    if (!clean) {
-      return LOBBY_PROFILE_PLACEHOLDER;
-    }
-    if (clean.length <= 12) {
-      return clean;
-    }
-    return `${clean.slice(0, 6)}...${clean.slice(-4)}`;
-  }
-
   private formatInteger(value: number | null | undefined): string {
-    const safeValue = this.positiveInteger(value, 0);
-    return String(safeValue).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return formatUiInteger(value);
   }
 
   private compactResourceValue(value: number | null | undefined): string {
-    const safeValue = this.positiveInteger(value, 0);
-    if (safeValue >= 1_000_000_000) {
-      return `${Math.floor(safeValue / 100_000_000) / 10}B`;
-    }
-    if (safeValue >= 1_000_000) {
-      return `${Math.floor(safeValue / 100_000) / 10}M`;
-    }
-    if (safeValue >= 100_000) {
-      return `${Math.floor(safeValue / 100) / 10}K`;
-    }
-    return this.formatInteger(safeValue);
-  }
-
-  private positiveInteger(value: number | null | undefined, fallback: number): number {
-    const parsed = Number(value);
-    if (!Number.isFinite(parsed) || parsed < 0) {
-      return fallback;
-    }
-    return Math.floor(parsed);
-  }
-
-  private safeText(value: string | null | undefined): string {
-    return this.trimText(String(value ?? '').trim());
+    return compactUiResourceValue(value);
   }
 
   private trimText(text: string): string {
-    return text.length > 1200 ? `${text.slice(0, 1200)}...` : text;
+    return trimUiText(text);
   }
 
   private resolveLayout(): UiLayout {
-    const visibleSize = this.visibleSize();
-    const width = Math.max(MIN_VISIBLE_WIDTH, visibleSize.width);
-    const height = Math.max(MIN_VISIBLE_HEIGHT, visibleSize.height);
-    const stage = this.resolveStageBounds(width, height);
-    const stageWidth = stage.width;
-    const stageHeight = stage.height;
-    const uiScale = Math.min(1, stageWidth / LOGIN_REFERENCE_WIDTH, stageHeight / LOGIN_REFERENCE_HEIGHT);
-    const stageLeft = stage.centerX - stageWidth / 2;
-    const stageRight = stage.centerX + stageWidth / 2;
-    const stageTop = stage.centerY + stageHeight / 2;
-    const stageBottom = stage.centerY - stageHeight / 2;
-    const safeInsetX = clamp(stageWidth * 0.035, 12, 68 * Math.max(uiScale, 0.75));
-    const safeInsetY = clamp(stageHeight * 0.035, 10, 54 * Math.max(uiScale, 0.75));
-    const safeLeft = stageLeft + safeInsetX;
-    const safeRight = stageRight - safeInsetX;
-    const safeTop = stageTop - safeInsetY;
-    const safeBottom = stageBottom + safeInsetY;
-    const safeWidth = Math.max(120 * uiScale, safeRight - safeLeft);
-    const safeHeight = Math.max(100 * uiScale, safeTop - safeBottom);
-    const contentWidth = Math.max(260 * uiScale, safeWidth);
-    return {
-      width,
-      height,
-      stageWidth,
-      stageHeight,
-      stageLeft,
-      stageRight,
-      stageTop,
-      stageBottom,
-      safeLeft,
-      safeRight,
-      safeTop,
-      safeBottom,
-      safeWidth,
-      safeHeight,
-      safeInsetX,
-      safeInsetY,
-      uiScale,
-      contentWidth,
-      topY: safeTop - 48 * uiScale,
-      inputHeight: 46 * uiScale,
-      buttonHeight: 48 * uiScale,
-      statusWidth: Math.min(contentWidth, 760 * uiScale),
-      bodyFont: Math.max(13, 18 * uiScale),
-    };
-  }
-
-  private resolveStageBounds(visibleWidth: number, visibleHeight: number): StageBounds {
-    const stageNode = this.findStageNode();
-    const transform = stageNode?.getComponent(UITransform);
-    if (stageNode && transform) {
-      const nodeScale = stageNode.scale;
-      const contentSize = transform.contentSize;
-      const stageWidth = Math.min(visibleWidth, Math.abs(contentSize.width * nodeScale.x));
-      const stageHeight = Math.min(visibleHeight, Math.abs(contentSize.height * nodeScale.y));
-      return {
-        width: Math.max(MIN_VISIBLE_WIDTH, stageWidth),
-        height: Math.max(MIN_VISIBLE_HEIGHT, stageHeight),
-        centerX: stageNode.position.x,
-        centerY: stageNode.position.y,
-      };
-    }
-    return {
-      width: visibleWidth,
-      height: visibleHeight,
-      centerX: 0,
-      centerY: 0,
-    };
-  }
-
-  private findStageNode(): Node | null {
-    for (const name of LOGIN_STAGE_NODE_NAMES) {
-      const stageNode = this.node.getChildByName(name);
-      if (stageNode?.activeInHierarchy) {
-        return stageNode;
-      }
-    }
-    return null;
+    return this.layoutResolver.resolve();
   }
 
   private applyRootSize(layout: UiLayout): void {
-    const transform = this.node.getComponent(UITransform) ?? this.node.addComponent(UITransform);
-    transform.setContentSize(new Size(layout.width, layout.height));
-  }
-
-  private visibleSize(): Size {
-    const size = view.getVisibleSize();
-    const width = Math.round(size.width || 0);
-    const height = Math.round(size.height || 0);
-    if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
-      return new Size(width, height);
-    }
-    const runtimeSize = this.runtimeWindowSize();
-    if (runtimeSize) {
-      return runtimeSize;
-    }
-    return new Size(LOGIN_REFERENCE_WIDTH, LOGIN_REFERENCE_HEIGHT);
-  }
-
-  private runtimeWindowSize(): Size | null {
-    const runtime = globalThis as { innerHeight?: number; innerWidth?: number };
-    const width = Math.round(runtime.innerWidth || 0);
-    const height = Math.round(runtime.innerHeight || 0);
-    if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
-      return new Size(width, height);
-    }
-    return null;
+    this.contentRootController.applyRootSize(layout);
   }
 
   private makeLayoutKey(): string {
     const layout = this.resolveLayout();
     const stageKey = `${Math.round(layout.stageLeft)},${Math.round(layout.stageBottom)},${Math.round(layout.stageWidth)}x${Math.round(layout.stageHeight)}`;
-    return `${this.currentView}:${layout.width}x${layout.height}:${stageKey}:${this.agreementAccepted ? 'agree' : 'deny'}:${this.lobbyProfileOpen ? 'profile-open' : 'profile-closed'}`;
+    // Cocos Preview 在固定设计分辨率下可能只改变浏览器物理视口，必须纳入 key 才会重排 HUD。
+    const viewportKey = `${Math.round(layout.viewportWidth)}x${Math.round(layout.viewportHeight)}`;
+    return `${this.currentView}:${layout.width}x${layout.height}:${viewportKey}:${stageKey}:${this.loginFlow.agreementAccepted ? 'agree' : 'deny'}:${this.protagonistCreateFlow.version}:${this.lobbyProfileOpen ? 'profile-open' : 'profile-closed'}:${this.lobbyAdventurePanelOpen ? 'adventure-open' : 'adventure-closed'}:${this.lobbyAdventureLoader.version}:${this.selectedLobbyStageCode}:${this.lobbyBattlePreviewPanelOpen ? 'battle-open' : 'battle-closed'}:${this.lobbyBattleFlow.currentState().version}:${this.lobbyCodexPanelOpen ? 'codex-open' : 'codex-closed'}:${this.lobbyCodexLoader.version}:${this.lobbyFormationPanelOpen ? 'formation-open' : 'formation-closed'}:${this.selectedLobbyFormationHeroIds.join(',')}:${this.lobbyHeroRosterPanelOpen ? 'heroes-open' : 'heroes-closed'}:${this.lobbyHeroDetailHeroId ?? 'detail-closed'}:${this.lobbyHeroRosterLoader.version}:${this.lobbyNoticePanelOpen ? 'notice-open' : 'notice-closed'}:${this.lobbyNoticeLoader.version}:${this.currentView === 'gacha' ? 'gacha-open' : 'gacha-closed'}:${this.lobbyPlaceholderDialog ? 'placeholder-open' : 'placeholder-closed'}`;
+  }
+
+  private resolveLobbyStageCode(stageCode?: string | null): string | null {
+    const value = (stageCode ?? '').trim().toUpperCase();
+    return /^MAIN_\d+_\d+$/.test(value) ? value : null;
+  }
+
+  private findLobbyAdventureStage(stageCode: string): LobbyAdventureStageVO | null {
+    const adventure = this.lobbyAdventureLoader.currentState().adventure;
+    if (!adventure) {
+      return null;
+    }
+    return adventure.chapters
+      .flatMap((chapter) => chapter.stages)
+      .find((stage) => stage.stageCode === stageCode) ?? null;
+  }
+
+  private selectableLobbyHeroes(): LobbyHeroItemVO[] {
+    return this.lobbyHeroRosterLoader.currentState().heroes
+      .filter((hero) => hero.id > 0 && hero.rarity.toUpperCase() !== 'EX' && !hero.heroCode.toUpperCase().startsWith('EX_'));
+  }
+
+  private resolveLobbyFormationHeroIds(): number[] {
+    const normalized = this.normalizeLobbyFormationHeroIds(this.selectedLobbyFormationHeroIds);
+    if (normalized.length > 0) {
+      return normalized;
+    }
+    return this.defaultLobbyFormationHeroIds();
+  }
+
+  private defaultLobbyFormationHeroIds(): number[] {
+    return [...this.selectableLobbyHeroes()]
+      .sort((a, b) => Number(b.protagonist) - Number(a.protagonist) || b.power - a.power)
+      .slice(0, 5)
+      .map((hero) => hero.id);
+  }
+
+  private normalizeLobbyFormationHeroIds(heroIds: number[]): number[] {
+    const heroes = this.selectableLobbyHeroes();
+    const byId = new Map(heroes.map((hero) => [hero.id, hero]));
+    const protagonist = heroes.find((hero) => hero.protagonist);
+    const normalized: number[] = [];
+    if (protagonist) {
+      normalized.push(protagonist.id);
+    }
+    for (const heroId of heroIds) {
+      if (normalized.length >= 5) {
+        break;
+      }
+      if (byId.has(heroId) && !normalized.includes(heroId)) {
+        normalized.push(heroId);
+      }
+    }
+    return normalized.slice(0, 5);
+  }
+
+  private reconcileLobbyFormationSelection(): boolean {
+    const before = this.selectedLobbyFormationHeroIds.join(',');
+    this.selectedLobbyFormationHeroIds = this.normalizeLobbyFormationHeroIds(this.selectedLobbyFormationHeroIds);
+    if (this.selectedLobbyFormationHeroIds.length === 0) {
+      this.selectedLobbyFormationHeroIds = this.defaultLobbyFormationHeroIds();
+    }
+    return before !== this.selectedLobbyFormationHeroIds.join(',');
+  }
+
+  private rejectInvalidLobbyStageSelection(): void {
+    // 关卡丢失或非法时必须回到冒险选择，避免未来多关卡阶段误打默认 MAIN_1_1。
+    this.selectedLobbyStageCode = null;
+    this.setStatus('关卡选择已失效，请重新选择主线关卡。');
+    if (this.currentView === 'lobby') {
+      this.openLobbyAdventurePanel();
+    }
   }
 }

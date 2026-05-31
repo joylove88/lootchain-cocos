@@ -2,6 +2,7 @@ import { _decorator, Component, UIOpacity, Vec3 } from 'cc';
 
 const { ccclass, property } = _decorator;
 
+/** 旋涡中心层运动脚本：围绕中心旋转，并做轻微缩放/透明度呼吸。 */
 @ccclass('VortexPivotMotion')
 export class VortexPivotMotion extends Component {
 

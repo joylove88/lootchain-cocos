@@ -2,6 +2,7 @@ import { _decorator, Component, Vec3 } from 'cc';
 
 const { ccclass, property } = _decorator;
 
+/** 新版旋涡环带运动脚本：用于替代旧版环带的椭圆轨道动画。 */
 @ccclass('VortexBandMotion')
 export class VortexBandMotion extends Component {
 

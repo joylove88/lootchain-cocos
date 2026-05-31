@@ -9,9 +9,13 @@ export class PlayerAuthApi {
   ) {}
 
   async devLogin(userId: number): Promise<PlayerTokenVO> {
-    const token = await this.http.post<PlayerTokenVO>('/api/player/auth/dev-login', { userId });
+    // 当前 Cocos 阶段只开放开发登录；token 保存由 LoginFlow 在竞态校验后执行。
+    return await this.http.post<PlayerTokenVO>('/api/player/auth/dev-login', { userId });
+  }
+
+  saveToken(token: PlayerTokenVO): void {
+    // 只保存已确认属于当前登录请求的 token，避免旧响应覆盖新用户状态。
     this.tokenStore.save(token);
-    return token;
   }
 
   logout(): void {

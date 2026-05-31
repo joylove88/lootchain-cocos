@@ -1,6 +1,12 @@
 import { _decorator, Component, Sprite, Vec4, view } from 'cc';
 const { ccclass, property } = _decorator;
 
+/**
+ * 云层材质参数控制器。
+ *
+ * 用 Inspector 参数驱动自定义材质的旋涡中心、半径、旋转速度和细节强度，
+ * 方便在 Cocos 编辑器里直接调登录背景云层效果。
+ */
 @ccclass('VortexCloudMaterialController')
 export class VortexCloudMaterialController extends Component {
     @property({ type: Sprite })
@@ -56,7 +62,7 @@ export class VortexCloudMaterialController extends Component {
         const sprite = this.targetSprite ?? this.getComponent(Sprite);
         if (!sprite) return;
 
-        // sprite.material returns an instance, so this won't mutate every other object using the same material.
+        // sprite.material 返回材质实例，避免误改所有共享同一材质的对象。
         const mat = sprite.material;
         if (!mat) return;
 

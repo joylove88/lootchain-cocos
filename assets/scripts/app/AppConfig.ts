@@ -13,6 +13,7 @@ function resolveDefaultApiBaseUrl(): string {
   return `${protocol}://${hostname}:8081`;
 }
 
+// Cocos 前端运行配置。预览环境默认连接同主机 8081 的 game service。
 export const AppConfig = {
   apiBaseUrl: resolveDefaultApiBaseUrl(),
   defaultDevUserId: 1,

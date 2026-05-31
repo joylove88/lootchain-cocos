@@ -2,6 +2,7 @@ import { _decorator, Component, UIOpacity, Vec3 } from 'cc';
 
 const { ccclass } = _decorator;
 
+/** 登录背景云层漂移脚本：做轻微位移、透明度和缩放变化。 */
 @ccclass('CloudRotate')
 export class CloudRotate extends Component {
     private basePos = new Vec3();
