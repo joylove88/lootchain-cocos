@@ -1452,6 +1452,12 @@ export class LootChainGameRoot extends Component {
   }
 
   private setStatus(text: string): void {
+    if (this.currentView === 'gacha' || this.currentView === 'gachaResult') {
+      const layout = this.resolveLayout();
+      const gachaStatusY = layout.stageBottom + 210 * layout.uiScale;
+      this.statusPresenter.set(text, layout, gachaStatusY);
+      return;
+    }
     this.statusPresenter.set(text);
   }
 

@@ -7,6 +7,7 @@ export interface LobbyCodexItemVO {
   heroClass: string;
   roleDesc?: string | null;
   portraitAsset?: string | null;
+  spineAsset?: string | null;
   owned: boolean;
   ownedCount: number;
 }

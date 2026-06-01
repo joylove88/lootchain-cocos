@@ -1657,3 +1657,137 @@ GET http://localhost:8081/api/player/lobby/heroes
 - 验证通过：`npm.cmd run check:layout`；focused Cocos Creator TypeScript no-emit；`git diff --check`。
 - 后续如要动态播放，需要美术重新导出包含 animation 的 `huangfengjiaozong` Spine；前端会自动选择实际存在的动画名。
 - 边界不变：不开放真实抽卡，不扣资源，不发英雄，不写抽卡记录/保底，不开放 EX V1，不新增经济写入口。
+
+## 2026-06-01 Hero Detail Spine Asset Field Sync
+
+- 后端 `hero_template` 新增 `spine_asset` 展示字段，用于英雄详情页骨骼动画资源目录。
+- 字段值由 `portrait_asset` 派生：复制后将 `act` 替换为 `npc`，例如 `act_1057 -> npc_1057`。
+- 本地 `lootchain` 库已执行 `D:\project\LootChain\sql\16_hero_spine_asset.sql`；复验 `spine_asset` mismatch 计数为 `0`。
+- 后端只读英雄/图鉴 VO 已带出 `spineAsset`，Cocos `LobbyHeroApi`、`LobbyCodexApi`、`LobbyHeroTypes`、`LobbyCodexTypes`、`HeroTypes` 已接收该字段。
+- 当前只同步资源映射契约，不改英雄详情渲染流程，不接真实抽卡、不扣资源、不发英雄、不写抽卡记录/保底、不开放 EX V1、不新增经济写入口。
+
+## 2026-06-01 Stage 4BA Gacha Status Text Position Fix
+
+- Gacha 页全局状态提示现在有专用位置：`layout.stageBottom + 210 * layout.uiScale`。
+- 这样 Spine 解析失败、fallback、概率/记录/兑换等本地提示不会再压住底部 `召唤1次` / `召唤10次` 按钮。
+- `StatusPresenter.set()` 已支持传入 `layout/y` 来重新定位已有状态文字。
+- 验证通过：`npm.cmd run check:layout`；focused Cocos Creator TypeScript no-emit；`git diff --check`。
+- 当前运行中的 Preview 仍是旧 chunk，需要重开或刷新 Cocos Creator Preview 后才能看到新位置。
+- 边界不变：不开放真实抽卡，不扣资源，不发英雄，不写抽卡记录/保底，不开放 EX V1，不新增经济写入口。
+
+## 2026-06-01 Stage 4BB Gacha Spine JSON Export Handoff
+
+- `huangfengjiaozong` 已补充导出 JSON runtime 文件：`assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.json`。
+- 本地检查确认 JSON 包含 `default` skin 和 `idle` animation；atlas 引用 `huangfengjiaozong.png` 与 `huangfengjiaozong2.png` 两张图集页。
+- 为避免同目录旧 `.skel` 与新 `.json` 同名时资源路径命中旧二进制，Gacha 目标 Spine 现在优先按新 JSON SkeletonData UUID `178d1dbd-5a53-459b-83bb-2f05c623d99e` 加载，`resources.load` 路径只作兜底。
+- `check:layout` 已同步校验 JSON、atlas page、Spine 3.8.x 版本、`default` skin 和 `idle` animation。
+- 验证通过：`npm.cmd run check:layout`；focused Cocos Creator TypeScript no-emit；`git diff --check`（仅既有 LF/CRLF warning）。
+- `npm.cmd run check:preview` 当前仍失败，原因是运行中的 Cocos Preview 继续服务旧 chunk；复验需要重开或刷新 Preview，等待新资源重新导入后再进入 Gacha。
+- 边界不变：该调整只影响 Cocos 前端视觉预览资源加载，不开放真实抽卡，不扣资源，不发英雄，不写抽卡记录/保底，不开放 EX V1，不新增经济写入口。
+
+## 2026-06-01 Stage 4BC Gacha Huangfeng Ground Alignment
+
+- `huangfengjiaozong` 已能在 Gacha 中心显示后，位置从偏空中下调到地面基准。
+- Spine 节点现在使用 `spineGroundY = -stageHeight * 0.49`，底部阴影跟随下移到 `spineGroundY - 22 * scale`，让角色更贴近背景中央地面/法阵。
+- 已移除中心局部透明遮罩，改为加深全屏 `GachaAbyssAtmosphere` 暗幕，统一压暗整个召唤背景，避免中间出现透明框。
+- `check:layout` 与 `check-preview-freshness` 已同步守卫该位置基准和全屏背景压暗层，并禁止中心局部矩形遮罩回归。
+- 验证通过：`npm.cmd run check:layout`；focused Cocos Creator TypeScript no-emit；`git diff --check`（仅既有 LF/CRLF warning）。
+- `npm.cmd run check:preview` 当前仍失败，原因是运行中的 Cocos Preview 继续服务旧 chunk，尚未包含这次全屏暗幕加深和落地位置 token。
+- 复验仍需要重开或刷新 Cocos Creator Preview。
+- 边界不变：只调整前端视觉坐标，不开放真实抽卡，不扣资源，不发英雄，不写抽卡记录/保底，不开放 EX V1，不新增经济写入口。
+
+## 2026-06-01 Stage 4BD Gacha Huangfeng Size And Lower Placement
+
+- 按反馈继续放大并下移 Gacha 中心 `huangfengjiaozong`。
+- `spineGroundY` 已从 `-stageHeight * 0.49` 调为 `-stageHeight * 0.55`。
+- Spine 缩放基数已从 `0.36` 调为 `0.43`，角色会比上一版更大。
+- 全屏背景压暗仍由 `GachaAbyssAtmosphere` 完成，不恢复中心局部透明框。
+- `check:layout` 与 `check-preview-freshness` 已同步新位置/缩放 token。
+- 验证通过：`npm.cmd run check:layout`；focused Cocos Creator TypeScript no-emit；`git diff --check`（仅既有 LF/CRLF warning）。
+- `npm.cmd run check:preview` 当前仍失败，原因是运行中的 Cocos Preview 继续服务旧 chunk，尚未包含这次放大/下移 token。
+- 边界不变：只调整前端视觉坐标/缩放，不开放真实抽卡，不扣资源，不发英雄，不写抽卡记录/保底，不开放 EX V1，不新增经济写入口。
+
+## 2026-06-01 Stage 4BE Hero Detail Spine Preview
+
+- 英雄详情页左侧主视觉已接入 `LobbyHeroItemVO.spineAsset`，运行时按 `spine/hero/${spineAsset}/${spineAsset}` 从 `assets/resources/spine/hero` 加载骨骼动画资源。
+- 当前资源契约以 `assets/resources/spine/hero/npc_1001/npc_1001.skel|atlas|png` 为首个样例；缺资源或解析失败时保留当前英雄静态占位，不使用其它角色资源误导展示。
+- 详情页移除了原红色动态圆环和面板红圆，改为暗色脚底投影；compact 布局改为计算式左右分栏，避免骨骼动画与属性/技能面板重叠。
+- `check:layout` 已增加 hero Spine 资源/加载/禁止红圈回归守卫，`check-preview-freshness` 已增加详情页 Spine chunk token。
+- 验证：`npm.cmd run check:layout` 通过；focused Cocos Creator 3.8.8 TypeScript no-emit 通过。
+- 边界不变：英雄详情仍为只读展示，不开放升级、升星、觉醒、装备、抽卡、领取、发放、扣费、保底或任何经济写入口；EX V1 仍不开放。
+## 2026-06-02 Stage 4BF Hero Detail Secondary Animation And Layout Polish
+
+- 当前继续以 Cocos-only 为准，不回到 `web-vue`。
+- 英雄详情页骨骼动画现在会从 `sp.SkeletonData.getAnimsEnum()` 解析主/副动画：优先循环主动画，每隔 15 秒插播一次第二动画，播放完自动回到主循环；`npc_1001` 当前可识别到 `1001_skill1_1` 与 `1001_skill2_1` 等动画名。
+- 视觉层移除了英雄详情大背景/主视觉区域的金色边框与红圈语言，保留暗色地面投影，避免画面里出现抢眼的框线。
+- 右侧信息区重新拉开层级：稀有度/拥有状态在首行，星级单独成行，来源说明、属性格、技能列表依次下移，减少文字互相覆盖。
+- 守卫同步：`scripts/check-layout.mjs` 与 `scripts/check-preview-freshness.mjs` 已要求第二动画 15 秒插播、Hero Spine 详情 token，并禁止大金框/红圈回归。
+- 已验证：`npm.cmd run check:layout` 通过；focused Cocos Creator 3.8.8 TypeScript no-emit 通过。
+- 边界不变：英雄详情仍为只读展示，不开放升级、升星、觉醒、装备、抽卡、领取、发放、扣费、保底或任何经济写入口；EX V1 仍不开放，Gacha 仍只做视觉预览和本地 mock。
+### 2026-06-02 Stage 4BF Validation Note
+
+- `git diff --check` 通过，仅保留既有 LF/CRLF warning。
+- `npm.cmd run check:preview` 仍失败，原因是运行中的 Cocos Preview 继续服务旧 chunk；其中 `LobbyHeroDetailPanelRenderer.ts` chunk 缺少 `spine/hero/${asset}/${asset}`、`resolveHeroSpineAnimationNames`、`startHeroSpineSecondaryCycle`、`.delay(15)`、`skeleton.addAnimation(0, primaryAnimation, true, 0)` 等本轮 token。需要重开或刷新 Cocos Creator Preview 后复验英雄详情。
+## 2026-06-02 Stage 4BG Gacha Background Reuse Hero Detail Backdrop
+
+- 当前继续以 Cocos-only 为准，不回到 `web-vue`。
+- 召唤页背景资源从 `ui/gacha/gacha_bg_cathedral/spriteFrame` 切换为英雄详情页同款 `ui/hero-detail/hero_detail_backdrop/spriteFrame`，统一召唤与英雄详情的暗黑殿堂背景语义。
+- `GachaSceneRenderer.ts` 仍通过 `GACHA_BACKGROUND_ASSET` 渲染背景，不改变召唤页按钮、Spine、mock 结果或本地预览流程。
+- 守卫同步：`scripts/check-layout.mjs` 要求 `GACHA_BACKGROUND_ASSET` 指向英雄详情背景，并禁止旧召唤背景路径回归；`scripts/check-preview-freshness.mjs` 增加 `GachaSceneConfig.ts` 背景资源 token。
+- 已验证：`npm.cmd run check:layout` 通过；focused Cocos Creator 3.8.8 TypeScript no-emit 通过。
+- 边界不变：Gacha 当前仍只做视觉预览和本地 mock，不扣资源、不发英雄、不写抽卡记录、不更新保底、不开放真实抽卡写接口；EX V1 仍不开放。
+### 2026-06-02 Stage 4BG Validation Note
+
+- `git diff --check` 通过，仅保留既有 LF/CRLF warning。
+- `npm.cmd run check:preview` 仍失败，原因是运行中的 Cocos Preview 继续服务旧 chunk；本轮新增检查明确指出 `GachaSceneConfig.ts` chunk 仍缺少 `ui/hero-detail/hero_detail_backdrop/spriteFrame`。重开或刷新 Cocos Creator Preview 后再复验召唤页背景。
+## 2026-06-02 Stage 4BH Generated Gacha Abyss Ring Background And Hero Grounding
+
+- 当前继续以 Cocos-only 为准，不回到 `web-vue`。
+- 使用 built-in imagegen 生成新的抽奖背景 `assets/resources/ui/gacha/gacha_bg_abyss_ring.png`，配色为深冷蓝黑主调、低饱和暗红环、少量暗金地面反光；画面中央下方留出暗色角色站位区，用于凸显暗色/灰色骨骼动画人物。
+- `GachaSceneConfig.ts` 的 `GACHA_BACKGROUND_ASSET` 已切换为 `ui/gacha/gacha_bg_abyss_ring/spriteFrame`，不再复用英雄详情背景，也不回到旧 `gacha_bg_cathedral`。
+- 英雄详情桌面主视觉位置调整到面板中心：`artX = 0`，让角色位于背景中间红环下方；Spine 节点、静态兜底和脚底投影统一使用 `resolveHeroDetailGroundY(height)`，人物与地面基线距离为 0，不再悬空。
+- 守卫同步：`scripts/check-layout.mjs` 新增生成背景资源存在性、Gacha 背景路径、旧背景路径禁止回归、英雄详情中心站位和地面基线 token；`scripts/check-preview-freshness.mjs` 同步检查最新 chunk token。
+- 已验证：`npm.cmd run check:layout` 通过；focused Cocos Creator 3.8.8 TypeScript no-emit 通过。
+- 边界不变：Gacha 当前仍只做视觉预览和本地 mock，不扣资源、不发英雄、不写抽卡记录、不更新保底、不开放真实抽卡写接口；英雄详情仍为只读展示；EX V1 仍不开放。
+### 2026-06-02 Stage 4BH Validation Note
+
+- `git diff --check` 通过，仅保留既有 LF/CRLF warning。
+- `npm.cmd run check:preview` 仍失败，原因是运行中的 Cocos Preview 继续服务旧 chunk；当前旧包缺少 `ui/gacha/gacha_bg_abyss_ring/spriteFrame`、`const artX = 0;`、`resolveHeroDetailGroundY(height)`、`graphics.ellipse(0, groundY` 等本轮 token。需要重开或刷新 Cocos Creator Preview，并等待新 PNG/meta 重新导入后复验召唤页和英雄详情。
+## 2026-06-02 Stage 4BI Gacha Background Dark Overlay Removal
+
+- 当前继续以 Cocos-only 为准，不回到 `web-vue`。
+- 按反馈移除召唤页与本地结果页背景上的全屏暗层：`GachaSceneRenderer.ts` 不再调用/渲染 `GachaAbyssAtmosphere`，新生成的 `gacha_bg_abyss_ring` 背景按原色直接展示。
+- Spine loading fallback 自身的小透明呼吸动画保留；移除的只是覆盖整张召唤背景的黑色氛围遮罩。
+- 守卫同步：`scripts/check-layout.mjs` 不再要求暗层 token，并将 `GachaAbyssAtmosphere`、`rgba(0, 0, 0, 132)`、`opacity.opacity = 226`、1.8 秒暗层呼吸 tween 列为禁止回归；`scripts/check-preview-freshness.mjs` 同步移除暗层必需 token。
+- 已验证：`npm.cmd run check:layout` 通过；focused Cocos Creator 3.8.8 TypeScript no-emit 通过。
+- 边界不变：Gacha 当前仍只做视觉预览和本地 mock，不扣资源、不发英雄、不写抽卡记录、不更新保底、不开放真实抽卡写接口；EX V1 仍不开放。
+### 2026-06-02 Stage 4BI Validation Note
+
+- `git diff --check` 通过，仅保留既有 LF/CRLF warning。
+- `npm.cmd run check:preview` 仍失败，原因是运行中的 Cocos Preview 继续服务旧 chunk；需要重开或刷新 Cocos Creator Preview 后，才能看到召唤页移除全屏暗层后的背景原色。
+## 2026-06-02 Stage 4BJ Hero Detail Overlay And Identity Plate Polish
+
+- 当前继续以 Cocos-only 为准，不回到 `web-vue`。
+- 按反馈移除英雄详情页中间半屏暗带：`drawPanelShade()` 不再绘制第二层横向暗矩形，并将全屏遮罩从 `rgba(0, 0, 0, 116)` 降到 `rgba(0, 0, 0, 64)`，保留背景可见度。
+- 左上角英雄名称、等级、战力不再固定在左上角，改为角色下方居中的 `LobbyHeroDetailIdentityPlate`，与红环下方的角色主视觉形成同一焦点。
+- 移除 `LobbyHeroDetailArtCaption`，底部只保留一条只读边界说明，并将说明下移到 `-height / 2 + 38 * scale`，避免下方两行文字重叠。
+- 守卫同步：`scripts/check-layout.mjs` 增加身份牌位置 token，禁止旧左上角标题位置、半屏暗带、旧高透明度遮罩和底部 art caption 回归；`scripts/check-preview-freshness.mjs` 同步身份牌 token。
+- 已验证：`npm.cmd run check:layout` 通过；focused Cocos Creator 3.8.8 TypeScript no-emit 通过。
+- 边界不变：英雄详情仍为只读展示，不开放升级、升星、觉醒、装备、抽卡、领取、发放、扣费、保底或任何经济写入口；EX V1 仍不开放。
+### 2026-06-02 Stage 4BJ Validation Note
+
+- `git diff --check` 通过，仅保留既有 LF/CRLF warning。
+- `npm.cmd run check:preview` 仍失败，原因是运行中的 Cocos Preview 继续服务旧 chunk；旧 `LobbyHeroDetailPanelRenderer.ts` chunk 缺少 `LobbyHeroDetailIdentityPlate`、`plateY = -height / 2 + 118 * scale` 等本轮 token。重开或刷新 Cocos Creator Preview 后复验英雄详情页遮罩、身份牌和底部说明。
+## 2026-06-02 Stage 4BK Hero Detail Initial Secondary Animation
+
+- 当前继续以 Cocos-only 为准，不回到 `web-vue`。
+- 英雄详情页 Spine 播放顺序调整：若当前英雄资源存在第二动画，进入详情时先立即播放第二动画一次，然后自动接回主动画循环。
+- 进入后的周期逻辑保留：`startHeroSpineSecondaryCycle()` 仍每 15 秒插播一次第二动画，播放完继续回到主动画循环。
+- 若第二动画播放失败，则降级为直接播放主动画循环，不影响详情页展示。
+- 守卫同步：`scripts/check-layout.mjs` 与 `scripts/check-preview-freshness.mjs` 新增初始第二动画播放 token，确保不会退回“首次只播主循环、15 秒后才播第二动画”的旧逻辑。
+- 已验证：`npm.cmd run check:layout` 通过；focused Cocos Creator 3.8.8 TypeScript no-emit 通过。
+- 边界不变：英雄详情仍为只读展示，不开放升级、升星、觉醒、装备、抽卡、领取、发放、扣费、保底或任何经济写入口；EX V1 仍不开放。
+### 2026-06-02 Stage 4BK Validation Note
+
+- `git diff --check` 通过，仅保留既有 LF/CRLF warning。
+- `npm.cmd run check:preview` 仍失败，原因是运行中的 Cocos Preview 继续服务旧 chunk；旧 `LobbyHeroDetailPanelRenderer.ts` chunk 缺少 `const secondaryAnimation = animationNames.secondary`、`skeleton.addAnimation(0, animationName, true, 0)` 等本轮 token。重开或刷新 Cocos Creator Preview 后复验进入英雄详情时的初始第二动画。

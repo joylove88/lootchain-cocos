@@ -41,10 +41,16 @@ export class StatusPresenter {
     );
   }
 
-  set(text: string): void {
+  set(text: string, layout?: UiLayout, y?: number): void {
     if (!this.label || !this.label.node?.isValid) {
-      this.add(text);
+      this.add(text, layout, y);
       return;
+    }
+    if (layout || y !== undefined) {
+      const currentLayout = layout ?? this.host.resolveLayout();
+      const statusY = y ?? currentLayout.safeBottom + Math.max(8 * currentLayout.uiScale, currentLayout.safeHeight * 0.01);
+      const centerX = (currentLayout.stageLeft + currentLayout.stageRight) / 2;
+      this.label.node.setPosition(centerX, statusY, 0);
     }
     this.label.string = this.host.trimText(text);
   }

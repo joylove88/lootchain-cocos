@@ -1778,3 +1778,83 @@
   - 运行时解析失败时自动展示 `Lord of the Dark Abyss/1605` 作为可用 Spine 预览，确保中心区域不空白；
   - 状态栏明确说明需要重新导出 `huangfengjiaozong`，避免误以为已经显示目标资源。
 - 边界不变：该 fallback 只是 Cocos 视觉预览兜底，不触发真实单抽/十连，不扣资源，不发英雄，不写抽卡记录/保底，不开放兑换、补发或 EX V1。
+
+## 2026-06-01 Stage 4BA Gacha 状态文字位置补充
+
+- 问题：Gacha 页蓝色状态提示位于底部安全区，会遮挡 `召唤1次` / `召唤10次` 按钮。
+- 调整结论：
+  - Gacha 和 GachaResult 视图使用专用状态提示高度；
+  - 状态文字移动到底部召唤按钮上方；
+  - 既保留 Spine 解析失败/fallback 的诊断提示，又不影响按钮点击和识别。
+- 验收重点：
+  - 重开 Preview 后进入 Gacha；
+  - 触发 `huangfengjiaozong` fallback 或点击右侧概率/记录/兑换/保底；
+  - 蓝色状态文字不应再压住底部召唤按钮。
+- 边界不变：该调整仅改变前端提示文字位置，不改变抽卡、概率、消耗、保底、奖励或任何经济写入。
+
+## 2026-06-01 Hero Detail Spine Asset Field Sync
+
+- 英雄详情骨骼动画资源目录由后端 `hero_template.spine_asset` 提供。
+- 字段值按 `portrait_asset` 派生：复制后将 `act` 替换为 `npc`，例如 `act_21053 -> npc_21053`。
+- Cocos 大厅英雄队列、图鉴和普通英雄类型已具备 `spineAsset` 只读字段，后续英雄详情页可按该目录加载对应骨骼动画资源。
+- 当前只补资源映射契约，不改变英雄列表/图鉴/详情页渲染，也不新增任何抽卡、养成、奖励、扣费或经济写入口。
+
+## 2026-06-01 Stage 4BB Gacha Spine JSON Export Handoff
+
+- Gacha 中心目标资源继续是 `huangfengjiaozong`，但运行时主入口从旧 `.skel` UUID 切换为用户新导出的 JSON SkeletonData UUID。
+- 新 JSON 已确认包含 `default` skin 与 `idle` animation；atlas 为双图集页，必须同时保留 `huangfengjiaozong.png` 与 `huangfengjiaozong2.png`。
+- 这次调整只解决“同名 skel/json 并存时可能加载旧资源”的前端资源歧义，不改变 Gacha 的本地 mock、按钮行为或任何经济规则。
+- 验收重点：重开 Preview 后进入 Gacha；期望控制台命中 `huangfengjiaozong`，若仍显示备用 Spine，再检查 Cocos runtime 是否仍拒绝 `3.8.75` 数据。
+- 当前 `check:preview` 仍提示运行中的 Preview 是旧 chunk，需重开或刷新后再复验。
+
+## 2026-06-01 Stage 4BC Gacha Huangfeng Ground Alignment
+
+- Gacha 中心 `huangfengjiaozong` 的视觉定位从悬空感较强的舞台中段下调到地面基准，目标是让脚底贴近背景中央法阵/地面。
+- 技术实现调整 Spine 节点本地 Y、阴影位置，并加深背景后的全屏氛围暗幕，让整体背景退后；不改变资源、动画、按钮行为或本地 mock 结果。
+- 验收重点：重开 Preview 后进入 Gacha，角色底部应落在地面视觉区域，不再悬在建筑中段；整个背景应统一压暗，不应在中间出现局部透明框。若仍偏高，只继续微调 `spineGroundY` 系数。
+- 当前 `check:preview` 仍提示运行中的 Preview 是旧 chunk，需重开或刷新后再复验该视觉调整。
+
+## 2026-06-01 Stage 4BD Gacha Huangfeng Size And Lower Placement
+
+- Gacha 中心 `huangfengjiaozong` 继续按验收反馈放大并下移。
+- 当前参数：`spineGroundY = -stageHeight * 0.55`，Spine 缩放基数 `0.43`。
+- 验收重点：角色应比上一版更有主视觉分量，底部更贴近法阵地面，同时不遮挡底部召唤文案与按钮。
+- 当前 `check:preview` 仍提示运行中的 Preview 是旧 chunk，需重开或刷新后再复验该视觉调整。
+
+## 2026-06-01 Hero Detail Spine Preview Design Note
+
+- 产品视角：英雄详情页只展示当前英雄自己的 `spineAsset`，资源缺失或解析失败时静态降级，不串用其它英雄或 Gacha 怪物 Spine，避免误导拥有状态和角色身份。
+- 设计视角：骨骼动画承接左侧 `LobbyHeroDetailArtStage` 主视觉，不铺成整页背景；移除红色动态圆环和大红圆背景，保留暗色脚底投影、暗金地线和右侧只读属性/技能信息结构。
+- 用户视角：窄屏下 art stage 与 info panel 使用计算式宽度和 gap，目标是不让角色、武器或特效压住徽章、属性格、技能列表、底部只读说明或返回按钮。
+- 验收重点：重开 Cocos Preview 后进入英雄详情，确认 `npc_1001` 能按 `assets/resources/spine/hero/npc_1001/npc_1001` 加载；没有对应资源的英雄应显示静态占位且页面信息仍可读。
+- 边界不变：该功能仅为 Cocos 只读视觉预览，不新增任何养成、抽卡、奖励、扣费、发放、记录或保底写入口。
+## 2026-06-02 Hero Detail Secondary Animation/Layout QA Note
+
+- 产品侧补充：英雄详情页应优先呈现当前英雄自己的 `spineAsset`，主动画负责常驻展示，第二动画每 15 秒插播一次作为战斗感反馈，播放后回到主循环。
+- 设计侧补充：英雄主视觉不再使用大金边框或红圈背景，右侧信息区按“身份 -> 星级 -> 来源 -> 属性 -> 技能”纵向分层，避免徽章、星级和文字重叠。
+- 用户侧验收：进入 `npc_1001` 英雄详情后，左侧骨骼动画应稳定显示且周期性触发第二动画；右侧拥有状态、星级、属性、技能文本应可读，不应相互覆盖。
+- 边界不变：该页只读展示，不新增养成、抽卡、奖励、扣费、发放、记录或保底写入入口。
+## 2026-06-02 Gacha Background Consistency Note
+
+- 召唤页背景与英雄详情背景统一使用 `ui/hero-detail/hero_detail_backdrop/spriteFrame`，让两个强角色展示场景共用同一套暗黑殿堂空间。
+- 该调整只替换视觉背景资源，不改变卡池、按钮、概率、mock 结果、Spine 展示或任何后端写入边界。
+## 2026-06-02 Generated Gacha Background / Hero Grounding Note
+
+- 抽奖背景改用新生成的 `ui/gacha/gacha_bg_abyss_ring/spriteFrame`：深冷蓝黑殿堂、上方低饱和红环、地面暗金反光，中央下方留给暗灰骨骼角色站立。
+- 英雄详情主视觉桌面布局从左侧偏置改为中心站位，让角色在红环下方落地展示；脚底投影和 Spine 根节点共用同一地面基线，避免人物悬空。
+- 该调整仅影响 Cocos 视觉资源与布局，不改变抽卡、概率、mock 结果、养成、奖励、扣费或任何后端写入边界。
+## 2026-06-02 Gacha Background Overlay Removal Note
+
+- 抽奖页背景不再叠加全屏黑色暗层，便于直接观察新生成的深冷蓝黑殿堂背景与上方红环。
+- 角色和 UI 的可读性后续应优先通过角色局部描边、投影、按钮自身底色来保障，而不是用整屏黑罩压暗背景。
+- 该调整仅影响视觉层，不改变抽卡、概率、mock 结果、奖励、扣费或任何后端写入边界。
+## 2026-06-02 Hero Detail Overlay / Identity Plate Note
+
+- 英雄详情视觉层移除了中间半屏暗带，并降低全屏暗遮罩透明度，让背景红环和殿堂空间更可见。
+- 英雄名称、等级、战力从左上角迁移到角色下方居中身份牌，减少左上角漂浮信息感，也让视觉焦点集中在人物脚下区域。
+- 原主视觉底部 caption 被移除，底部只保留一条只读边界说明，解决下方两行文字重叠问题。
+- 该调整仅影响 Cocos 视觉与排版，不改变抽卡、养成、奖励、扣费、发放、记录或任何后端写入边界。
+## 2026-06-02 Hero Detail Initial Secondary Animation Note
+
+- 英雄详情页现在进入时先播放第二动画作为亮相动作，然后回到主循环；后续每 15 秒继续插播第二动画。
+- 该调整仅改变 Cocos Spine 展示节奏，不改变英雄详情只读边界、养成、抽卡、奖励、扣费、记录或任何后端写入。

@@ -10,6 +10,7 @@ export interface LobbyHeroItemVO {
   protagonist: boolean;
   sourceType: string;
   portraitAsset?: string | null;
+  spineAsset?: string | null;
   currentForm?: string | null;
   formLabel?: string | null;
 }

@@ -37,9 +37,9 @@ export interface GachaRarityTone {
   text: Color;
 }
 
-export const GACHA_BACKGROUND_ASSET = 'ui/gacha/gacha_bg_cathedral/spriteFrame';
+export const GACHA_BACKGROUND_ASSET = 'ui/gacha/gacha_bg_abyss_ring/spriteFrame';
 export const GACHA_ABYSS_SPINE_RESOURCE = 'spine/gacha/huangfengjiaozong/huangfengjiaozong';
-export const GACHA_ABYSS_SPINE_UUID = 'ef87498c-2ef4-44e6-bee9-2d499e6ac570';
+export const GACHA_ABYSS_SPINE_UUID = '178d1dbd-5a53-459b-83bb-2f05c623d99e';
 export const GACHA_ABYSS_SPINE_SKIN = 'default';
 export const GACHA_ABYSS_SPINE_INTRO_ANIMATION = 'idle';
 export const GACHA_ABYSS_SPINE_IDLE_ANIMATION = 'idle';

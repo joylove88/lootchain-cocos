@@ -55,6 +55,7 @@ function normalizeHeroItem(item: unknown, index: number): LobbyHeroItemVO | null
     protagonist: item.protagonist === true,
     sourceType: readText(item, 'sourceType', 32, ''),
     portraitAsset: readOptionalText(item, 'portraitAsset', 64),
+    spineAsset: readOptionalText(item, 'spineAsset', 128),
     currentForm: readOptionalText(item, 'currentForm', 32),
     formLabel: readOptionalText(item, 'formLabel', 32),
   };

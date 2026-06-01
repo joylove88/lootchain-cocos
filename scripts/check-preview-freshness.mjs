@@ -14,7 +14,7 @@ const REQUIRED_CHUNKS = [
   },
   {
     source: 'assets/scripts/scenes/LootChainGameRoot.ts',
-    tokens: ['selectLobbyAdventureStage', 'previewLockedLobbyAdventureStage', 'findLobbyAdventureStage', 'this.selectedLobbyStageCode = resolvedStageCode', 'LobbyFeatureSceneBackdrop', 'renderLobbyFeatureSceneBackdrop', 'LobbyPlaceholderSceneRoot', 'LobbyPlaceholderScenePanel', 'LobbyPlaceholderBackButton', 'renderSceneBackButton', 'panel.addComponent(BlockInputEvents)', 'renderLobbyScenePage', 'LOGIN_SCENE_BACKGROUND_NODE_NAMES', 'LOGIN_SCENE_LEGACY_NODE_NAMES', 'stageNode.active = false', 'setLoginSceneStageVisible', 'tryPlayLoginSceneVideo', 'resumeForLoginView', 'isLobbyScenePageView', 'returnToLobbyFromScenePage', 'renderGachaResultScene', 'openGachaMockResultScene', 'closeGachaMockResultScene', "this.currentView = 'adventure'", "this.currentView = 'formation'", "this.currentView = 'heroes'", "this.currentView = 'heroDetail'", "this.currentView = 'notice'", "this.currentView = 'placeholder'", "this.currentView = 'battle'", "this.currentView = 'gachaResult'", "this.currentView = 'loginAccount'", 'renderBattleScene', 'openLobbyHeroDetail', 'LobbyHeroDetailSceneContent'],
+    tokens: ['selectLobbyAdventureStage', 'previewLockedLobbyAdventureStage', 'findLobbyAdventureStage', 'this.selectedLobbyStageCode = resolvedStageCode', 'LobbyFeatureSceneBackdrop', 'renderLobbyFeatureSceneBackdrop', 'LobbyPlaceholderSceneRoot', 'LobbyPlaceholderScenePanel', 'LobbyPlaceholderBackButton', 'renderSceneBackButton', 'panel.addComponent(BlockInputEvents)', 'renderLobbyScenePage', 'LOGIN_SCENE_BACKGROUND_NODE_NAMES', 'LOGIN_SCENE_LEGACY_NODE_NAMES', 'stageNode.active = false', 'setLoginSceneStageVisible', 'tryPlayLoginSceneVideo', 'resumeForLoginView', 'isLobbyScenePageView', 'returnToLobbyFromScenePage', 'renderGachaResultScene', 'openGachaMockResultScene', 'closeGachaMockResultScene', "this.currentView = 'adventure'", "this.currentView = 'formation'", "this.currentView = 'heroes'", "this.currentView = 'heroDetail'", "this.currentView = 'notice'", "this.currentView = 'placeholder'", "this.currentView = 'battle'", "this.currentView = 'gachaResult'", "this.currentView = 'loginAccount'", 'const gachaStatusY = layout.stageBottom + 210 * layout.uiScale;', 'this.statusPresenter.set(text, layout, gachaStatusY);', 'renderBattleScene', 'openLobbyHeroDetail', 'LobbyHeroDetailSceneContent'],
   },
   {
     source: 'assets/scripts/scenes/UiSceneBackButton.ts',
@@ -69,7 +69,11 @@ const REQUIRED_CHUNKS = [
   },
   {
     source: 'assets/scripts/scenes/lobby/LobbyHeroDetailPanelRenderer.ts',
-    tokens: ['LobbyHeroDetailSceneContent', 'LobbyHeroDetailSceneFrame', 'layout.stageWidth', 'LobbyHeroDetailDynamicPortrait', 'LobbyHeroDetailAttributeGrid', 'LobbyHeroDetailSkillList', 'LOBBY_HERO_DETAIL_PROTAGONIST_ASSET', 'dim.addComponent(BlockInputEvents)', 'LobbyHeroDetailBackButton', 'renderSceneBackButton(this.host, panelGroup, layout'],
+    tokens: ['LobbyHeroDetailSceneContent', 'LobbyHeroDetailSceneFrame', 'layout.stageWidth', 'layout.safeWidth < 1154 * scale', 'const artX = 0;', 'LobbyHeroDetailIdentityPlate', 'plateY = -height / 2 + 118 * scale', 'LobbyHeroDetailDynamicPortrait', 'LobbyHeroDetailSpineNode', 'LobbyHeroDetailStageDepth', 'resolveHeroSpineResource(hero)', 'spine/hero/${asset}/${asset}', 'resources.load(path, sp.SkeletonData', 'getRuntimeData(true)', 'resolveHeroSpineAnimationNames', 'startHeroSpineSecondaryCycle', 'const secondaryAnimation = animationNames.secondary', 'skeleton.setAnimation(0, secondaryAnimation, false)', 'skeleton.addAnimation(0, animationName, true, 0)', '.delay(15)', 'skeleton.addAnimation(0, primaryAnimation, true, 0)', 'resolveHeroDetailGroundY(height)', 'graphics.ellipse(0, groundY', 'LobbyHeroDetailAttributeGrid', 'LobbyHeroDetailSkillList', 'LOBBY_HERO_DETAIL_PROTAGONIST_ASSET', 'dim.addComponent(BlockInputEvents)', 'LobbyHeroDetailBackButton', 'renderSceneBackButton(this.host, panelGroup, layout'],
+  },
+  {
+    source: 'assets/scripts/scenes/gacha/GachaSceneConfig.ts',
+    tokens: ['GACHA_BACKGROUND_ASSET', 'ui/gacha/gacha_bg_abyss_ring/spriteFrame', 'GACHA_ABYSS_SPINE_RESOURCE'],
   },
   {
     source: 'assets/scripts/scenes/gacha/GachaSceneRenderer.ts',
@@ -78,6 +82,10 @@ const REQUIRED_CHUNKS = [
       'GachaBackButton',
       'GachaAbyssSpineStage',
       'GachaAbyssSpineNode',
+      'const spineGroundY = -stageHeight * 0.55',
+      'graphics.ellipse(0, spineGroundY - 22 * scale',
+      "addChildPlainNode(stage, 'GachaAbyssSpineNode', 0, spineGroundY",
+      'return 0.43 * scale * stageFactor',
       'GACHA_ABYSS_SPINE_RESOURCE',
       'resources.load',
       'GACHA_ABYSS_SPINE_UUID',

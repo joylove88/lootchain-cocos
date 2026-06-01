@@ -146,19 +146,31 @@ const required = [
   'assets/resources/ui/gacha.meta',
   'assets/resources/ui/gacha/gacha_bg_cathedral.png',
   'assets/resources/ui/gacha/gacha_bg_cathedral.png.meta',
+  'assets/resources/ui/gacha/gacha_bg_abyss_ring.png',
+  'assets/resources/ui/gacha/gacha_bg_abyss_ring.png.meta',
   'assets/resources/spine.meta',
   'assets/resources/spine/gacha.meta',
   'assets/resources/spine/gacha/huangfengjiaozong.meta',
-  'assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.skel',
-  'assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.skel.meta',
+  'assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.json',
+  'assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.json.meta',
   'assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.atlas',
   'assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.atlas.meta',
   'assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.png',
   'assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.png.meta',
+  'assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong2.png',
+  'assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong2.png.meta',
   'assets/resources/spine/gacha/Lord of the Dark Abyss/1605.json',
   'assets/resources/spine/gacha/Lord of the Dark Abyss/1605.json.meta',
   'assets/resources/spine/gacha/Lord of the Dark Abyss/1605.atlas',
   'assets/resources/spine/gacha/Lord of the Dark Abyss/1605.atlas.meta',
+  'assets/resources/spine/hero.meta',
+  'assets/resources/spine/hero/npc_1001.meta',
+  'assets/resources/spine/hero/npc_1001/npc_1001.skel',
+  'assets/resources/spine/hero/npc_1001/npc_1001.skel.meta',
+  'assets/resources/spine/hero/npc_1001/npc_1001.atlas',
+  'assets/resources/spine/hero/npc_1001/npc_1001.atlas.meta',
+  'assets/resources/spine/hero/npc_1001/npc_1001.png',
+  'assets/resources/spine/hero/npc_1001/npc_1001.png.meta',
   'assets/resources/ui/lobby/lobby_player_info_panel.png',
   'assets/resources/ui/lobby/lobby_player_info_panel.png.meta',
   'assets/resources/ui/protagonist.meta',
@@ -672,6 +684,9 @@ const requiredLoginRootTokens = [
   'private compactResourceValue(value: number | null | undefined): string',
   'this.statusPresenter.reset();',
   'this.statusPresenter.add(text, layout, y);',
+  "this.currentView === 'gacha' || this.currentView === 'gachaResult'",
+  'const gachaStatusY = layout.stageBottom + 210 * layout.uiScale;',
+  'this.statusPresenter.set(text, layout, gachaStatusY);',
   'this.statusPresenter.set(text);',
   'return formatUiInteger(value);',
   'return compactUiResourceValue(value);',
@@ -1076,6 +1091,7 @@ for (const token of [
   "this.http.get<unknown>('/api/player/lobby/codex')",
   'function validateLobbyCodex(data: unknown): LobbyCodexItemVO[]',
   "portraitAsset: readOptionalText(item, 'portraitAsset', 64)",
+  "spineAsset: readOptionalText(item, 'spineAsset', 128)",
   "rarity.toUpperCase() === 'EX'",
   "heroCode.toUpperCase().startsWith('EX_')",
 ]) {
@@ -1090,6 +1106,7 @@ for (const token of [
   "this.http.get<unknown>('/api/player/lobby/heroes')",
   'function validateLobbyHeroes(data: unknown): LobbyHeroItemVO[]',
   "portraitAsset: readOptionalText(item, 'portraitAsset', 64)",
+  "spineAsset: readOptionalText(item, 'spineAsset', 128)",
   "rarity.toUpperCase() === 'EX'",
   "heroCode.toUpperCase().startsWith('EX_')",
   'if (id <= 0)',
@@ -1154,9 +1171,31 @@ for (const token of [
   'LobbyHeroDetailSceneFrame',
   'layout.stageWidth',
   'layout.stageHeight',
+  'layout.safeWidth < 1154 * scale',
+  'const artX = 0;',
+  'LobbyHeroDetailIdentityPlate',
+  'plateY = -height / 2 + 118 * scale',
   'LobbyHeroDetailDynamicPortrait',
+  'LobbyHeroDetailSpineNode',
+  'LobbyHeroDetailStageDepth',
   'LobbyHeroDetailAttributeGrid',
   'LobbyHeroDetailSkillList',
+  'resolveHeroSpineResource(hero)',
+  'spine/hero/${asset}/${asset}',
+  'resources.load(path, sp.SkeletonData',
+  'applyHeroSpineData',
+  'getRuntimeData(true)',
+  'resolveHeroSpineAnimationNames',
+  'startHeroSpineSecondaryCycle',
+  'const secondaryAnimation = animationNames.secondary',
+  'skeleton.setAnimation(0, secondaryAnimation, false)',
+  'skeleton.addAnimation(0, animationName, true, 0)',
+  '.delay(15)',
+  'skeleton.addAnimation(0, primaryAnimation, true, 0)',
+  'resolveHeroDetailGroundY(height)',
+  'graphics.ellipse(0, groundY',
+  'resolveHeroSpineScale',
+  'fallbackPortrait.destroy()',
   'dim.addComponent(BlockInputEvents);',
   'LobbyHeroDetailBackButton',
   'renderSceneBackButton(this.host, panelGroup, layout',
@@ -1166,6 +1205,27 @@ for (const token of [
 ]) {
   if (!lobbyHeroDetailPanel.includes(token)) {
     console.error(`missing lobby hero detail panel guard in ${lobbyHeroDetailPanelPath}: ${token}`);
+    ok = false;
+  }
+}
+
+for (const token of [
+  'LobbyHeroDetailDynamicAura',
+  'rgba(219, 54, 42',
+  'rgba(130, 16, 23, 42)',
+  'circle(-width * 0.28',
+  'rgba(198, 147, 61, 230)',
+  'rgba(180, 132, 56, 180)',
+  'rgba(211, 154, 64, 90)',
+  'rgba(150, 112, 58, 150)',
+  'LobbyHeroDetailArtCaption',
+  'rgba(0, 0, 0, 116)',
+  'rgba(0, 0, 0, 58)',
+  'height * 0.34',
+  '-width / 2 + 54 * scale, height / 2 - 46 * scale',
+]) {
+  if (lobbyHeroDetailPanel.includes(token)) {
+    console.error(`forbidden lobby hero detail red-circle/aura token in ${lobbyHeroDetailPanelPath}: ${token}`);
     ok = false;
   }
 }
@@ -1565,7 +1625,8 @@ const requiredStatusPresenterTokens = [
   'private label: Label | null = null;',
   'reset(): void',
   'add(text: string, layout?: UiLayout, y?: number): void',
-  'set(text: string): void',
+  'set(text: string, layout?: UiLayout, y?: number): void',
+  'this.label.node.setPosition(centerX, statusY, 0);',
   'this.host.addLabel(',
   'this.host.resolveLayout()',
   'this.host.trimText(text)',
@@ -1970,10 +2031,12 @@ if (!gachaDrawBody || !gachaDrawBody.includes('当前 Cocos 阶段未开放抽�
 }
 
 const requiredGachaConfigTokens = [
+  'GACHA_BACKGROUND_ASSET',
+  'ui/gacha/gacha_bg_abyss_ring/spriteFrame',
   'GACHA_ABYSS_SPINE_RESOURCE',
   'spine/gacha/huangfengjiaozong/huangfengjiaozong',
   'GACHA_ABYSS_SPINE_UUID',
-  'ef87498c-2ef4-44e6-bee9-2d499e6ac570',
+  '178d1dbd-5a53-459b-83bb-2f05c623d99e',
   'GACHA_ABYSS_SPINE_SKIN',
   'GACHA_ABYSS_SPINE_INTRO_ANIMATION',
   'GACHA_ABYSS_SPINE_IDLE_ANIMATION',
@@ -2000,6 +2063,90 @@ for (const token of requiredGachaConfigTokens) {
   }
 }
 
+for (const token of ['ui/gacha/gacha_bg_cathedral/spriteFrame', 'ui/hero-detail/hero_detail_backdrop/spriteFrame']) {
+  if (gachaSceneConfig.includes(token)) {
+    console.error(`gacha scene must use the generated abyss ring backdrop in ${gachaSceneConfigPath}: ${token}`);
+    ok = false;
+  }
+}
+
+const huangfengJsonPath = 'assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.json';
+const huangfengAtlasPath = 'assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.atlas';
+const heroSpineMetaPath = 'assets/resources/spine/hero/npc_1001/npc_1001.skel.meta';
+const heroSpineAtlasPath = 'assets/resources/spine/hero/npc_1001/npc_1001.atlas';
+
+try {
+  const huangfengData = JSON.parse(readFileSync(huangfengJsonPath, 'utf8'));
+  const spineVersion = String(huangfengData.skeleton?.spine ?? '');
+  if (!spineVersion.startsWith('3.8.')) {
+    console.error(`huangfengjiaozong must be exported as Spine 3.8.x JSON for Cocos 3.8: ${spineVersion || '<missing>'}`);
+    ok = false;
+  }
+  if (!huangfengData.animations?.idle) {
+    console.error('huangfengjiaozong JSON must contain idle animation for the Gacha center preview');
+    ok = false;
+  }
+  const skinNames = Array.isArray(huangfengData.skins)
+    ? huangfengData.skins.map((skin) => skin?.name).filter(Boolean)
+    : Object.keys(huangfengData.skins ?? {});
+  if (!skinNames.includes('default')) {
+    console.error('huangfengjiaozong JSON must contain default skin for the Gacha center preview');
+    ok = false;
+  }
+} catch (error) {
+  console.error(`failed to read huangfengjiaozong JSON: ${error.message}`);
+  ok = false;
+}
+
+try {
+  const atlasText = readFileSync(huangfengAtlasPath, 'utf8');
+  const atlasPages = Array.from(atlasText.matchAll(/^(\S+\.png)$/gm), (match) => match[1]);
+  for (const page of atlasPages) {
+    const pagePath = `assets/resources/spine/gacha/huangfengjiaozong/${page}`;
+    if (!existsSync(pagePath)) {
+      console.error(`huangfengjiaozong atlas page missing: ${pagePath}`);
+      ok = false;
+    }
+  }
+} catch (error) {
+  console.error(`failed to read huangfengjiaozong atlas: ${error.message}`);
+  ok = false;
+}
+
+try {
+  const heroSpineMeta = JSON.parse(readFileSync(heroSpineMetaPath, 'utf8'));
+  if (heroSpineMeta.importer !== 'spine-data') {
+    console.error(`npc_1001 hero spine must be imported as spine-data: ${heroSpineMeta.importer || '<missing>'}`);
+    ok = false;
+  }
+  if (!heroSpineMeta.userData?.atlasUuid) {
+    console.error('npc_1001 hero spine meta must reference an atlas UUID');
+    ok = false;
+  }
+} catch (error) {
+  console.error(`failed to read npc_1001 hero spine meta: ${error.message}`);
+  ok = false;
+}
+
+try {
+  const atlasText = readFileSync(heroSpineAtlasPath, 'utf8');
+  const atlasPages = Array.from(atlasText.matchAll(/^(\S+\.png)$/gm), (match) => match[1]);
+  if (!atlasPages.includes('npc_1001.png')) {
+    console.error('npc_1001 hero spine atlas must reference npc_1001.png');
+    ok = false;
+  }
+  for (const page of atlasPages) {
+    const pagePath = `assets/resources/spine/hero/npc_1001/${page}`;
+    if (!existsSync(pagePath)) {
+      console.error(`npc_1001 hero spine atlas page missing: ${pagePath}`);
+      ok = false;
+    }
+  }
+} catch (error) {
+  console.error(`failed to read npc_1001 hero spine atlas: ${error.message}`);
+  ok = false;
+}
+
 for (const token of ["id: 'friend'", '友情召唤']) {
   if (gachaSceneConfig.includes(token)) {
     console.error(`friendship summon pool must stay removed in ${gachaSceneConfigPath}: ${token}`);
@@ -2016,6 +2163,10 @@ const requiredGachaRendererTokens = [
   'GachaBackButton',
   'GachaAbyssSpineStage',
   'GachaAbyssSpineNode',
+  'const spineGroundY = -stageHeight * 0.55',
+  'graphics.ellipse(0, spineGroundY - 22 * scale',
+  "addChildPlainNode(stage, 'GachaAbyssSpineNode', 0, spineGroundY",
+  'return 0.43 * scale * stageFactor',
   'GACHA_ABYSS_SPINE_RESOURCE',
   'resources.load(GACHA_ABYSS_SPINE_RESOURCE, sp.SkeletonData',
   'GACHA_ABYSS_SPINE_UUID',
@@ -2061,6 +2212,12 @@ for (const token of requiredGachaRendererTokens) {
 }
 
 const forbiddenGachaRendererTokens = [
+  'GachaAbyssAtmosphere',
+  'graphics.fillColor = rgba(0, 0, 0, 132)',
+  'opacity.opacity = 226',
+  'tween(opacity).repeatForever(tween().to(1.8, { opacity: 242 }).to(1.8, { opacity: 208 }))',
+  'graphics.rect(-stageWidth * 0.58',
+  'graphics.rect(-stageWidth * 0.42',
   'rgba(103, 0, 16, 34)',
   'rgba(225, 48, 58, 76)',
   'rgba(115, 8, 16, 42)',

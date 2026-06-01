@@ -92,7 +92,6 @@ export class GachaSceneRenderer {
     root.addComponent(BlockInputEvents);
 
     this.renderBackground(root, layout);
-    this.renderAbyssAtmosphere(root, layout, scale);
     this.renderTopBar(root, layout, scale);
     if (layout.safeWidth < 900 || layout.safeHeight < 520) {
       this.renderCompactContent(root, layout, scale);
@@ -114,7 +113,6 @@ export class GachaSceneRenderer {
     root.addComponent(BlockInputEvents);
 
     this.renderBackground(root, layout);
-    this.renderAbyssAtmosphere(root, layout, scale);
     this.renderTopBar(root, layout, scale);
     this.renderMockResultSceneContent(root, layout, scale, mode);
   }
@@ -142,18 +140,6 @@ export class GachaSceneRenderer {
       fallback.rect(-layout.width / 2, -layout.height / 2, layout.width, layout.height);
       fallback.fill();
     }
-  }
-
-  private renderAbyssAtmosphere(parent: Node, layout: UiLayout, scale: number): void {
-    const layer = this.host.addChildPlainNode(parent, 'GachaAbyssAtmosphere', 0, 0, layout.width, layout.height);
-    const graphics = layer.addComponent(Graphics);
-    graphics.fillColor = rgba(0, 0, 0, 84);
-    graphics.rect(-layout.width / 2, -layout.height / 2, layout.width, layout.height);
-    graphics.fill();
-    const opacity = layer.addComponent(UIOpacity);
-    opacity.opacity = 190;
-    // 只用低频透明度呼吸，保证预览页有生命感但不会影响低端设备。
-    tween(opacity).repeatForever(tween().to(1.8, { opacity: 225 }).to(1.8, { opacity: 168 })).start();
   }
 
   private renderTopBar(parent: Node, layout: UiLayout, scale: number): void {
@@ -251,11 +237,12 @@ export class GachaSceneRenderer {
     const centerY = (layout.stageTop + layout.stageBottom) / 2 - 18 * scale;
     const stage = this.host.addChildPlainNode(parent, 'GachaAbyssSpineStage', 0, centerY, stageWidth, stageHeight);
     const graphics = stage.addComponent(Graphics);
+    const spineGroundY = -stageHeight * 0.55;
     graphics.fillColor = rgba(0, 0, 0, 70);
-    graphics.ellipse(0, -stageHeight * 0.34, stageWidth * 0.34, stageHeight * 0.09);
+    graphics.ellipse(0, spineGroundY - 22 * scale, stageWidth * 0.34, stageHeight * 0.09);
     graphics.fill();
 
-    const spineNode = this.host.addChildPlainNode(stage, 'GachaAbyssSpineNode', 0, -stageHeight * 0.23, stageWidth, stageHeight);
+    const spineNode = this.host.addChildPlainNode(stage, 'GachaAbyssSpineNode', 0, spineGroundY, stageWidth, stageHeight);
     const skeleton = spineNode.addComponent(sp.Skeleton);
     skeleton.premultipliedAlpha = false;
     skeleton.timeScale = 0.78;
@@ -310,7 +297,7 @@ export class GachaSceneRenderer {
 
   private resolveAbyssSpineScale(layout: UiLayout, scale: number): number {
     const stageFactor = clamp(Math.min(layout.stageWidth / 1920, layout.stageHeight / 1080), 0.58, 1.15);
-    return 0.36 * scale * stageFactor;
+    return 0.43 * scale * stageFactor;
   }
 
   private ensureAbyssSpineData(onLoaded: (data: sp.SkeletonData) => void): void {
@@ -326,14 +313,14 @@ export class GachaSceneRenderer {
       return;
     }
     this.abyssSpineLoading = true;
-    resources.load(GACHA_ABYSS_SPINE_RESOURCE, sp.SkeletonData, (resourceError: Error | null, data: sp.SkeletonData | null) => {
-      if (!resourceError && data) {
-        this.finishAbyssSpineLoad(data);
+    assetManager.loadAny({ uuid: GACHA_ABYSS_SPINE_UUID }, (uuidError: Error | null, asset: unknown) => {
+      if (!uuidError && asset) {
+        this.finishAbyssSpineLoad(asset as sp.SkeletonData);
         return;
       }
-      assetManager.loadAny({ uuid: GACHA_ABYSS_SPINE_UUID }, (uuidError: Error | null, asset: unknown) => {
-        if (!uuidError && asset) {
-          this.finishAbyssSpineLoad(asset as sp.SkeletonData);
+      resources.load(GACHA_ABYSS_SPINE_RESOURCE, sp.SkeletonData, (resourceError: Error | null, data: sp.SkeletonData | null) => {
+        if (!resourceError && data) {
+          this.finishAbyssSpineLoad(data);
           return;
         }
         this.abyssSpineLoading = false;

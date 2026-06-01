@@ -5,17 +5,18 @@ import {
   HorizontalTextAlignment,
   Label,
   Node,
+  resources,
   Size,
+  sp,
   Sprite,
   UITransform,
-  UIOpacity,
   Vec3,
   tween,
 } from 'cc';
 import type { LobbyHeroItemVO } from '../../types/LobbyHeroTypes';
 import { safeText } from '../UiTextFormatter';
 import { renderSceneBackButton } from '../UiSceneBackButton';
-import { rgba, type UiLayout } from './LobbyHudTypes';
+import { clamp, rgba, type UiLayout } from './LobbyHudTypes';
 
 export const LOBBY_HERO_DETAIL_BACKDROP_ASSET = 'ui/hero-detail/hero_detail_backdrop/spriteFrame';
 export const LOBBY_HERO_DETAIL_PROTAGONIST_ASSET = 'ui/hero-detail/hero_detail_protagonist/spriteFrame';
@@ -56,6 +57,9 @@ export interface LobbyHeroDetailPanelHost {
 
 /** 英雄详情只读面板：展示英雄信息、形态、技能与战斗展示属性，不提供任何养成或资源变更入口。 */
 export class LobbyHeroDetailPanelRenderer {
+  private readonly heroSpineData = new Map<string, sp.SkeletonData>();
+  private readonly heroSpineLoadCallbacks = new Map<string, Array<(data: sp.SkeletonData | null) => void>>();
+
   constructor(private readonly host: LobbyHeroDetailPanelHost) {}
 
   render(layout: UiLayout): void {
@@ -64,7 +68,7 @@ export class LobbyHeroDetailPanelRenderer {
       return;
     }
     const scale = Math.max(0.62, Math.min(1, layout.uiScale));
-    const compact = layout.safeWidth < 780 * scale || layout.safeHeight < 520 * scale;
+    const compact = layout.safeWidth < 1154 * scale || layout.safeHeight < 520 * scale;
     const panelWidth = Math.max(320 * scale, layout.stageWidth);
     const panelHeight = Math.max(260 * scale, layout.stageHeight);
     const centerX = (layout.stageLeft + layout.stageRight) / 2;
@@ -94,34 +98,42 @@ export class LobbyHeroDetailPanelRenderer {
       panelWidth,
       panelHeight,
       rgba(5, 5, 8, 232),
-      rgba(198, 147, 61, 230),
+      rgba(0, 0, 0, 0),
       18 * scale,
     );
     this.host.addSprite('LobbyHeroDetailBackdropSprite', LOBBY_HERO_DETAIL_BACKDROP_ASSET, 0, 0, panelWidth, panelHeight, panel);
     this.drawPanelShade(panel, panelWidth, panelHeight, scale);
-    this.renderHeader(panel, hero, panelWidth, panelHeight, scale);
     if (compact) {
       this.renderCompact(panel, hero, panelWidth, panelHeight, scale);
     } else {
       this.renderDesktop(panel, hero, panelWidth, panelHeight, scale);
     }
+    this.renderHeader(panel, hero, panelWidth, panelHeight, scale);
     this.renderFooter(panel, panelWidth, panelHeight, scale);
     renderSceneBackButton(this.host, panelGroup, layout, 'LobbyHeroDetailBackButton', () => this.host.backToLobbyHeroRosterPanel(), scale);
   }
 
   private renderHeader(parent: Node, hero: LobbyHeroItemVO, width: number, height: number, scale: number): void {
-    const title = this.host.addChildLabel(parent, 'LobbyHeroDetailName', safeText(hero.heroName), -width / 2 + 54 * scale, height / 2 - 46 * scale, 30 * scale, rgba(252, 225, 156), new Size(width * 0.48, 40 * scale), HorizontalTextAlignment.LEFT);
+    const plateWidth = Math.min(520 * scale, Math.max(340 * scale, width * 0.36));
+    const plateHeight = 74 * scale;
+    const plateY = -height / 2 + 118 * scale;
+    const plate = this.host.addChildPlainNode(parent, 'LobbyHeroDetailIdentityPlate', 0, plateY, plateWidth, plateHeight);
+    const graphics = plate.addComponent(Graphics);
+    graphics.fillColor = rgba(5, 5, 8, 142);
+    graphics.rect(-plateWidth / 2, -plateHeight / 2, plateWidth, plateHeight);
+    graphics.fill();
+    const title = this.host.addChildLabel(plate, 'LobbyHeroDetailName', safeText(hero.heroName), 0, 13 * scale, 28 * scale, rgba(252, 225, 156), new Size(plateWidth - 30 * scale, 36 * scale));
     title.overflow = Label.Overflow.SHRINK;
     this.applyOutline(title, scale, true);
-    const meta = this.host.addChildLabel(parent, 'LobbyHeroDetailMeta', `${safeText(hero.rarity || 'R')}  /  Lv.${hero.level}  /  战力 ${formatInteger(hero.power)}`, -width / 2 + 54 * scale, height / 2 - 82 * scale, 17 * scale, rgba(206, 169, 87), new Size(width * 0.52, 26 * scale), HorizontalTextAlignment.LEFT);
+    const meta = this.host.addChildLabel(plate, 'LobbyHeroDetailMeta', `${safeText(hero.rarity || 'R')}  /  Lv.${hero.level}  /  战力 ${formatInteger(hero.power)}`, 0, -19 * scale, 16 * scale, rgba(206, 169, 87), new Size(plateWidth - 34 * scale, 24 * scale));
     meta.overflow = Label.Overflow.SHRINK;
   }
 
   private renderDesktop(parent: Node, hero: LobbyHeroItemVO, width: number, height: number, scale: number): void {
-    const artWidth = 470 * scale;
-    const artHeight = height - 154 * scale;
-    const artX = -width / 2 + 42 * scale + artWidth / 2;
-    const artY = -26 * scale;
+    const artWidth = Math.min(620 * scale, Math.max(430 * scale, width * 0.44));
+    const artHeight = height - 138 * scale;
+    const artX = 0;
+    const artY = -28 * scale;
     this.renderArtStage(parent, hero, artX, artY, artWidth, artHeight, scale);
 
     const infoX = width / 2 - 342 * scale;
@@ -132,47 +144,236 @@ export class LobbyHeroDetailPanelRenderer {
   }
 
   private renderCompact(parent: Node, hero: LobbyHeroItemVO, width: number, height: number, scale: number): void {
-    const artWidth = Math.min(300 * scale, width * 0.44);
-    const artHeight = Math.max(120 * scale, height * 0.42);
-    this.renderArtStage(parent, hero, -width / 2 + 38 * scale + artWidth / 2, height * 0.05, artWidth, artHeight, scale);
-    this.renderInfoPanel(parent, hero, width * 0.15, -18 * scale, width * 0.62, height - 156 * scale, scale);
+    const margin = 30 * scale;
+    const gap = 14 * scale;
+    const reservedInfoWidth = Math.min(420 * scale, Math.max(176 * scale, width * 0.56));
+    const artWidth = clamp(width - margin * 2 - gap - reservedInfoWidth, 96 * scale, 288 * scale);
+    const infoWidth = Math.max(168 * scale, width - margin * 2 - gap - artWidth);
+    const artHeight = Math.max(170 * scale, height - 170 * scale);
+    const infoHeight = Math.max(236 * scale, height - 156 * scale);
+    const artX = -width / 2 + margin + artWidth / 2;
+    const infoX = artX + artWidth / 2 + gap + infoWidth / 2;
+    const sharedY = -18 * scale;
+    this.renderArtStage(parent, hero, artX, sharedY, artWidth, artHeight, scale);
+    this.renderInfoPanel(parent, hero, infoX, sharedY, infoWidth, infoHeight, scale);
   }
 
   private renderArtStage(parent: Node, hero: LobbyHeroItemVO, x: number, y: number, width: number, height: number, scale: number): void {
     const stage = this.host.addChildPlainNode(parent, 'LobbyHeroDetailArtStage', x, y, width, height);
     const graphics = stage.addComponent(Graphics);
-    graphics.fillColor = rgba(5, 4, 6, 164);
+    graphics.fillColor = rgba(0, 0, 0, 0);
     graphics.rect(-width / 2, -height / 2, width, height);
     graphics.fill();
-    graphics.strokeColor = rgba(180, 132, 56, 180);
-    graphics.stroke();
+    this.drawArtStageDepth(stage, width, height, scale);
 
-    const aura = this.host.addChildPlainNode(stage, 'LobbyHeroDetailDynamicAura', 0, -height * 0.1, Math.min(width, height) * 0.76, Math.min(width, height) * 0.76);
-    const auraGraphics = aura.addComponent(Graphics);
-    auraGraphics.strokeColor = rgba(219, 54, 42, 150);
-    auraGraphics.lineWidth = Math.max(1, 1.4 * scale);
-    auraGraphics.circle(0, 0, Math.min(width, height) * 0.28);
-    auraGraphics.stroke();
-    const auraOpacity = aura.addComponent(UIOpacity);
-    auraOpacity.opacity = 150;
-    tween(aura)
-      .repeatForever(tween().by(2.8, { angle: 18 }).to(1.6, { scale: new Vec3(1.08, 1.08, 1) }).to(1.6, { scale: Vec3.ONE }))
-      .start();
-    tween(auraOpacity)
-      .repeatForever(tween().to(1.2, { opacity: 218 }).to(1.2, { opacity: 112 }))
-      .start();
+    const fallbackPortrait = this.renderStaticHeroPortrait(stage, hero, width, height, scale);
+    this.renderHeroSpinePreview(stage, hero, fallbackPortrait, width, height, scale);
+  }
 
-    const portrait = this.host.addChildPlainNode(stage, 'LobbyHeroDetailDynamicPortrait', 0, -height * 0.02, width * 0.86, height * 0.92);
-    const loaded = this.host.addSprite('LobbyHeroDetailDynamicPortraitSprite', LOBBY_HERO_DETAIL_PROTAGONIST_ASSET, 0, 0, width * 0.8, height * 0.9, portrait);
+  private renderStaticHeroPortrait(parent: Node, hero: LobbyHeroItemVO, width: number, height: number, scale: number): Node {
+    const portraitY = hero.protagonist ? this.resolveHeroDetailGroundY(height) + height * 0.45 : this.resolveHeroDetailGroundY(height) + height * 0.3;
+    const portrait = this.host.addChildPlainNode(parent, 'LobbyHeroDetailDynamicPortrait', 0, portraitY, width * 0.86, height * 0.92);
+    const loaded = hero.protagonist
+      ? this.host.addSprite('LobbyHeroDetailDynamicPortraitSprite', LOBBY_HERO_DETAIL_PROTAGONIST_ASSET, 0, 0, width * 0.8, height * 0.9, portrait)
+      : null;
     if (!loaded) {
       this.drawFallbackPortrait(portrait, hero, width * 0.56, height * 0.72, scale);
     }
-    tween(portrait)
-      .repeatForever(tween().by(1.35, { position: new Vec3(0, 5 * scale, 0) }).by(1.35, { position: new Vec3(0, -5 * scale, 0) }))
-      .start();
+    return portrait;
+  }
 
-    const name = this.host.addChildLabel(stage, 'LobbyHeroDetailArtCaption', hero.protagonist ? 'SSR 主角 / 默认攻击形态' : sourceLabel(hero.sourceType), 0, -height / 2 + 28 * scale, 16 * scale, rgba(238, 204, 128), new Size(width - 28 * scale, 24 * scale));
-    name.overflow = Label.Overflow.SHRINK;
+  private renderHeroSpinePreview(parent: Node, hero: LobbyHeroItemVO, fallbackPortrait: Node, width: number, height: number, scale: number): void {
+    const resourcePath = this.resolveHeroSpineResource(hero);
+    if (!resourcePath) {
+      return;
+    }
+    const spineNode = this.host.addChildPlainNode(parent, 'LobbyHeroDetailSpineNode', 0, this.resolveHeroDetailGroundY(height), width, height);
+    const skeleton = spineNode.addComponent(sp.Skeleton);
+    skeleton.premultipliedAlpha = false;
+    skeleton.timeScale = 0.86;
+    this.loadHeroSpineData(resourcePath, (data) => {
+      if (!parent.isValid || !spineNode.isValid) {
+        return;
+      }
+      if (!data || !this.applyHeroSpineData(skeleton, data, hero, width, height, scale, resourcePath)) {
+        spineNode.destroy();
+        return;
+      }
+      if (fallbackPortrait.isValid) {
+        fallbackPortrait.destroy();
+      }
+    });
+  }
+
+  private resolveHeroSpineResource(hero: LobbyHeroItemVO): string | null {
+    const asset = safeText(hero.spineAsset || '').trim();
+    if (!asset || !/^[A-Za-z0-9_-]+$/.test(asset)) {
+      return null;
+    }
+    return `spine/hero/${asset}/${asset}`;
+  }
+
+  private loadHeroSpineData(path: string, onLoaded: (data: sp.SkeletonData | null) => void): void {
+    const cached = this.heroSpineData.get(path);
+    if (cached) {
+      onLoaded(cached);
+      return;
+    }
+    const pending = this.heroSpineLoadCallbacks.get(path);
+    if (pending) {
+      pending.push(onLoaded);
+      return;
+    }
+    this.heroSpineLoadCallbacks.set(path, [onLoaded]);
+    resources.load(path, sp.SkeletonData, (error: Error | null, data: sp.SkeletonData | null) => {
+      const callbacks = this.heroSpineLoadCallbacks.get(path) ?? [];
+      this.heroSpineLoadCallbacks['delete'](path);
+      if (error || !data) {
+        console.warn(`[HeroDetail] hero spine load failed: ${path}`, error);
+        callbacks.forEach((callback) => callback(null));
+        return;
+      }
+      this.heroSpineData.set(path, data);
+      callbacks.forEach((callback) => callback(data));
+    });
+  }
+
+  private applyHeroSpineData(
+    skeleton: sp.Skeleton,
+    data: sp.SkeletonData,
+    hero: LobbyHeroItemVO,
+    width: number,
+    height: number,
+    scale: number,
+    resourcePath: string,
+  ): boolean {
+    try {
+      skeleton.skeletonData = data;
+      const runtimeData = data.getRuntimeData(true);
+      if (!runtimeData) {
+        console.warn(`[HeroDetail] hero spine runtime data missing: ${resourcePath}`);
+        return false;
+      }
+      const skinName = this.resolveHeroSpineSkinName(data);
+      if (skinName) {
+        skeleton.setSkin(skinName);
+        skeleton.setSlotsToSetupPose();
+      }
+      const animationNames = this.resolveHeroSpineAnimationNames(data);
+      const animationName = animationNames.primary;
+      const spineScale = this.resolveHeroSpineScale(runtimeData.width, runtimeData.height, width, height, scale);
+      skeleton.node.setScale(new Vec3(spineScale, spineScale, 1));
+      skeleton.node.setPosition(new Vec3(0, this.resolveHeroDetailGroundY(height), 0));
+      if (!animationName) {
+        skeleton.setToSetupPose();
+        this.logHeroSpineResolved(data, skinName, '<setup-pose>', hero, resourcePath);
+        return true;
+      }
+      const secondaryAnimation = animationNames.secondary;
+      if (secondaryAnimation) {
+        const initialSecondaryTrack = skeleton.setAnimation(0, secondaryAnimation, false);
+        if (initialSecondaryTrack) {
+          skeleton.addAnimation(0, animationName, true, 0);
+          this.startHeroSpineSecondaryCycle(skeleton, animationName, secondaryAnimation, resourcePath);
+          this.logHeroSpineResolved(data, skinName, `${secondaryAnimation} -> ${animationName}`, hero, resourcePath);
+          return true;
+        }
+        console.warn(`[HeroDetail] hero spine initial secondary animation failed: ${resourcePath}/${secondaryAnimation}`);
+      }
+      const track = skeleton.setAnimation(0, animationName, true);
+      if (!track) {
+        console.warn(`[HeroDetail] hero spine animation play failed: ${resourcePath}/${animationName}`);
+        return false;
+      }
+      this.logHeroSpineResolved(data, skinName, animationName, hero, resourcePath);
+      return true;
+    } catch (error) {
+      console.warn(`[HeroDetail] hero spine apply failed: ${resourcePath}`, error);
+      return false;
+    }
+  }
+
+  private resolveHeroSpineScale(rawWidth: number, rawHeight: number, stageWidth: number, stageHeight: number, scale: number): number {
+    const safeWidth = Math.max(1, rawWidth || 1);
+    const safeHeight = Math.max(1, rawHeight || 1);
+    const targetWidth = stageWidth * 0.76;
+    const targetHeight = stageHeight * 0.86;
+    const fit = Math.min(targetWidth / safeWidth, targetHeight / safeHeight);
+    return clamp(fit, 0.18 * scale, 1.45 * scale);
+  }
+
+  private resolveHeroSpineSkinName(data: sp.SkeletonData): string | null {
+    return this.resolveSpineEnumName(data.getSkinsEnum(), 'default', []);
+  }
+
+  private resolveHeroSpineAnimationNames(data: sp.SkeletonData): { primary: string | null; secondary: string | null } {
+    const enumMap = data.getAnimsEnum();
+    const names = enumMap ? Object.keys(enumMap).filter((name) => name !== '<None>' && typeof enumMap[name] === 'number') : [];
+    const primary = this.resolveSpineEnumName(enumMap, 'idle', ['stand', 'loop', 'animation', 'daiji', 'wait', 'run']);
+    const secondaryEnum = names
+      .filter((name) => name !== primary)
+      .reduce<{ [key: string]: number }>((result, name, index) => {
+        result[name] = index;
+        return result;
+      }, {});
+    const secondary = this.resolveSpineEnumName(secondaryEnum, 'skill2', ['skill4', 'skill', 'attack', 'gongji', 'cast']);
+    return { primary, secondary };
+  }
+
+  private startHeroSpineSecondaryCycle(skeleton: sp.Skeleton, primaryAnimation: string, secondaryAnimation: string, resourcePath: string): void {
+    tween(skeleton.node)
+      .repeatForever(
+        tween()
+          .delay(15)
+          .call(() => {
+            if (!skeleton.node.isValid) {
+              return;
+            }
+            const secondaryTrack = skeleton.setAnimation(0, secondaryAnimation, false);
+            if (!secondaryTrack) {
+              console.warn(`[HeroDetail] hero spine secondary animation failed: ${resourcePath}/${secondaryAnimation}`);
+              skeleton.setAnimation(0, primaryAnimation, true);
+              return;
+            }
+            skeleton.addAnimation(0, primaryAnimation, true, 0);
+          }),
+      )
+      .start();
+  }
+
+  private resolveHeroSpineAnimationName(data: sp.SkeletonData): string | null {
+    return this.resolveSpineEnumName(data.getAnimsEnum(), 'idle', ['stand', 'loop', 'animation', 'daiji', 'wait', 'run', '待机']);
+  }
+
+  private resolveSpineEnumName(enumMap: { [key: string]: number } | null, preferred: string, fallbackHints: string[]): string | null {
+    if (!enumMap) {
+      return null;
+    }
+    const names = Object.keys(enumMap).filter((name) => name !== '<None>' && typeof enumMap[name] === 'number');
+    if (preferred && names.includes(preferred)) {
+      return preferred;
+    }
+    const preferredLower = preferred.toLowerCase();
+    if (preferredLower) {
+      const loosePreferred = names.find((name) => name.toLowerCase().includes(preferredLower));
+      if (loosePreferred) {
+        return loosePreferred;
+      }
+    }
+    for (const hint of fallbackHints) {
+      const resolved = names.find((name) => name.toLowerCase().includes(hint.toLowerCase()));
+      if (resolved) {
+        return resolved;
+      }
+    }
+    return names[0] ?? null;
+  }
+
+  private logHeroSpineResolved(data: sp.SkeletonData, skinName: string | null, animationName: string, hero: LobbyHeroItemVO, resourcePath: string): void {
+    const runtimeData = data.getRuntimeData(true);
+    const width = runtimeData?.width ?? 0;
+    const height = runtimeData?.height ?? 0;
+    console.info(`[HeroDetail] spine applied: hero=${safeText(hero.heroCode)}, resource=${resourcePath}, skin=${skinName ?? '<setup>'}, animation=${animationName}, size=${Math.round(width)}x${Math.round(height)}`);
   }
 
   private renderInfoPanel(parent: Node, hero: LobbyHeroItemVO, x: number, y: number, width: number, height: number, scale: number): void {
@@ -181,8 +382,6 @@ export class LobbyHeroDetailPanelRenderer {
     graphics.fillColor = rgba(6, 6, 8, 198);
     graphics.rect(-width / 2, -height / 2, width, height);
     graphics.fill();
-    graphics.strokeColor = rgba(150, 112, 58, 150);
-    graphics.stroke();
 
     this.renderHeroBadges(panel, hero, width, height, scale);
     this.renderAttributeGrid(panel, hero, width, height, scale);
@@ -190,18 +389,25 @@ export class LobbyHeroDetailPanelRenderer {
   }
 
   private renderHeroBadges(parent: Node, hero: LobbyHeroItemVO, width: number, height: number, scale: number): void {
-    this.addBadge(parent, 'LobbyHeroDetailRarity', safeText(hero.rarity || 'R'), -width / 2 + 72 * scale, height / 2 - 34 * scale, 104 * scale, 30 * scale, this.rarityColor(hero.rarity), scale);
-    this.addBadge(parent, 'LobbyHeroDetailStars', starText(hero.star), 62 * scale, height / 2 - 34 * scale, 172 * scale, 30 * scale, rgba(220, 168, 69), scale);
+    const sideInset = 24 * scale;
+    const gap = 12 * scale;
+    const topY = height / 2 - 34 * scale;
+    const rarityWidth = Math.min(104 * scale, Math.max(76 * scale, width * 0.2));
+    const formWidth = Math.min(188 * scale, Math.max(132 * scale, width - sideInset * 2 - rarityWidth - gap));
+    this.addBadge(parent, 'LobbyHeroDetailRarity', safeText(hero.rarity || 'R'), -width / 2 + sideInset + rarityWidth / 2, topY, rarityWidth, 30 * scale, this.rarityColor(hero.rarity), scale);
+    this.addBadge(parent, 'LobbyHeroDetailStars', starText(hero.star), 0, height / 2 - 70 * scale, width - sideInset * 2, 26 * scale, rgba(220, 168, 69), scale);
     const formText = hero.protagonist ? safeText(hero.formLabel || '攻击形态') : '已拥有英雄';
-    this.addBadge(parent, 'LobbyHeroDetailForm', formText, width / 2 - 118 * scale, height / 2 - 34 * scale, 188 * scale, 30 * scale, rgba(172, 54, 42), scale);
+    this.addBadge(parent, 'LobbyHeroDetailForm', formText, width / 2 - sideInset - formWidth / 2, topY, formWidth, 30 * scale, rgba(172, 54, 42), scale);
     const source = this.host.addChildLabel(parent, 'LobbyHeroDetailSource', hero.protagonist ? '主角不进入抽卡池；防御/辅助形态后续由主线道具解锁。' : `${sourceLabel(hero.sourceType)} / 只读展示`, 0, height / 2 - 72 * scale, 15 * scale, rgba(191, 171, 121), new Size(width - 44 * scale, 28 * scale));
+    source.node.setPosition(new Vec3(0, height / 2 - 104 * scale, 0));
     source.overflow = Label.Overflow.SHRINK;
   }
 
   private renderAttributeGrid(parent: Node, hero: LobbyHeroItemVO, width: number, height: number, scale: number): void {
     const title = this.host.addChildLabel(parent, 'LobbyHeroDetailAttributeTitle', '战斗展示属性', -width / 2 + 24 * scale, height / 2 - 112 * scale, 18 * scale, rgba(247, 218, 148), new Size(width - 48 * scale, 24 * scale), HorizontalTextAlignment.LEFT);
+    title.node.setPosition(new Vec3(-width / 2 + 24 * scale, height / 2 - 146 * scale, 0));
     title.overflow = Label.Overflow.SHRINK;
-    const grid = this.host.addChildPlainNode(parent, 'LobbyHeroDetailAttributeGrid', 0, height / 2 - 174 * scale, width - 48 * scale, 86 * scale);
+    const grid = this.host.addChildPlainNode(parent, 'LobbyHeroDetailAttributeGrid', 0, height / 2 - 210 * scale, width - 48 * scale, 86 * scale);
     const attrs = resolveAttributes(hero);
     const cellWidth = (width - 64 * scale) / 2;
     attrs.slice(0, 6).forEach((attr, index) => {
@@ -220,14 +426,17 @@ export class LobbyHeroDetailPanelRenderer {
   }
 
   private renderSkillList(parent: Node, hero: LobbyHeroItemVO, width: number, height: number, scale: number): void {
-    const titleY = height / 2 - 242 * scale;
+    const titleY = height / 2 - 286 * scale;
     const title = this.host.addChildLabel(parent, 'LobbyHeroDetailSkillTitle', '技能预览', -width / 2 + 24 * scale, titleY, 18 * scale, rgba(247, 218, 148), new Size(width - 48 * scale, 24 * scale), HorizontalTextAlignment.LEFT);
     title.overflow = Label.Overflow.SHRINK;
-    const list = this.host.addChildPlainNode(parent, 'LobbyHeroDetailSkillList', 0, titleY - 126 * scale, width - 48 * scale, Math.max(124 * scale, height - 330 * scale));
+    const listTop = titleY - 34 * scale;
+    const listBottom = -height / 2 + 44 * scale;
+    const listHeight = Math.max(112 * scale, listTop - listBottom);
+    const list = this.host.addChildPlainNode(parent, 'LobbyHeroDetailSkillList', 0, (listTop + listBottom) / 2, width - 48 * scale, listHeight);
     const skills = resolveSkills(hero);
-    const rowHeight = Math.min(68 * scale, Math.max(48 * scale, (height - 336 * scale) / 4));
+    const rowHeight = Math.min(62 * scale, Math.max(42 * scale, (listHeight - 28 * scale) / 4));
     skills.slice(0, 4).forEach((skill, index) => {
-      const row = this.host.addChildPlainNode(list, `LobbyHeroDetailSkillRow_${index}`, 0, list.getComponent(UITransform)!.contentSize.height / 2 - rowHeight / 2 - index * (rowHeight + 8 * scale), width - 60 * scale, rowHeight);
+      const row = this.host.addChildPlainNode(list, `LobbyHeroDetailSkillRow_${index}`, 0, listHeight / 2 - rowHeight / 2 - 8 * scale - index * (rowHeight + 8 * scale), width - 60 * scale, rowHeight);
       const graphics = row.addComponent(Graphics);
       graphics.fillColor = index === 0 ? rgba(88, 18, 18, 176) : rgba(10, 9, 10, 170);
       graphics.rect(-(width - 60 * scale) / 2, -rowHeight / 2, width - 60 * scale, rowHeight);
@@ -244,7 +453,7 @@ export class LobbyHeroDetailPanelRenderer {
   }
 
   private renderFooter(parent: Node, width: number, height: number, scale: number): void {
-    const note = this.host.addChildLabel(parent, 'LobbyHeroDetailReadonlyNote', '只读展示：不提供升级、升星、觉醒、装备、抽卡、领取或资源变更入口。', 0, -height / 2 + 62 * scale, 15 * scale, rgba(170, 148, 103), new Size(width - 120 * scale, 24 * scale));
+    const note = this.host.addChildLabel(parent, 'LobbyHeroDetailReadonlyNote', '只读展示：不提供升级、升星、觉醒、装备、抽卡、领取或资源变更入口。', 0, -height / 2 + 38 * scale, 14 * scale, rgba(170, 148, 103), new Size(width - 160 * scale, 24 * scale));
     note.overflow = Label.Overflow.SHRINK;
   }
 
@@ -261,22 +470,28 @@ export class LobbyHeroDetailPanelRenderer {
     this.applyOutline(label, scale, false);
   }
 
+  private drawArtStageDepth(parent: Node, width: number, height: number, scale: number): void {
+    const depth = this.host.addChildPlainNode(parent, 'LobbyHeroDetailStageDepth', 0, 0, width, height);
+    const graphics = depth.addComponent(Graphics);
+    const groundY = this.resolveHeroDetailGroundY(height);
+    graphics.fillColor = rgba(0, 0, 0, 92);
+    graphics.rect(-width / 2, -height / 2, width, height * 0.38);
+    graphics.fill();
+    graphics.fillColor = rgba(0, 0, 0, 148);
+    graphics.ellipse(0, groundY, width * 0.34, height * 0.06);
+    graphics.fill();
+  }
+
+  private resolveHeroDetailGroundY(height: number): number {
+    return -height * 0.43;
+  }
+
   private drawPanelShade(parent: Node, width: number, height: number, scale: number): void {
     const shade = this.host.addChildPlainNode(parent, 'LobbyHeroDetailPanelShade', 0, 0, width, height);
     const graphics = shade.addComponent(Graphics);
-    graphics.fillColor = rgba(0, 0, 0, 116);
+    graphics.fillColor = rgba(0, 0, 0, 64);
     graphics.rect(-width / 2, -height / 2, width, height);
     graphics.fill();
-    graphics.fillColor = rgba(130, 16, 23, 42);
-    graphics.circle(-width * 0.28, -height * 0.08, Math.min(width, height) * 0.38);
-    graphics.fill();
-    graphics.strokeColor = rgba(211, 154, 64, 90);
-    graphics.lineWidth = Math.max(1, scale);
-    graphics.moveTo(-width / 2 + 34 * scale, height / 2 - 110 * scale);
-    graphics.lineTo(width / 2 - 34 * scale, height / 2 - 110 * scale);
-    graphics.moveTo(-width / 2 + 34 * scale, -height / 2 + 82 * scale);
-    graphics.lineTo(width / 2 - 34 * scale, -height / 2 + 82 * scale);
-    graphics.stroke();
   }
 
   private drawFallbackPortrait(parent: Node, hero: LobbyHeroItemVO, width: number, height: number, scale: number): void {
