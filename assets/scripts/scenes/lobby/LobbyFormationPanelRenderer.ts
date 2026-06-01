@@ -12,6 +12,7 @@ import {
 } from 'cc';
 import type { LobbyHeroItemVO, LobbyHeroRosterPanelState } from '../../types/LobbyHeroTypes';
 import { safeText } from '../UiTextFormatter';
+import { renderSceneBackButton } from '../UiSceneBackButton';
 import { rgba, type UiLayout } from './LobbyHudTypes';
 
 export interface LobbyFormationPanelHost {
@@ -49,9 +50,8 @@ export class LobbyFormationPanelRenderer {
     const selectedStageCode = this.host.currentLobbySelectedStageCode();
     const selectedHeroIds = this.host.currentLobbyFormationHeroIds();
     const scale = Math.max(0.62, Math.min(1, layout.uiScale));
-    const pagePadding = Math.max(14 * scale, Math.min(30 * scale, layout.safeWidth * 0.024));
-    const panelWidth = Math.max(320 * scale, layout.safeWidth - pagePadding * 2);
-    const panelHeight = Math.max(270 * scale, layout.safeHeight - pagePadding * 2);
+    const panelWidth = Math.max(320 * scale, layout.stageWidth);
+    const panelHeight = Math.max(270 * scale, layout.stageHeight);
     const centerX = (layout.stageLeft + layout.stageRight) / 2;
     const centerY = (layout.stageTop + layout.stageBottom) / 2;
 
@@ -59,25 +59,25 @@ export class LobbyFormationPanelRenderer {
     dim.setPosition(new Vec3(centerX, centerY, 0));
     dim.addComponent(UITransform).setContentSize(new Size(layout.width, layout.height));
     const dimGraphics = dim.addComponent(Graphics);
-    dimGraphics.fillColor = rgba(0, 0, 0, 156);
+    dimGraphics.fillColor = rgba(0, 0, 0, 0);
     dimGraphics.rect(-layout.width / 2, -layout.height / 2, layout.width, layout.height);
     dimGraphics.fill();
     // 功能页采用场景式导航，遮罩只阻断底层输入，不再承担点击关闭语义。
     dim.addComponent(BlockInputEvents);
 
-    const panelGroup = this.createUiNode('LobbyFormationPanel');
+    const panelGroup = this.createUiNode('LobbyFormationSceneContent');
     panelGroup.setPosition(new Vec3(centerX, centerY, 0));
     panelGroup.addComponent(UITransform).setContentSize(new Size(panelWidth, panelHeight));
     // 面板内容区阻挡输入，避免点英雄槽时穿透遮罩关闭弹窗。
     panelGroup.addComponent(BlockInputEvents);
     const panel = this.host.addChildBeveledPanelNode(
       panelGroup,
-      'LobbyFormationPanelFrame',
+      'LobbyFormationSceneFrame',
       0,
       0,
       panelWidth,
       panelHeight,
-      rgba(5, 5, 8, 244),
+      rgba(5, 5, 8, 232),
       rgba(195, 144, 61, 230),
       18 * scale,
     );
@@ -85,6 +85,7 @@ export class LobbyFormationPanelRenderer {
     this.renderHeader(panel, panelWidth, panelHeight, scale, state, selectedStageCode, selectedHeroIds);
     this.renderBody(panel, panelWidth, panelHeight, scale, state, selectedHeroIds);
     this.renderFooter(panel, panelWidth, panelHeight, scale, selectedStageCode, state);
+    renderSceneBackButton(this.host, panelGroup, layout, 'LobbyFormationBackButton', () => this.host.closeLobbyFormationPanel(), scale);
   }
 
   private createUiNode(name: string): Node {
@@ -249,15 +250,13 @@ export class LobbyFormationPanelRenderer {
   private renderFooter(parent: Node, width: number, height: number, scale: number, stageCode: string, state: LobbyHeroRosterPanelState): void {
     const note = this.host.addChildLabel(parent, 'LobbyFormationBoundaryNote', '点击候选英雄调整本次出战；阵容只用于 battle start 快照，不保存长期队伍，不改变玩家资源。', 0, -height / 2 + 62 * scale, 15 * scale, rgba(168, 146, 105), new Size(width - 110 * scale, 24 * scale));
     note.overflow = Label.Overflow.SHRINK;
-    const reload = this.addFooterButton(parent, 'LobbyFormationReloadButton', '刷新英雄', -142 * scale, -height / 2 + 30 * scale, 124 * scale, 36 * scale, scale);
+    const reload = this.addFooterButton(parent, 'LobbyFormationReloadButton', '刷新英雄', -72 * scale, -height / 2 + 30 * scale, 124 * scale, 36 * scale, scale);
     reload.on(Button.EventType.CLICK, () => this.host.reloadLobbyHeroRoster(), this);
     const previewEnabled = this.canOpenBattlePreview(state, stageCode);
-    const preview = this.addFooterButton(parent, 'LobbyFormationBattlePreviewButton', previewEnabled ? '战斗预演' : state.loading ? '读取中' : '不可出战', 0, -height / 2 + 30 * scale, 138 * scale, 36 * scale, scale, previewEnabled);
+    const preview = this.addFooterButton(parent, 'LobbyFormationBattlePreviewButton', previewEnabled ? '战斗预演' : state.loading ? '读取中' : '不可出战', 72 * scale, -height / 2 + 30 * scale, 138 * scale, 36 * scale, scale, previewEnabled);
     if (previewEnabled) {
       preview.on(Button.EventType.CLICK, () => this.host.openLobbyBattlePreviewPanel(stageCode), this);
     }
-    const close = this.addFooterButton(parent, 'LobbyFormationCloseButton', '返回大厅', 142 * scale, -height / 2 + 30 * scale, 128 * scale, 36 * scale, scale);
-    close.on(Button.EventType.CLICK, () => this.host.closeLobbyFormationPanel(), this);
   }
 
   private canOpenBattlePreview(state: LobbyHeroRosterPanelState, stageCode: string): boolean {

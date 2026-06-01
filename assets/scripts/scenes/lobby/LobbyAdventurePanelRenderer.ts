@@ -12,6 +12,7 @@ import {
 } from 'cc';
 import type { LobbyAdventureChapterVO, LobbyAdventurePanelState, LobbyAdventureStageVO } from '../../types/LobbyAdventureTypes';
 import { safeText } from '../UiTextFormatter';
+import { renderSceneBackButton } from '../UiSceneBackButton';
 import { rgba, type UiLayout } from './LobbyHudTypes';
 import type { LobbyBattlePanelState } from './LobbyBattleState';
 
@@ -49,9 +50,8 @@ export class LobbyAdventurePanelRenderer {
   render(layout: UiLayout): void {
     const state = this.host.currentLobbyAdventureState();
     const scale = Math.max(0.62, Math.min(1, layout.uiScale));
-    const pagePadding = Math.max(14 * scale, Math.min(30 * scale, layout.safeWidth * 0.024));
-    const panelWidth = Math.max(330 * scale, layout.safeWidth - pagePadding * 2);
-    const panelHeight = Math.max(270 * scale, layout.safeHeight - pagePadding * 2);
+    const panelWidth = Math.max(330 * scale, layout.stageWidth);
+    const panelHeight = Math.max(270 * scale, layout.stageHeight);
     const centerX = (layout.stageLeft + layout.stageRight) / 2;
     const centerY = (layout.stageTop + layout.stageBottom) / 2;
 
@@ -59,25 +59,25 @@ export class LobbyAdventurePanelRenderer {
     dim.setPosition(new Vec3(centerX, centerY, 0));
     dim.addComponent(UITransform).setContentSize(new Size(layout.width, layout.height));
     const dimGraphics = dim.addComponent(Graphics);
-    dimGraphics.fillColor = rgba(0, 0, 0, 154);
+    dimGraphics.fillColor = rgba(0, 0, 0, 0);
     dimGraphics.rect(-layout.width / 2, -layout.height / 2, layout.width, layout.height);
     dimGraphics.fill();
     // 功能页采用场景式导航，遮罩只阻断底层输入，不再承担点击关闭语义。
     dim.addComponent(BlockInputEvents);
 
-    const panelGroup = this.createUiNode('LobbyAdventurePanel');
+    const panelGroup = this.createUiNode('LobbyAdventureSceneContent');
     panelGroup.setPosition(new Vec3(centerX, centerY, 0));
     panelGroup.addComponent(UITransform).setContentSize(new Size(panelWidth, panelHeight));
     // 面板内容区必须吞掉点击，避免点地图节点时穿透遮罩关闭面板。
     panelGroup.addComponent(BlockInputEvents);
     const panel = this.host.addChildBeveledPanelNode(
       panelGroup,
-      'LobbyAdventurePanelFrame',
+      'LobbyAdventureSceneFrame',
       0,
       0,
       panelWidth,
       panelHeight,
-      rgba(5, 5, 8, 244),
+      rgba(5, 5, 8, 232),
       rgba(196, 145, 62, 230),
       20 * scale,
     );
@@ -85,6 +85,7 @@ export class LobbyAdventurePanelRenderer {
     this.renderHeader(panel, panelWidth, panelHeight, scale, state);
     this.renderBody(panel, panelWidth, panelHeight, scale, state);
     this.renderFooter(panel, panelWidth, panelHeight, scale);
+    renderSceneBackButton(this.host, panelGroup, layout, 'LobbyAdventureBackButton', () => this.host.closeLobbyAdventurePanel(), scale);
   }
 
   private createUiNode(name: string): Node {
@@ -427,10 +428,8 @@ export class LobbyAdventurePanelRenderer {
       new Size(width - 112 * scale, 24 * scale),
     );
     note.overflow = Label.Overflow.SHRINK;
-    const reload = this.addFooterButton(parent, 'LobbyAdventureReloadButton', '刷新', -70 * scale, -height / 2 + 30 * scale, 112 * scale, 36 * scale, scale);
+    const reload = this.addFooterButton(parent, 'LobbyAdventureReloadButton', '刷新', 0, -height / 2 + 30 * scale, 112 * scale, 36 * scale, scale);
     reload.on(Button.EventType.CLICK, () => this.host.reloadLobbyAdventure(), this);
-    const close = this.addFooterButton(parent, 'LobbyAdventureCloseButton', '返回大厅', 70 * scale, -height / 2 + 30 * scale, 128 * scale, 36 * scale, scale);
-    close.on(Button.EventType.CLICK, () => this.host.closeLobbyAdventurePanel(), this);
   }
 
   private addFooterButton(parent: Node, name: string, text: string, x: number, y: number, width: number, height: number, scale: number): Node {

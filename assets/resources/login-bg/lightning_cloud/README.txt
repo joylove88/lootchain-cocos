@@ -1,1 +1,0 @@
-32 independent blue-white lightning PNG files for Cocos ParticleSystem2D. Not a preview sheet. Because apparently that needed to be said three times.

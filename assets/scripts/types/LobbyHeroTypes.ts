@@ -9,6 +9,7 @@ export interface LobbyHeroItemVO {
   power: number;
   protagonist: boolean;
   sourceType: string;
+  portraitAsset?: string | null;
   currentForm?: string | null;
   formLabel?: string | null;
 }

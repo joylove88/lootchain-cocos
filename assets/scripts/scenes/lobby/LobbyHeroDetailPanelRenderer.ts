@@ -1,6 +1,5 @@
 import {
   BlockInputEvents,
-  Button,
   Color,
   Graphics,
   HorizontalTextAlignment,
@@ -15,6 +14,7 @@ import {
 } from 'cc';
 import type { LobbyHeroItemVO } from '../../types/LobbyHeroTypes';
 import { safeText } from '../UiTextFormatter';
+import { renderSceneBackButton } from '../UiSceneBackButton';
 import { rgba, type UiLayout } from './LobbyHudTypes';
 
 export const LOBBY_HERO_DETAIL_BACKDROP_ASSET = 'ui/hero-detail/hero_detail_backdrop/spriteFrame';
@@ -65,9 +65,8 @@ export class LobbyHeroDetailPanelRenderer {
     }
     const scale = Math.max(0.62, Math.min(1, layout.uiScale));
     const compact = layout.safeWidth < 780 * scale || layout.safeHeight < 520 * scale;
-    const pagePadding = Math.max(14 * scale, Math.min(30 * scale, layout.safeWidth * 0.024));
-    const panelWidth = Math.max(320 * scale, layout.safeWidth - pagePadding * 2);
-    const panelHeight = Math.max(260 * scale, layout.safeHeight - pagePadding * 2);
+    const panelWidth = Math.max(320 * scale, layout.stageWidth);
+    const panelHeight = Math.max(260 * scale, layout.stageHeight);
     const centerX = (layout.stageLeft + layout.stageRight) / 2;
     const centerY = (layout.stageTop + layout.stageBottom) / 2;
 
@@ -75,13 +74,13 @@ export class LobbyHeroDetailPanelRenderer {
     dim.setPosition(new Vec3(centerX, centerY, 0));
     dim.addComponent(UITransform).setContentSize(new Size(layout.width, layout.height));
     const dimGraphics = dim.addComponent(Graphics);
-    dimGraphics.fillColor = rgba(0, 0, 0, 168);
+    dimGraphics.fillColor = rgba(0, 0, 0, 0);
     dimGraphics.rect(-layout.width / 2, -layout.height / 2, layout.width, layout.height);
     dimGraphics.fill();
     // 英雄详情是独立逻辑场景，遮罩只阻断底层输入，不再点击关闭。
     dim.addComponent(BlockInputEvents);
 
-    const panelGroup = this.host.createUiNode('LobbyHeroDetailPanel');
+    const panelGroup = this.host.createUiNode('LobbyHeroDetailSceneContent');
     panelGroup.setPosition(new Vec3(centerX, centerY, 0));
     panelGroup.addComponent(UITransform).setContentSize(new Size(panelWidth, panelHeight));
     // 内容区阻断点击，保证详情内部操作不会穿透到遮罩导致关闭。
@@ -89,12 +88,12 @@ export class LobbyHeroDetailPanelRenderer {
 
     const panel = this.host.addChildBeveledPanelNode(
       panelGroup,
-      'LobbyHeroDetailPanelFrame',
+      'LobbyHeroDetailSceneFrame',
       0,
       0,
       panelWidth,
       panelHeight,
-      rgba(5, 5, 8, 242),
+      rgba(5, 5, 8, 232),
       rgba(198, 147, 61, 230),
       18 * scale,
     );
@@ -107,6 +106,7 @@ export class LobbyHeroDetailPanelRenderer {
       this.renderDesktop(panel, hero, panelWidth, panelHeight, scale);
     }
     this.renderFooter(panel, panelWidth, panelHeight, scale);
+    renderSceneBackButton(this.host, panelGroup, layout, 'LobbyHeroDetailBackButton', () => this.host.backToLobbyHeroRosterPanel(), scale);
   }
 
   private renderHeader(parent: Node, hero: LobbyHeroItemVO, width: number, height: number, scale: number): void {
@@ -115,7 +115,6 @@ export class LobbyHeroDetailPanelRenderer {
     this.applyOutline(title, scale, true);
     const meta = this.host.addChildLabel(parent, 'LobbyHeroDetailMeta', `${safeText(hero.rarity || 'R')}  /  Lv.${hero.level}  /  战力 ${formatInteger(hero.power)}`, -width / 2 + 54 * scale, height / 2 - 82 * scale, 17 * scale, rgba(206, 169, 87), new Size(width * 0.52, 26 * scale), HorizontalTextAlignment.LEFT);
     meta.overflow = Label.Overflow.SHRINK;
-    this.addCloseButton(parent, width / 2 - 54 * scale, height / 2 - 46 * scale, 86 * scale, 34 * scale, scale);
   }
 
   private renderDesktop(parent: Node, hero: LobbyHeroItemVO, width: number, height: number, scale: number): void {
@@ -247,31 +246,6 @@ export class LobbyHeroDetailPanelRenderer {
   private renderFooter(parent: Node, width: number, height: number, scale: number): void {
     const note = this.host.addChildLabel(parent, 'LobbyHeroDetailReadonlyNote', '只读展示：不提供升级、升星、觉醒、装备、抽卡、领取或资源变更入口。', 0, -height / 2 + 62 * scale, 15 * scale, rgba(170, 148, 103), new Size(width - 120 * scale, 24 * scale));
     note.overflow = Label.Overflow.SHRINK;
-    const back = this.addFooterButton(parent, 'LobbyHeroDetailBackButton', '返回英雄', -78 * scale, -height / 2 + 30 * scale, 128 * scale, 36 * scale, scale);
-    back.on(Button.EventType.CLICK, () => this.host.backToLobbyHeroRosterPanel(), this);
-    const close = this.addFooterButton(parent, 'LobbyHeroDetailCloseButton', '返回大厅', 78 * scale, -height / 2 + 30 * scale, 136 * scale, 36 * scale, scale);
-    close.on(Button.EventType.CLICK, () => this.host.closeLobbyHeroDetailPanel(), this);
-  }
-
-  private addCloseButton(parent: Node, x: number, y: number, width: number, height: number, scale: number): void {
-    const button = this.addFooterButton(parent, 'LobbyHeroDetailTopCloseButton', '返回大厅', x, y, width, height, scale);
-    button.on(Button.EventType.CLICK, () => this.host.closeLobbyHeroDetailPanel(), this);
-  }
-
-  private addFooterButton(parent: Node, name: string, text: string, x: number, y: number, width: number, height: number, scale: number): Node {
-    const button = this.host.addChildPlainNode(parent, name, x, y, width, height);
-    const graphics = button.addComponent(Graphics);
-    graphics.fillColor = rgba(22, 18, 16, 224);
-    graphics.rect(-width / 2, -height / 2, width, height);
-    graphics.fill();
-    graphics.strokeColor = rgba(189, 139, 58, 216);
-    graphics.stroke();
-    button.addComponent(Button);
-    this.host.applyImageButtonFeedback(button, 1.025, 0.975);
-    const label = this.host.addChildLabel(button, `${name}Label`, text, 0, 0, 16 * scale, rgba(245, 211, 123), new Size(width - 8 * scale, height));
-    label.overflow = Label.Overflow.SHRINK;
-    this.applyOutline(label, scale, false);
-    return button;
   }
 
   private addBadge(parent: Node, name: string, text: string, x: number, y: number, width: number, height: number, fill: Color, scale: number): void {

@@ -11,6 +11,7 @@ import {
   Vec3,
 } from 'cc';
 import type { LobbyNoticePanelState, LobbyNoticeVO } from '../../types/LobbyNoticeTypes';
+import { renderSceneBackButton } from '../UiSceneBackButton';
 import { rgba, type UiLayout } from './LobbyHudTypes';
 
 export interface LobbyNoticePanelHost {
@@ -42,9 +43,8 @@ export class LobbyNoticePanelRenderer {
   render(layout: UiLayout): void {
     const state = this.host.currentLobbyNoticeState();
     const scale = Math.max(0.68, Math.min(1, layout.uiScale));
-    const pagePadding = Math.max(14 * scale, Math.min(30 * scale, layout.safeWidth * 0.024));
-    const panelWidth = Math.max(300 * scale, layout.safeWidth - pagePadding * 2);
-    const panelHeight = Math.max(260 * scale, layout.safeHeight - pagePadding * 2);
+    const panelWidth = Math.max(300 * scale, layout.stageWidth);
+    const panelHeight = Math.max(260 * scale, layout.stageHeight);
     const centerX = (layout.stageLeft + layout.stageRight) / 2;
     const centerY = (layout.stageTop + layout.stageBottom) / 2;
 
@@ -52,25 +52,25 @@ export class LobbyNoticePanelRenderer {
     dim.setPosition(new Vec3(centerX, centerY, 0));
     dim.addComponent(UITransform).setContentSize(new Size(layout.width, layout.height));
     const dimGraphics = dim.addComponent(Graphics);
-    dimGraphics.fillColor = rgba(0, 0, 0, 150);
+    dimGraphics.fillColor = rgba(0, 0, 0, 0);
     dimGraphics.rect(-layout.width / 2, -layout.height / 2, layout.width, layout.height);
     dimGraphics.fill();
     // 功能页采用场景式导航，遮罩只阻断底层输入，不再承担点击关闭语义。
     dim.addComponent(BlockInputEvents);
 
-    const panelGroup = this.createUiNode('LobbyNoticePanel');
+    const panelGroup = this.createUiNode('LobbyNoticeSceneContent');
     panelGroup.setPosition(new Vec3(centerX, centerY, 0));
     panelGroup.addComponent(UITransform).setContentSize(new Size(panelWidth, panelHeight));
     // 面板本体阻挡输入事件，避免点击内容区时穿透到遮罩导致弹框关闭。
     panelGroup.addComponent(BlockInputEvents);
     const panel = this.host.addChildBeveledPanelNode(
       panelGroup,
-      'LobbyNoticePanelFrame',
+      'LobbyNoticeSceneFrame',
       0,
       0,
       panelWidth,
       panelHeight,
-      rgba(6, 6, 8, 240),
+      rgba(6, 6, 8, 232),
       rgba(190, 141, 62, 226),
       18 * scale,
     );
@@ -78,6 +78,7 @@ export class LobbyNoticePanelRenderer {
     this.renderHeader(panel, panelWidth, panelHeight, scale, state);
     this.renderNoticeBody(panel, panelWidth, panelHeight, scale, state);
     this.renderFooter(panel, panelWidth, panelHeight, scale);
+    renderSceneBackButton(this.host, panelGroup, layout, 'LobbyNoticeBackButton', () => this.host.closeLobbyNoticePanel(), scale);
   }
 
   private createUiNode(name: string): Node {
@@ -216,10 +217,8 @@ export class LobbyNoticePanelRenderer {
     );
     note.overflow = Label.Overflow.SHRINK;
 
-    const reload = this.addFooterButton(parent, 'LobbyNoticeReloadButton', '刷新', -70 * scale, -height / 2 + 30 * scale, 112 * scale, 36 * scale, scale);
+    const reload = this.addFooterButton(parent, 'LobbyNoticeReloadButton', '刷新', 0, -height / 2 + 30 * scale, 112 * scale, 36 * scale, scale);
     reload.on(Button.EventType.CLICK, () => this.host.reloadLobbyNotices(), this);
-    const close = this.addFooterButton(parent, 'LobbyNoticeCloseButton', '返回大厅', 70 * scale, -height / 2 + 30 * scale, 128 * scale, 36 * scale, scale);
-    close.on(Button.EventType.CLICK, () => this.host.closeLobbyNoticePanel(), this);
   }
 
   private addFooterButton(parent: Node, name: string, text: string, x: number, y: number, width: number, height: number, scale: number): Node {

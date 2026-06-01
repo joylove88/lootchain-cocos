@@ -20,7 +20,7 @@ export interface AdaptiveStageLayoutHost {
 
 export const LOGIN_REFERENCE_WIDTH = 1920;
 export const LOGIN_REFERENCE_HEIGHT = 1080;
-export const LOGIN_STAGE_NODE_NAMES = ['BG_Main', 'FG_Architecture'] as const;
+export const LOGIN_STAGE_NODE_NAMES = ['Login_BG_Poster', 'Login_BG_Video'] as const;
 export const MIN_VISIBLE_WIDTH = 320;
 export const MIN_VISIBLE_HEIGHT = 180;
 

@@ -42,6 +42,8 @@ const required = [
   'assets/scripts/scenes/UiContentRootController.ts.meta',
   'assets/scripts/scenes/UiPrimitiveFactory.ts',
   'assets/scripts/scenes/UiPrimitiveFactory.ts.meta',
+  'assets/scripts/scenes/UiSceneBackButton.ts',
+  'assets/scripts/scenes/UiSceneBackButton.ts.meta',
   'assets/scripts/scenes/UiTextFormatter.ts',
   'assets/scripts/scenes/UiTextFormatter.ts.meta',
   'assets/scripts/scenes/UiSpriteFrameCache.ts',
@@ -144,6 +146,19 @@ const required = [
   'assets/resources/ui/gacha.meta',
   'assets/resources/ui/gacha/gacha_bg_cathedral.png',
   'assets/resources/ui/gacha/gacha_bg_cathedral.png.meta',
+  'assets/resources/spine.meta',
+  'assets/resources/spine/gacha.meta',
+  'assets/resources/spine/gacha/huangfengjiaozong.meta',
+  'assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.skel',
+  'assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.skel.meta',
+  'assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.atlas',
+  'assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.atlas.meta',
+  'assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.png',
+  'assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.png.meta',
+  'assets/resources/spine/gacha/Lord of the Dark Abyss/1605.json',
+  'assets/resources/spine/gacha/Lord of the Dark Abyss/1605.json.meta',
+  'assets/resources/spine/gacha/Lord of the Dark Abyss/1605.atlas',
+  'assets/resources/spine/gacha/Lord of the Dark Abyss/1605.atlas.meta',
   'assets/resources/ui/lobby/lobby_player_info_panel.png',
   'assets/resources/ui/lobby/lobby_player_info_panel.png.meta',
   'assets/resources/ui/protagonist.meta',
@@ -175,6 +190,7 @@ const gameRootPath = 'assets/scripts/scenes/LootChainGameRoot.ts';
 const statusPresenterPath = 'assets/scripts/scenes/StatusPresenter.ts';
 const uiContentRootPath = 'assets/scripts/scenes/UiContentRootController.ts';
 const uiPrimitiveFactoryPath = 'assets/scripts/scenes/UiPrimitiveFactory.ts';
+const uiSceneBackButtonPath = 'assets/scripts/scenes/UiSceneBackButton.ts';
 const uiTextFormatterPath = 'assets/scripts/scenes/UiTextFormatter.ts';
 const uiSpriteFrameCachePath = 'assets/scripts/scenes/UiSpriteFrameCache.ts';
 const loginFlowPath = 'assets/scripts/scenes/login/LoginFlow.ts';
@@ -225,6 +241,8 @@ const lobbyProfileDialogPath = 'assets/scripts/scenes/lobby/LobbyProfileDialogRe
 const lobbyProfileLoaderPath = 'assets/scripts/scenes/lobby/LobbyProfileLoader.ts';
 const lobbyProfileStatePath = 'assets/scripts/scenes/lobby/LobbyProfileState.ts';
 const lobbyResourceLoaderPath = 'assets/scripts/scenes/lobby/LobbyResourceLoader.ts';
+const gachaSceneConfigPath = 'assets/scripts/scenes/gacha/GachaSceneConfig.ts';
+const gachaSceneRendererPath = 'assets/scripts/scenes/gacha/GachaSceneRenderer.ts';
 const authApiPath = 'assets/scripts/api/PlayerAuthApi.ts';
 const profileApiPath = 'assets/scripts/api/PlayerProfileApi.ts';
 const protagonistApiPath = 'assets/scripts/api/ProtagonistApi.ts';
@@ -238,6 +256,7 @@ const gameRoot = readFileSync(gameRootPath, 'utf8');
 const statusPresenter = readFileSync(statusPresenterPath, 'utf8');
 const uiContentRoot = readFileSync(uiContentRootPath, 'utf8');
 const uiPrimitiveFactory = readFileSync(uiPrimitiveFactoryPath, 'utf8');
+const uiSceneBackButton = readFileSync(uiSceneBackButtonPath, 'utf8');
 const uiTextFormatter = readFileSync(uiTextFormatterPath, 'utf8');
 const uiSpriteFrameCache = readFileSync(uiSpriteFrameCachePath, 'utf8');
 const loginFlow = readFileSync(loginFlowPath, 'utf8');
@@ -288,6 +307,8 @@ const lobbyProfileDialog = readFileSync(lobbyProfileDialogPath, 'utf8');
 const lobbyProfileLoader = readFileSync(lobbyProfileLoaderPath, 'utf8');
 const lobbyProfileState = readFileSync(lobbyProfileStatePath, 'utf8');
 const lobbyResourceLoader = readFileSync(lobbyResourceLoaderPath, 'utf8');
+const gachaSceneConfig = readFileSync(gachaSceneConfigPath, 'utf8');
+const gachaSceneRenderer = readFileSync(gachaSceneRendererPath, 'utf8');
 const authApi = readFileSync(authApiPath, 'utf8');
 const profileApi = readFileSync(profileApiPath, 'utf8');
 const protagonistApi = readFileSync(protagonistApiPath, 'utf8');
@@ -336,6 +357,7 @@ const checkedClientSources = uniqueSources([
   { path: statusPresenterPath, text: statusPresenter },
   { path: uiContentRootPath, text: uiContentRoot },
   { path: uiPrimitiveFactoryPath, text: uiPrimitiveFactory },
+  { path: uiSceneBackButtonPath, text: uiSceneBackButton },
   { path: uiTextFormatterPath, text: uiTextFormatter },
   { path: uiSpriteFrameCachePath, text: uiSpriteFrameCache },
   { path: loginFlowPath, text: loginFlow },
@@ -447,6 +469,7 @@ const requiredLoginRootTokens = [
   "import { StatusPresenter, type StatusPresenterHost } from './StatusPresenter';",
   "import { UiContentRootController, type UiContentRootHost } from './UiContentRootController';",
   "import { UiPrimitiveFactory, type ButtonVisualState, type UiPrimitiveFactoryHost } from './UiPrimitiveFactory';",
+  "import { renderSceneBackButton, type SceneBackButtonHost } from './UiSceneBackButton';",
   "from './UiTextFormatter';",
   "from './UiSpriteFrameCache';",
   "import { LoginFlow, type LoginFlowHost } from './login/LoginFlow';",
@@ -478,6 +501,13 @@ const requiredLoginRootTokens = [
   "import type { ProtagonistCreateFormState, ProtagonistForm, ProtagonistGender } from '../types/ProtagonistTypes';",
   'private applyPasswordMask(editBox: EditBox, textLabel: Label): void',
   'type ViewName =',
+  'const LOGIN_SCENE_BACKGROUND_NODE_NAMES = [',
+  'const LOGIN_SCENE_LEGACY_NODE_NAMES = [',
+  'const LOGIN_SCENE_STAGE_NODE_NAMES = [...LOGIN_SCENE_BACKGROUND_NODE_NAMES, ...LOGIN_SCENE_LEGACY_NODE_NAMES] as const;',
+  "'Login_BG_Poster'",
+  "'Login_BG_Video'",
+  'stageNode.active = false;',
+  "const LOBBY_BACKGROUND_NODE_NAMES = ['Lobby_BG_Poster', 'Lobby_BG_Video', 'Lobby_BG_Fallback'] as const;",
   "| 'profile'",
   "| 'adventure'",
   "| 'heroDetail'",
@@ -599,14 +629,14 @@ const requiredLoginRootTokens = [
   'private currentLobbyNoticeState(): LobbyNoticePanelState',
   'private async loadLobbyNotices(force = false): Promise<void>',
   'this.loginRenderer.renderLogin(layout);',
-  'this.loginRenderer.renderLoginDialog(layout, {',
+  'this.loginRenderer.renderLoginAccountScene(layout, {',
   'agreementAccepted: this.loginFlow.agreementAccepted',
   'defaultDevUserId: this.loginFlow.defaultDevUserId',
   'private setLoginInputs(accountInput: EditBox | null, passwordInput: EditBox | null): void',
   'this.loginFlow.setInputs(accountInput, passwordInput);',
   'private setProtagonistNameInput(input: EditBox | null): void',
   'this.protagonistCreateFlow.setNameInput(input);',
-  'private openLoginDialog(): void',
+  'private openLoginAccountScene(): void',
   'private submitLogin(): void',
   'this.run(() => this.loginFlow.login());',
   'private toggleLoginAgreement(): void',
@@ -623,9 +653,19 @@ const requiredLoginRootTokens = [
   'private loadLobbyProfileAfterLogin(userId: number): void',
   'private retryLobbyLoading(): void',
   'private renderLobby(): void',
+  'private renderGachaResultScene(): void',
+  'private openGachaMockResultScene(mode: GachaPreviewResultMode): void',
+  'private closeGachaMockResultScene(): void',
   'private renderLobbyScenePage(): void',
+  'private renderLobbyWorldBase(): UiLayout',
+  'this.contentRootController.clearExcept(LOBBY_BACKGROUND_NODE_NAMES);',
   'private isLobbyScenePageView(view: ViewName): boolean',
   'private returnToLobbyFromScenePage(): void',
+  'private isLoginSceneView(view: ViewName): boolean',
+  'private setLoginSceneStageVisible(visible: boolean): void',
+  'private tryPlayLoginSceneVideo(node: Node): void',
+  'this.setLoginSceneStageVisible(this.isLoginSceneView(this.currentView));',
+  'video.play();',
   'private renderLobbyHud(layout: UiLayout): void',
   'this.lobbyHudRenderer.render(layout);',
   'this.lobbyProfileDialogRenderer.render(layout);',
@@ -715,10 +755,11 @@ const requiredLoginRootTokens = [
   'LobbyHeroRosterPanel',
   'LobbyProfileDim',
   'LobbyProfilePanel',
-  'LobbyPlaceholderDim',
-  'LobbyPlaceholderPanel',
-  'LobbyPlaceholderOkButton',
+  'LobbyPlaceholderSceneRoot',
+  'LobbyPlaceholderScenePanel',
+  'LobbyPlaceholderBackButton',
   'LobbyPlaceholderBoundaryNote',
+  'renderSceneBackButton(',
   'panel.addComponent(BlockInputEvents);',
   "this.currentView = 'profile';",
   "this.currentView = 'adventure';",
@@ -727,6 +768,7 @@ const requiredLoginRootTokens = [
   "this.currentView = 'heroes';",
   "this.currentView = 'heroDetail';",
   "this.currentView = 'notice';",
+  "this.currentView = 'gachaResult';",
   "this.currentView = 'placeholder';",
   'profile-open',
   'placeholder-open',
@@ -934,6 +976,10 @@ for (const token of [
 
 for (const token of [
   'export class LobbyAdventurePanelRenderer',
+  'LobbyAdventureSceneContent',
+  'LobbyAdventureSceneFrame',
+  'layout.stageWidth',
+  'layout.stageHeight',
   'dim.addComponent(BlockInputEvents);',
   'panelGroup.addComponent(BlockInputEvents);',
   'LobbyAdventureBoundaryNote',
@@ -949,7 +995,8 @@ for (const token of [
     '只读经济通过',
     'reloadLobbyAdventure()',
   'closeLobbyAdventurePanel()',
-  '返回大厅',
+  'LobbyAdventureBackButton',
+  'renderSceneBackButton(this.host, panelGroup, layout',
   'LobbyAdventureStageMap',
   'LobbyAdventureFormationButton',
   'LobbyAdventureCompactFormationButton',
@@ -963,6 +1010,10 @@ for (const token of [
 
 for (const token of [
   'export class LobbyFormationPanelRenderer',
+  'LobbyFormationSceneContent',
+  'LobbyFormationSceneFrame',
+  'layout.stageWidth',
+  'layout.stageHeight',
   'dim.addComponent(BlockInputEvents);',
   'panelGroup.addComponent(BlockInputEvents);',
   'LobbyFormationBoundaryNote',
@@ -979,7 +1030,8 @@ for (const token of [
     'LobbyFormationCandidateButton_',
     '点击候选英雄调整本次出战',
   'LobbyFormationBattlePreviewButton',
-  '返回大厅',
+  'LobbyFormationBackButton',
+  'renderSceneBackButton(this.host, panelGroup, layout',
 ]) {
   if (!lobbyFormationPanel.includes(token)) {
     console.error(`missing lobby formation panel guard in ${lobbyFormationPanelPath}: ${token}`);
@@ -992,6 +1044,8 @@ for (const token of [
   'LOBBY_BATTLE_SCENE_BG_ASSET',
   'LobbyBattleSceneRoot',
   'LobbyBattleSceneBackdropSprite',
+  'LobbyBattlePreviewBackButton',
+  'renderSceneBackButton(this.host, sceneRoot, layout',
   'LobbyBattleSceneEmberMotion',
   'panelGroup.addComponent(BlockInputEvents);',
   'LobbyBattlePreviewBoundaryNote',
@@ -1021,6 +1075,7 @@ for (const token of [
   'export class LobbyCodexApi',
   "this.http.get<unknown>('/api/player/lobby/codex')",
   'function validateLobbyCodex(data: unknown): LobbyCodexItemVO[]',
+  "portraitAsset: readOptionalText(item, 'portraitAsset', 64)",
   "rarity.toUpperCase() === 'EX'",
   "heroCode.toUpperCase().startsWith('EX_')",
 ]) {
@@ -1034,6 +1089,7 @@ for (const token of [
   'export class LobbyHeroApi',
   "this.http.get<unknown>('/api/player/lobby/heroes')",
   'function validateLobbyHeroes(data: unknown): LobbyHeroItemVO[]',
+  "portraitAsset: readOptionalText(item, 'portraitAsset', 64)",
   "rarity.toUpperCase() === 'EX'",
   "heroCode.toUpperCase().startsWith('EX_')",
   'if (id <= 0)',
@@ -1059,12 +1115,17 @@ for (const token of [
 
 for (const token of [
   'export class LobbyCodexPanelRenderer',
+  'LobbyCodexSceneContent',
+  'LobbyCodexSceneFrame',
+  'layout.stageWidth',
+  'layout.stageHeight',
   'dim.addComponent(BlockInputEvents);',
   'panelGroup.addComponent(BlockInputEvents);',
   'LobbyCodexBoundaryNote',
   'reloadLobbyCodex()',
   'closeLobbyCodexPanel()',
-  '返回大厅',
+  'LobbyCodexBackButton',
+  'renderSceneBackButton(this.host, panelGroup, layout',
   'LobbyCodexCard_',
 ]) {
   if (!lobbyCodexPanel.includes(token)) {
@@ -1089,12 +1150,16 @@ for (const token of [
   'export class LobbyHeroDetailPanelRenderer',
   'LOBBY_HERO_DETAIL_BACKDROP_ASSET',
   'LOBBY_HERO_DETAIL_PROTAGONIST_ASSET',
-  'LobbyHeroDetailPanel',
+  'LobbyHeroDetailSceneContent',
+  'LobbyHeroDetailSceneFrame',
+  'layout.stageWidth',
+  'layout.stageHeight',
   'LobbyHeroDetailDynamicPortrait',
   'LobbyHeroDetailAttributeGrid',
   'LobbyHeroDetailSkillList',
   'dim.addComponent(BlockInputEvents);',
-  '返回大厅',
+  'LobbyHeroDetailBackButton',
+  'renderSceneBackButton(this.host, panelGroup, layout',
   'backToLobbyHeroRosterPanel()',
   'closeLobbyHeroDetailPanel()',
   '不提供升级、升星、觉醒、装备、抽卡、领取或资源变更入口',
@@ -1107,13 +1172,18 @@ for (const token of [
 
 for (const token of [
   'export class LobbyHeroRosterPanelRenderer',
+  'LobbyHeroRosterSceneContent',
+  'LobbyHeroRosterSceneFrame',
+  'layout.stageWidth',
+  'layout.stageHeight',
   'dim.addComponent(BlockInputEvents);',
   'panelGroup.addComponent(BlockInputEvents);',
   'LobbyHeroRosterBoundaryNote',
   'reloadLobbyHeroRoster()',
   'closeLobbyHeroRosterPanel()',
   'openLobbyHeroDetail(hero.id)',
-  '返回大厅',
+  'LobbyHeroRosterBackButton',
+  'renderSceneBackButton(this.host, panelGroup, layout',
   'LobbyHeroRosterProtagonistBadge',
   'hero.protagonist',
 ]) {
@@ -1148,12 +1218,17 @@ for (const token of [
 
 for (const token of [
   'export class LobbyNoticePanelRenderer',
+  'LobbyNoticeSceneContent',
+  'LobbyNoticeSceneFrame',
+  'layout.stageWidth',
+  'layout.stageHeight',
   'dim.addComponent(BlockInputEvents);',
   'panelGroup.addComponent(BlockInputEvents);',
   'LobbyNoticeBoundaryNote',
   'reloadLobbyNotices()',
   'closeLobbyNoticePanel()',
-  '返回大厅',
+  'LobbyNoticeBackButton',
+  'renderSceneBackButton(this.host, panelGroup, layout',
 ]) {
   if (!lobbyNoticePanel.includes(token)) {
     console.error(`missing lobby notice panel guard in ${lobbyNoticePanelPath}: ${token}`);
@@ -1386,6 +1461,9 @@ const requiredUiContentRootTokens = [
   'createNode(name: string): Node',
   'removeNode(name: string): void',
   'clear(): void',
+  'clearExcept(preservedNodeNames: readonly string[]): void',
+  'const preserved = new Set(preservedNodeNames);',
+  'preserved.has(child.name)',
   'ensure(): Node',
   "new Node('LootChainCocosLoginUIRoot')",
   'this.host.node.addChild(root);',
@@ -1449,6 +1527,27 @@ const requiredUiPrimitiveFactoryTokens = [
 for (const token of requiredUiPrimitiveFactoryTokens) {
   if (!uiPrimitiveFactory.includes(token)) {
     console.error(`missing UI primitive factory safeguard in ${uiPrimitiveFactoryPath}: ${token}`);
+    ok = false;
+  }
+}
+
+const requiredUiSceneBackButtonTokens = [
+  'export interface SceneBackButtonHost',
+  'export function renderSceneBackButton(',
+  'layout.stageLeft + 46 * buttonScale',
+  'layout.stageTop - 42 * buttonScale',
+  '60 * buttonScale',
+  '44 * buttonScale',
+  'Button.EventType.CLICK',
+  'host.applyImageButtonFeedback(button, 1.04, 0.96)',
+  'rgba(218, 170, 84, 220)',
+  'graphics.moveTo(14 * buttonScale, 15 * buttonScale)',
+  'graphics.lineTo(-13 * buttonScale, 0)',
+];
+
+for (const token of requiredUiSceneBackButtonTokens) {
+  if (!uiSceneBackButton.includes(token)) {
+    console.error(`missing scene back button safeguard in ${uiSceneBackButtonPath}: ${token}`);
     ok = false;
   }
 }
@@ -1534,7 +1633,7 @@ const requiredAdaptiveLayoutTokens = [
   'export interface AdaptiveStageLayoutHost',
   'export const LOGIN_REFERENCE_WIDTH = 1920;',
   'export const LOGIN_REFERENCE_HEIGHT = 1080;',
-  "export const LOGIN_STAGE_NODE_NAMES = ['BG_Main', 'FG_Architecture'] as const;",
+  "export const LOGIN_STAGE_NODE_NAMES = ['Login_BG_Poster', 'Login_BG_Video'] as const;",
   'export const MIN_VISIBLE_WIDTH = 320;',
   'export const MIN_VISIBLE_HEIGHT = 180;',
   'resolve(): UiLayout',
@@ -1714,14 +1813,14 @@ const requiredLoginRendererTokens = [
   'export const USE_IMAGE_LOGIN_BUTTON = true;',
   'export const SHOW_DIALOG_THIRD_PARTY_LOGIN = true;',
   'renderLogin(layout: UiLayout): void',
-  'renderLoginDialog(layout: UiLayout, state: LoginRendererState): void',
+  'renderLoginAccountScene(layout: UiLayout, state: LoginRendererState): void',
   'LOGIN_UI_ASSETS.rightRail',
   'MainAccountLoginButton',
   'LoginLogo',
-  'DialogDim',
-  'LoginDialogPanel',
+  'LoginAccountSceneRoot',
+  'LoginAccountScenePanel',
   'BlockInputEvents',
-  'dim.node.addComponent(BlockInputEvents);',
+  'scene.node.addComponent(BlockInputEvents);',
   'panelGraphics.node.addComponent(BlockInputEvents);',
   '账号登录',
   '账号 / 邮箱',
@@ -1733,7 +1832,7 @@ const requiredLoginRendererTokens = [
   '当前阶段只接入 dev-login',
   '该入口为登录页占位',
   'setLoginInputs(accountInput, passwordInput);',
-  'this.host.openLoginDialog()',
+  'this.host.openLoginAccountScene()',
   'this.host.submitLogin()',
   'this.host.toggleLoginAgreement()',
   'this.host.renderLogin()',
@@ -1870,6 +1969,119 @@ if (!gachaDrawBody || !gachaDrawBody.includes('当前 Cocos 阶段未开放抽�
   ok = false;
 }
 
+const requiredGachaConfigTokens = [
+  'GACHA_ABYSS_SPINE_RESOURCE',
+  'spine/gacha/huangfengjiaozong/huangfengjiaozong',
+  'GACHA_ABYSS_SPINE_UUID',
+  'ef87498c-2ef4-44e6-bee9-2d499e6ac570',
+  'GACHA_ABYSS_SPINE_SKIN',
+  'GACHA_ABYSS_SPINE_INTRO_ANIMATION',
+  'GACHA_ABYSS_SPINE_IDLE_ANIMATION',
+  'GACHA_ABYSS_FALLBACK_SPINE_RESOURCE',
+  'spine/gacha/Lord of the Dark Abyss/1605',
+  'GACHA_ABYSS_FALLBACK_SPINE_UUID',
+  'ce6aee72-45cb-4315-abfd-74ac40b8d0ce',
+  'GACHA_ABYSS_FALLBACK_SPINE_SKIN',
+  'GACHA_ABYSS_FALLBACK_SPINE_INTRO_ANIMATION',
+  'GACHA_ABYSS_FALLBACK_SPINE_IDLE_ANIMATION',
+  'export interface GachaMockResultItem',
+  'GACHA_MOCK_RESULT_ONCE',
+  'GACHA_MOCK_RESULT_TEN',
+  '本地 mock 结果只用于前端验收动效',
+  "kind: 'hero'",
+  "kind: 'shard'",
+  "kind: 'material'",
+];
+
+for (const token of requiredGachaConfigTokens) {
+  if (!gachaSceneConfig.includes(token)) {
+    console.error(`missing gacha local mock config token in ${gachaSceneConfigPath}: ${token}`);
+    ok = false;
+  }
+}
+
+for (const token of ["id: 'friend'", '友情召唤']) {
+  if (gachaSceneConfig.includes(token)) {
+    console.error(`friendship summon pool must stay removed in ${gachaSceneConfigPath}: ${token}`);
+    ok = false;
+  }
+}
+
+const requiredGachaRendererTokens = [
+  "export type GachaPreviewResultMode = 'once' | 'ten';",
+  'GACHA_MOCK_RESULT_ONCE',
+  'GACHA_MOCK_RESULT_TEN',
+  'renderResultScene(layout: UiLayout, mode: GachaPreviewResultMode): void',
+  'renderSceneBackButton(this.host, parent, layout',
+  'GachaBackButton',
+  'GachaAbyssSpineStage',
+  'GachaAbyssSpineNode',
+  'GACHA_ABYSS_SPINE_RESOURCE',
+  'resources.load(GACHA_ABYSS_SPINE_RESOURCE, sp.SkeletonData',
+  'GACHA_ABYSS_SPINE_UUID',
+  'assetManager.loadAny({ uuid: GACHA_ABYSS_SPINE_UUID },',
+  'GACHA_ABYSS_FALLBACK_SPINE_RESOURCE',
+  'resources.load(GACHA_ABYSS_FALLBACK_SPINE_RESOURCE, sp.SkeletonData',
+  'GACHA_ABYSS_FALLBACK_SPINE_UUID',
+  'assetManager.loadAny({ uuid: GACHA_ABYSS_FALLBACK_SPINE_UUID },',
+  'ensureAbyssFallbackSpineData',
+  'finishAbyssFallbackSpineLoad',
+  '已临时显示可用预览 Spine',
+  '需要重新导出 huangfengjiaozong',
+  'finishAbyssSpineLoad(data)',
+  'finishAbyssSpineLoad(asset as sp.SkeletonData)',
+  'const runtimeData = data.getRuntimeData(true)',
+  'skeleton.setToSetupPose()',
+  "logAbyssSpineResolved(data, skinName, '<setup-pose>', assetLabel)",
+  '已显示静态骨骼首帧',
+  'resolveAbyssSpineSkinName(data, preferredSkin)',
+  'resolveAbyssSpineAnimationName(data, preferredIdleAnimation)',
+  'resolveAbyssSpineAnimationName(data, preferredIntroAnimation)',
+  'skeleton.setSlotsToSetupPose()',
+  'skeleton.setAnimation(0, introAnimation, false)',
+  'skeleton.addAnimation(0, idleAnimation, true, 0)',
+  'skeleton.setAnimation(0, idleAnimation, true)',
+  'logAbyssSpineResolved(data, skinName, idleAnimation, assetLabel)',
+  'openGachaMockResultScene(mode)',
+  'GachaResultSceneRoot',
+  'GachaResultScenePanel',
+  'GachaResultSceneNoWriteNote',
+  'GachaResultSceneConfirmButton',
+  '本地结果预览：不扣资源、不发英雄、不写入抽卡记录或保底。',
+  '真实单抽、十连、兑换、补发全部关闭',
+  'root.addComponent(BlockInputEvents);',
+  '未扣资源、未写入抽卡记录、未发放英雄、未更新保底',
+];
+
+for (const token of requiredGachaRendererTokens) {
+  if (!gachaSceneRenderer.includes(token)) {
+    console.error(`missing gacha result preview safeguard in ${gachaSceneRendererPath}: ${token}`);
+    ok = false;
+  }
+}
+
+const forbiddenGachaRendererTokens = [
+  'rgba(103, 0, 16, 34)',
+  'rgba(225, 48, 58, 76)',
+  'rgba(115, 8, 16, 42)',
+  'rgba(236, 46, 55, 92)',
+  'GachaApi',
+  'this.api.gacha',
+  'lootChainApi.gacha',
+  '/api/player/gacha/draw',
+  '/api/player/gacha/exchange',
+  '/api/player/gacha/reissue',
+  "request('POST'",
+  'request("POST"',
+];
+
+for (const token of forbiddenGachaRendererTokens) {
+  if (gachaSceneRenderer.includes(token)) {
+    console.error(`gacha renderer must remain frontend-only in ${gachaSceneRendererPath}: ${token}`);
+    ok = false;
+  }
+}
+
 const requiredProtagonistRendererTokens = [
   'export class ProtagonistCreateRenderer',
   'export interface ProtagonistCreateRendererHost',
@@ -1880,6 +2092,8 @@ const requiredProtagonistRendererTokens = [
   'renderCharacterArt(parent: Node, gender: ProtagonistGender',
   'ProtagonistCreateBackdrop',
   'ProtagonistCreatePanel',
+  'drawFullSceneFrame(scene, metrics.panelWidth, metrics.panelHeight, metrics.scale)',
+  'scene.addComponent(BlockInputEvents);',
   'ProtagonistGenderCard_${gender}',
   'ProtagonistFormPreview',
   'SSR 主角',
@@ -2307,6 +2521,30 @@ assertContainsOrder(
   'lobby background must render before HUD',
 );
 
+assertContainsOrder(
+  gameRootPath,
+  gameRoot,
+  'private renderLobbyScenePage(): void',
+  ['const layout = this.renderBase();', 'this.renderLobbyFeatureSceneBackdrop(layout);'],
+  'lobby scene pages must switch to an independent full-screen scene backdrop',
+);
+
+assertMethodExcludes(
+  gameRootPath,
+  gameRoot,
+  'private renderLobbyWorldBase(): UiLayout',
+  ['this.releaseLobbyVideoRuntime()', 'this.lobbyBackgroundController.release()', 'this.contentRootController.clear();'],
+  'lobby scene pages must not release or clear the live lobby background',
+);
+
+assertMethodExcludes(
+  gameRootPath,
+  gameRoot,
+  'private returnToLobbyFromScenePage(): void',
+  ['this.renderLobby();'],
+  'returning from scene pages must preserve the live lobby background',
+);
+
 const devLoginBody = extractMethodBody(authApi, 'async devLogin(userId: number): Promise<PlayerTokenVO>');
 if (!devLoginBody || devLoginBody.includes('tokenStore.save') || devLoginBody.includes('.save(token)')) {
   console.error(`devLogin must not save token before LoginFlow stale-ticket validation in ${authApiPath}`);
@@ -2474,12 +2712,14 @@ const requiredLobbyProfileDialogTokens = [
   'export interface LobbyProfileDialogHost',
   "import { safeText } from '../UiTextFormatter';",
   'render(layout: UiLayout): void',
-  'LobbyProfileDim',
-  'LobbyProfilePanel',
-  'dim.addComponent(BlockInputEvents);',
+  'LobbyProfileSceneRoot',
+  'LobbyProfileSceneContent',
+  'sceneRoot.addComponent(BlockInputEvents);',
+  'layout.stageWidth',
+  'layout.stageHeight',
   'panel.addComponent(BlockInputEvents);',
-  'LobbyProfileCloseButton',
-  '返回大厅',
+  'LobbyProfileBackButton',
+  'renderSceneBackButton(this.host, panel, layout',
   'LobbyProfileTitle',
   'LobbyProfileName',
   'LobbyProfileSubline',
@@ -3061,7 +3301,7 @@ function assertLoginOverlayBounds(layout, name) {
   const dialogWidth = Math.max(320 * layout.uiScale, layout.safeWidth - loginPagePadding * 2);
   const dialogHeight = Math.max(560 * layout.uiScale, layout.safeHeight - loginPagePadding * 2);
   const dialogY = centerY;
-  assertInsideStage(`${name}:LoginDialogPanel`, centerX - dialogWidth / 2, centerX + dialogWidth / 2, dialogY + dialogHeight / 2, dialogY - dialogHeight / 2, stage);
+  assertInsideStage(`${name}:LoginAccountScenePanel`, centerX - dialogWidth / 2, centerX + dialogWidth / 2, dialogY + dialogHeight / 2, dialogY - dialogHeight / 2, stage);
   const inputWidth = Math.min(430 * layout.uiScale, dialogWidth - 130 * layout.uiScale);
   const inputFrameWidth = inputWidth + 28;
   const inputFrameHeight = layout.inputHeight + 8;
@@ -3102,51 +3342,56 @@ function assertLoginOverlayBounds(layout, name) {
 
 function assertProtagonistCreateBounds(layout, name) {
   const stage = stageBox(layout);
-  const centerX = (layout.stageLeft + layout.stageRight) / 2;
-  const centerY = (layout.stageTop + layout.stageBottom) / 2;
-  const rawScale = Math.min((layout.safeWidth - 16) / 1180, (layout.safeHeight - 12) / 660);
-  const scale = clamp(rawScale, 0.24, 1);
-  const panelWidth = Math.min(1180 * scale, layout.safeWidth - 12 * scale);
-  const panelHeight = Math.min(660 * scale, layout.safeHeight - 10 * scale);
+  const centerX = (layout.safeLeft + layout.safeRight) / 2;
+  const centerY = (layout.safeTop + layout.safeBottom) / 2;
+  const rawScale = Math.min(layout.safeWidth / 1520, layout.safeHeight / 860);
+  const scale = clamp(rawScale, 0.34, 1);
+  const panelWidth = Math.max(320 * scale, layout.safeWidth - 16 * scale);
+  const panelHeight = Math.max(180 * scale, layout.safeHeight - 12 * scale);
   assertInsideStage(`${name}:ProtagonistCreatePanel`, centerX - panelWidth / 2, centerX + panelWidth / 2, centerY + panelHeight / 2, centerY - panelHeight / 2, stage);
   assertInsideStage(`${name}:ProtagonistCreateBackdrop`, layout.stageLeft, layout.stageRight, layout.stageTop, layout.stageBottom, stage);
 
-  const compact = panelWidth < 760 * scale || panelHeight < 420 * scale;
+  const compact = panelWidth < 720 || panelHeight < 420;
   const dense = compact;
-  const cardWidth = compact ? panelWidth * 0.36 : panelWidth * 0.255;
-  const cardHeight = compact ? panelHeight * (dense ? 0.34 : 0.42) : panelHeight * 0.56;
-  const cardY = centerY + (compact ? panelHeight * (dense ? 0.2 : 0.12) : 32 * scale);
-  const gap = compact ? panelWidth * 0.1 : panelWidth * 0.06;
-  const maleX = centerX + (compact ? -cardWidth / 2 - gap / 2 : -panelWidth * 0.27);
-  const femaleX = centerX + (compact ? cardWidth / 2 + gap / 2 : -panelWidth * 0.01);
+  const cardWidth = compact ? panelWidth * 0.31 : Math.min(panelWidth * 0.22, 330 * scale);
+  const cardHeight = compact ? panelHeight * (dense ? 0.34 : 0.4) : Math.min(panelHeight * 0.66, 520 * scale);
+  const cardY = centerY + (compact ? panelHeight * (dense ? 0.26 : 0.2) : -panelHeight * 0.01);
+  const gap = compact ? panelWidth * 0.1 : Math.max(72 * scale, panelWidth * 0.07);
+  const maleLocalX = compact ? -cardWidth / 2 - gap / 2 : -panelWidth * 0.21;
+  const femaleLocalX = compact ? cardWidth / 2 + gap / 2 : maleLocalX + cardWidth + gap;
+  const maleX = centerX + maleLocalX;
+  const femaleX = centerX + femaleLocalX;
   assertInsideStage(`${name}:ProtagonistGenderCard_male`, maleX - cardWidth / 2, maleX + cardWidth / 2, cardY + cardHeight / 2, cardY - cardHeight / 2, stage);
   assertInsideStage(`${name}:ProtagonistGenderCard_female`, femaleX - cardWidth / 2, femaleX + cardWidth / 2, cardY + cardHeight / 2, cardY - cardHeight / 2, stage);
 
   const formAreaX = centerX + (compact ? 0 : panelWidth * 0.34);
-  const formAreaY = centerY + (compact ? -panelHeight * (dense ? 0.13 : 0.17) : 28 * scale);
-  const formAreaWidth = compact ? panelWidth * 0.78 : panelWidth * 0.26;
-  const formAreaHeight = compact ? panelHeight * (dense ? 0.14 : 0.19) : panelHeight * 0.46;
+  const formAreaY = centerY + (compact ? -panelHeight * (dense ? 0.08 : 0.14) : 8 * scale);
+  const formAreaWidth = compact ? panelWidth * 0.78 : Math.min(panelWidth * 0.26, 440 * scale);
+  const formAreaHeight = compact ? panelHeight * (dense ? 0.17 : 0.2) : Math.min(panelHeight * 0.44, 390 * scale);
   assertInsideStage(`${name}:ProtagonistFormPreview`, formAreaX - formAreaWidth / 2, formAreaX + formAreaWidth / 2, formAreaY + formAreaHeight / 2, formAreaY - formAreaHeight / 2, stage);
 
-  const inputWidth = Math.min(390 * scale, panelWidth * (dense ? 0.62 : 0.46));
-  const inputY = centerY - panelHeight / 2 + (dense ? 92 : 104) * scale;
+  const controlX = centerX + (compact ? 0 : panelWidth * 0.34);
+  const inputWidth = Math.min(390 * scale, panelWidth * (dense ? 0.62 : 0.28));
+  const compactControls = dense || layout.inputHeight > 30 * scale;
+  const inputY = centerY - panelHeight / 2 + (dense ? 128 : compactControls ? 132 : 154) * scale;
   const inputFrameWidth = inputWidth + 28;
   const inputFrameHeight = layout.inputHeight + 8;
-  assertInsideStage(`${name}:ProtagonistNameInput`, centerX - inputFrameWidth / 2, centerX + inputFrameWidth / 2, inputY + inputFrameHeight / 2, inputY - inputFrameHeight / 2, stage);
-  const compactControls = dense || layout.inputHeight > 30 * scale;
-  const buttonYOffset = dense ? 22 : compactControls ? 26 : 48;
+  assertInsideStage(`${name}:ProtagonistNameInput`, controlX - inputFrameWidth / 2, controlX + inputFrameWidth / 2, inputY + inputFrameHeight / 2, inputY - inputFrameHeight / 2, stage);
+  const buttonYOffset = dense ? 20 : compactControls ? 46 : 70;
   const enterWidth = Math.min(360 * scale, panelWidth * (dense ? 0.54 : 0.42));
-  const enterHeight = (dense ? 38 : compactControls ? 42 : 54) * scale;
+  const enterHeight = (dense ? 32 : compactControls ? 42 : 54) * scale;
   const enterY = centerY - panelHeight / 2 + buttonYOffset * scale;
-  assertInsideStage(`${name}:ProtagonistEnterButton`, centerX - enterWidth / 2, centerX + enterWidth / 2, enterY + enterHeight / 2, enterY - enterHeight / 2, stage);
+  assertInsideStage(`${name}:ProtagonistEnterButton`, controlX - enterWidth / 2, controlX + enterWidth / 2, enterY + enterHeight / 2, enterY - enterHeight / 2, stage);
 
   const panelLocal = localRect(0, 0, panelWidth, panelHeight);
-  const cardLocal = localRect(compact ? -cardWidth / 2 - gap / 2 : -panelWidth * 0.27, compact ? panelHeight * (dense ? 0.2 : 0.12) : 32 * scale, cardWidth, cardHeight);
-  const formLocal = localRect(compact ? 0 : panelWidth * 0.34, compact ? -panelHeight * (dense ? 0.13 : 0.17) : 28 * scale, formAreaWidth, formAreaHeight);
-  const inputLocal = localRect(0, -panelHeight / 2 + (dense ? 92 : 104) * scale, inputFrameWidth, inputFrameHeight);
-  const buttonLocal = localRect(0, -panelHeight / 2 + buttonYOffset * scale, enterWidth, enterHeight);
+  const cardLocal = localRect(maleLocalX, compact ? panelHeight * (dense ? 0.26 : 0.2) : -panelHeight * 0.01, cardWidth, cardHeight);
+  const femaleCardLocal = localRect(femaleLocalX, compact ? panelHeight * (dense ? 0.26 : 0.2) : -panelHeight * 0.01, cardWidth, cardHeight);
+  const formLocal = localRect(compact ? 0 : panelWidth * 0.34, compact ? -panelHeight * (dense ? 0.08 : 0.14) : 8 * scale, formAreaWidth, formAreaHeight);
+  const inputLocal = localRect(compact ? 0 : panelWidth * 0.34, -panelHeight / 2 + (dense ? 128 : compactControls ? 132 : 154) * scale, inputFrameWidth, inputFrameHeight);
+  const buttonLocal = localRect(compact ? 0 : panelWidth * 0.34, -panelHeight / 2 + buttonYOffset * scale, enterWidth, enterHeight);
   for (const rect of [
     ['card', cardLocal],
+    ['femaleCard', femaleCardLocal],
     ['form', formLocal],
     ['input', inputLocal],
     ['button', buttonLocal],
@@ -3154,6 +3399,7 @@ function assertProtagonistCreateBounds(layout, name) {
     assertInsideLocalRect(`${name}:ProtagonistCreate ${rect[0]} in panel`, rect[1], panelLocal);
   }
   assertNoOverlap(`${name}:Protagonist cards vs form`, cardLocal, formLocal);
+  assertNoOverlap(`${name}:Protagonist female card vs form`, femaleCardLocal, formLocal);
   assertNoOverlap(`${name}:Protagonist form vs input`, formLocal, inputLocal);
   assertNoOverlap(`${name}:Protagonist input vs button`, inputLocal, buttonLocal);
   if (layout.stageHeight >= 300 && inputLocal.bottom - buttonLocal.top < 8) {
@@ -3452,13 +3698,12 @@ function assertLobbyOverlayBounds(layout, name) {
   }
 
   const adventureScale = clamp(layout.uiScale, 0.62, 1);
-  const adventurePadding = Math.max(14 * adventureScale, Math.min(30 * adventureScale, layout.safeWidth * 0.024));
-  const adventureWidth = Math.max(330 * adventureScale, layout.safeWidth - adventurePadding * 2);
-  const adventureHeight = Math.max(270 * adventureScale, layout.safeHeight - adventurePadding * 2);
+  const adventureWidth = Math.max(330 * adventureScale, layout.stageWidth);
+  const adventureHeight = Math.max(270 * adventureScale, layout.stageHeight);
   const adventureX = (layout.stageLeft + layout.stageRight) / 2;
   const adventureY = (layout.stageTop + layout.stageBottom) / 2;
   assertInsideStage(
-    `${name}:LobbyAdventurePanel`,
+    `${name}:LobbyAdventureSceneContent`,
     adventureX - adventureWidth / 2,
     adventureX + adventureWidth / 2,
     adventureY + adventureHeight / 2,
@@ -3467,13 +3712,12 @@ function assertLobbyOverlayBounds(layout, name) {
   );
 
   const formationScale = clamp(layout.uiScale, 0.62, 1);
-  const formationPadding = Math.max(14 * formationScale, Math.min(30 * formationScale, layout.safeWidth * 0.024));
-  const formationWidth = Math.max(320 * formationScale, layout.safeWidth - formationPadding * 2);
-  const formationHeight = Math.max(270 * formationScale, layout.safeHeight - formationPadding * 2);
+  const formationWidth = Math.max(320 * formationScale, layout.stageWidth);
+  const formationHeight = Math.max(270 * formationScale, layout.stageHeight);
   const formationX = (layout.stageLeft + layout.stageRight) / 2;
   const formationY = (layout.stageTop + layout.stageBottom) / 2;
   assertInsideStage(
-    `${name}:LobbyFormationPanel`,
+    `${name}:LobbyFormationSceneContent`,
     formationX - formationWidth / 2,
     formationX + formationWidth / 2,
     formationY + formationHeight / 2,
@@ -3498,13 +3742,12 @@ function assertLobbyOverlayBounds(layout, name) {
   assertBattlePresentationInternalBounds(name, battlePreviewWidth, battlePreviewHeight, battlePreviewScale);
 
   const codexScale = clamp(layout.uiScale, 0.64, 1);
-  const codexPadding = Math.max(14 * codexScale, Math.min(30 * codexScale, layout.safeWidth * 0.024));
-  const codexWidth = Math.max(300 * codexScale, layout.safeWidth - codexPadding * 2);
-  const codexHeight = Math.max(260 * codexScale, layout.safeHeight - codexPadding * 2);
+  const codexWidth = Math.max(300 * codexScale, layout.stageWidth);
+  const codexHeight = Math.max(260 * codexScale, layout.stageHeight);
   const codexX = (layout.stageLeft + layout.stageRight) / 2;
   const codexY = (layout.stageTop + layout.stageBottom) / 2;
   assertInsideStage(
-    `${name}:LobbyCodexPanel`,
+    `${name}:LobbyCodexSceneContent`,
     codexX - codexWidth / 2,
     codexX + codexWidth / 2,
     codexY + codexHeight / 2,
@@ -3513,13 +3756,12 @@ function assertLobbyOverlayBounds(layout, name) {
   );
 
   const heroScale = clamp(layout.uiScale, 0.64, 1);
-  const heroPadding = Math.max(14 * heroScale, Math.min(30 * heroScale, layout.safeWidth * 0.024));
-  const heroWidth = Math.max(320 * heroScale, layout.safeWidth - heroPadding * 2);
-  const heroHeight = Math.max(280 * heroScale, layout.safeHeight - heroPadding * 2);
+  const heroWidth = Math.max(320 * heroScale, layout.stageWidth);
+  const heroHeight = Math.max(280 * heroScale, layout.stageHeight);
   const heroX = (layout.stageLeft + layout.stageRight) / 2;
   const heroY = (layout.stageTop + layout.stageBottom) / 2;
   assertInsideStage(
-    `${name}:LobbyHeroRosterPanel`,
+    `${name}:LobbyHeroRosterSceneContent`,
     heroX - heroWidth / 2,
     heroX + heroWidth / 2,
     heroY + heroHeight / 2,
@@ -3528,13 +3770,12 @@ function assertLobbyOverlayBounds(layout, name) {
   );
 
   const noticeScale = clamp(layout.uiScale, 0.68, 1);
-  const noticePadding = Math.max(14 * noticeScale, Math.min(30 * noticeScale, layout.safeWidth * 0.024));
-  const noticeWidth = Math.max(300 * noticeScale, layout.safeWidth - noticePadding * 2);
-  const noticeHeight = Math.max(260 * noticeScale, layout.safeHeight - noticePadding * 2);
+  const noticeWidth = Math.max(300 * noticeScale, layout.stageWidth);
+  const noticeHeight = Math.max(260 * noticeScale, layout.stageHeight);
   const noticeX = (layout.stageLeft + layout.stageRight) / 2;
   const noticeY = (layout.stageTop + layout.stageBottom) / 2;
   assertInsideStage(
-    `${name}:LobbyNoticePanel`,
+    `${name}:LobbyNoticeSceneContent`,
     noticeX - noticeWidth / 2,
     noticeX + noticeWidth / 2,
     noticeY + noticeHeight / 2,
@@ -3543,13 +3784,12 @@ function assertLobbyOverlayBounds(layout, name) {
   );
 
   const placeholderScale = clamp(layout.uiScale, 0.7, 1);
-  const placeholderPadding = Math.max(16 * placeholderScale, Math.min(34 * placeholderScale, layout.safeWidth * 0.026));
-  const placeholderWidth = Math.max(280 * placeholderScale, layout.safeWidth - placeholderPadding * 2);
-  const placeholderHeight = Math.max(220 * placeholderScale, layout.safeHeight - placeholderPadding * 2);
+  const placeholderWidth = Math.max(280 * placeholderScale, layout.stageWidth);
+  const placeholderHeight = Math.max(220 * placeholderScale, layout.stageHeight);
   const placeholderX = (layout.stageLeft + layout.stageRight) / 2;
   const placeholderY = (layout.stageTop + layout.stageBottom) / 2;
   assertInsideStage(
-    `${name}:LobbyPlaceholderPanel`,
+    `${name}:LobbyPlaceholderScenePanel`,
     placeholderX - placeholderWidth / 2,
     placeholderX + placeholderWidth / 2,
     placeholderY + placeholderHeight / 2,
@@ -3558,12 +3798,11 @@ function assertLobbyOverlayBounds(layout, name) {
   );
 
   const profileScale = Math.min(1, Math.max(0.42, Math.min(layout.safeWidth / 840, layout.safeHeight / 620)));
-  const profilePadding = Math.max(14 * profileScale, Math.min(30 * profileScale, layout.safeWidth * 0.024));
-  const modalWidth = Math.max(300 * profileScale, layout.safeWidth - profilePadding * 2);
-  const modalHeight = Math.max(280 * profileScale, layout.safeHeight - profilePadding * 2);
+  const modalWidth = Math.max(300 * profileScale, layout.stageWidth);
+  const modalHeight = Math.max(280 * profileScale, layout.stageHeight);
   const modalX = (layout.stageLeft + layout.stageRight) / 2;
   const modalY = (layout.stageTop + layout.stageBottom) / 2;
-  assertInsideStage(`${name}:LobbyProfilePanel`, modalX - modalWidth / 2, modalX + modalWidth / 2, modalY + modalHeight / 2, modalY - modalHeight / 2, stage);
+  assertInsideStage(`${name}:LobbyProfileSceneContent`, modalX - modalWidth / 2, modalX + modalWidth / 2, modalY + modalHeight / 2, modalY - modalHeight / 2, stage);
 }
 
 function assertFormationInternalBounds(name, panelWidth, panelHeight, scale) {
@@ -3671,13 +3910,13 @@ function assertBattlePresentationInternalBounds(name, panelWidth, panelHeight, s
 
 if (scene) {
   const canvasNodeId = findNodeIdByName('Canvas');
-  const stageNodeId = findNodeIdByName('BG_Main');
+  const stageNodeId = findNodeIdByName('Login_BG_Poster');
   const canvasTransform = findUiTransform(canvasNodeId);
   const stageTransform = findUiTransform(stageNodeId);
   const stageNode = scene[stageNodeId];
 
   if (!canvasTransform || !stageTransform || !stageNode) {
-    console.error('missing Canvas/BG_Main transform for login adaptive layout check');
+    console.error('missing Canvas/Login_BG_Poster transform for login adaptive layout check');
     ok = false;
   } else {
     const canvasSize = canvasTransform._contentSize;

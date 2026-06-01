@@ -6,6 +6,7 @@ export interface LobbyCodexItemVO {
   faction: string;
   heroClass: string;
   roleDesc?: string | null;
+  portraitAsset?: string | null;
   owned: boolean;
   ownedCount: number;
 }

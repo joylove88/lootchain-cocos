@@ -12,9 +12,8 @@ import {
 } from 'cc';
 import type { PlayerLobbyProfileVO } from '../../types/PlayerTypes';
 import { safeText } from '../UiTextFormatter';
+import { renderSceneBackButton } from '../UiSceneBackButton';
 import { rgba, type UiLayout } from './LobbyHudTypes';
-
-type ButtonVisualState = 'hover' | 'normal' | 'pressed';
 
 export interface LobbyProfileDialogHost {
   node: Node;
@@ -22,6 +21,7 @@ export interface LobbyProfileDialogHost {
   closePlayerProfileDialog(): void;
   createUiNode(name: string): Node;
   addBeveledPanelNode(name: string, x: number, y: number, width: number, height: number, fill: Color, stroke: Color, bevel?: number): Node;
+  addChildPlainNode(parent: Node, name: string, x: number, y: number, width: number, height: number): Node;
   addChildLabel(
     parent: Node,
     name: string,
@@ -35,8 +35,7 @@ export interface LobbyProfileDialogHost {
   ): Label;
   addChildBeveledPanelNode(parent: Node, name: string, x: number, y: number, width: number, height: number, fill: Color, stroke: Color, bevel?: number): Node;
   addLobbyAvatar(parent: Node, x: number, y: number, size: number, displayName: string): void;
-  applyPointerCursor(node: Node): void;
-  drawButtonFrame(graphics: Graphics, width: number, height: number, state: ButtonVisualState): void;
+  applyImageButtonFeedback(node: Node, hoverScale?: number, pressedScale?: number): void;
   formatInteger(value: number | null | undefined): string;
   isLobbyProfileLoading(): boolean;
   getLobbyProfileError(): string;
@@ -46,7 +45,7 @@ const LOBBY_PROFILE_SERVER_NAME = '本地开发服';
 const LOBBY_PROFILE_PLACEHOLDER = '-';
 
 /**
- * 玩家资料弹窗渲染器。
+ * 玩家资料全屏场景渲染器。
  *
  * 当前阶段只做只读展示：等级、经验、战力、体力、账号状态、登录方式、钱包摘要和本地占位属性。
  * 不在弹窗中开放编辑、绑定、登出或领取等写操作。
@@ -56,28 +55,26 @@ export class LobbyProfileDialogRenderer {
 
   render(layout: UiLayout): void {
     const profile = this.host.currentLobbyProfile();
-    const dim = this.addDim(layout);
-    // 资料页采用场景式导航，遮罩只阻断底层输入，不再点击关闭。
-    dim.addComponent(BlockInputEvents);
+    const sceneRoot = this.addSceneRoot(layout);
+    sceneRoot.addComponent(BlockInputEvents);
 
     // 弹窗使用独立缩放，避免竖屏或超窄屏被全局 uiScale 压到不可读。
     const dialogScale = this.profileDialogScale(layout);
-    const pagePadding = Math.max(14 * dialogScale, Math.min(30 * dialogScale, layout.safeWidth * 0.024));
-    const panelWidth = Math.max(300 * dialogScale, layout.safeWidth - pagePadding * 2);
-    const panelHeight = Math.max(280 * dialogScale, layout.safeHeight - pagePadding * 2);
+    const panelWidth = Math.max(300 * dialogScale, layout.stageWidth);
+    const panelHeight = Math.max(280 * dialogScale, layout.stageHeight);
     const panelX = (layout.stageLeft + layout.stageRight) / 2;
     const panelY = (layout.stageTop + layout.stageBottom) / 2;
     const panel = this.host.addBeveledPanelNode(
-      'LobbyProfilePanel',
+      'LobbyProfileSceneContent',
       panelX,
       panelY,
       panelWidth,
       panelHeight,
-      rgba(8, 7, 10, 238),
+      rgba(8, 7, 10, 232),
       rgba(215, 170, 82, 238),
       20 * dialogScale,
     );
-    // 面板本体阻挡输入事件，避免点击资料内容区时穿透到遮罩关闭弹框。
+    // 场景内容区阻挡输入事件，避免点击资料内容时穿透到底层。
     panel.addComponent(BlockInputEvents);
     panel.addComponent(Button);
 
@@ -93,7 +90,6 @@ export class LobbyProfileDialogRenderer {
     );
     titleLabel.overflow = Label.Overflow.SHRINK;
 
-    this.addCloseButton(panel, panelWidth, panelHeight, dialogScale);
     this.addProfileHeader(panel, profile, panelWidth, panelHeight, dialogScale);
     this.addProfileRows(panel, profile, panelWidth, panelHeight, dialogScale);
 
@@ -108,14 +104,17 @@ export class LobbyProfileDialogRenderer {
       new Size(panelWidth - 90 * dialogScale, 28 * dialogScale),
     );
     note.overflow = Label.Overflow.SHRINK;
+    renderSceneBackButton(this.host, panel, layout, 'LobbyProfileBackButton', () => this.host.closePlayerProfileDialog(), dialogScale);
   }
 
-  private addDim(layout: UiLayout): Node {
-    const node = this.host.createUiNode('LobbyProfileDim');
-    node.setPosition(new Vec3(0, 0, 0));
+  private addSceneRoot(layout: UiLayout): Node {
+    const node = this.host.createUiNode('LobbyProfileSceneRoot');
+    const centerX = (layout.stageLeft + layout.stageRight) / 2;
+    const centerY = (layout.stageTop + layout.stageBottom) / 2;
+    node.setPosition(new Vec3(centerX, centerY, 0));
     node.addComponent(UITransform).setContentSize(new Size(layout.width, layout.height));
     const graphics = node.addComponent(Graphics);
-    graphics.fillColor = rgba(0, 0, 0, 126);
+    graphics.fillColor = rgba(0, 0, 0, 0);
     graphics.rect(-layout.width / 2, -layout.height / 2, layout.width, layout.height);
     graphics.fill();
     return node;
@@ -128,22 +127,6 @@ export class LobbyProfileDialogRenderer {
 
   private isNarrowProfileDialog(panelWidth: number, scale: number): boolean {
     return panelWidth < 560 * scale;
-  }
-
-  private addCloseButton(panel: Node, panelWidth: number, panelHeight: number, scale: number): void {
-    const closeWidth = 96 * scale;
-    const closeHeight = 38 * scale;
-    const closeNode = new Node('LobbyProfileCloseButton');
-    closeNode.layer = this.host.node.layer;
-    panel.addChild(closeNode);
-    closeNode.setPosition(new Vec3(panelWidth / 2 - closeWidth / 2 - 24 * scale, panelHeight / 2 - 38 * scale, 0));
-    closeNode.addComponent(UITransform).setContentSize(new Size(closeWidth, closeHeight));
-    const closeGraphics = closeNode.addComponent(Graphics);
-    this.host.drawButtonFrame(closeGraphics, closeWidth, closeHeight, 'normal');
-    closeNode.addComponent(Button);
-    closeNode.on(Button.EventType.CLICK, () => this.host.closePlayerProfileDialog(), this);
-    this.host.applyPointerCursor(closeNode);
-    this.host.addChildLabel(closeNode, 'Label', '返回大厅', 0, 1 * scale, Math.max(12, 16 * scale), rgba(245, 210, 122), new Size(closeWidth - 8 * scale, closeHeight));
   }
 
   private addProfileHeader(panel: Node, profile: PlayerLobbyProfileVO, panelWidth: number, panelHeight: number, scale: number): void {

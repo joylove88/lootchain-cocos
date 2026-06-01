@@ -15,6 +15,7 @@ import {
   Sprite,
   SpriteFrame,
   VideoClip,
+  VideoPlayer,
 } from 'cc';
 import { AppConfig } from '../app/AppConfig';
 import { lootChainApi, LootChainApi } from '../api/LootChainApi';
@@ -23,13 +24,14 @@ import { AdaptiveStageLayoutResolver, type AdaptiveStageLayoutHost } from './Ada
 import { StatusPresenter, type StatusPresenterHost } from './StatusPresenter';
 import { UiContentRootController, type UiContentRootHost } from './UiContentRootController';
 import { UiPrimitiveFactory, type ButtonVisualState, type UiPrimitiveFactoryHost } from './UiPrimitiveFactory';
+import { renderSceneBackButton, type SceneBackButtonHost } from './UiSceneBackButton';
 import {
   compactResourceValue as compactUiResourceValue,
   formatInteger as formatUiInteger,
   trimText as trimUiText,
 } from './UiTextFormatter';
 import { UiSpriteFrameCache, type UiSpriteFrameCacheHost, type UiSpriteFrameOverrides } from './UiSpriteFrameCache';
-import { GachaSceneRenderer, type GachaSceneHost } from './gacha/GachaSceneRenderer';
+import { GachaSceneRenderer, type GachaPreviewResultMode, type GachaSceneHost } from './gacha/GachaSceneRenderer';
 import { LoginFlow, type LoginFlowHost } from './login/LoginFlow';
 import {
   LoginRenderer,
@@ -66,6 +68,7 @@ import type { LobbyCodexPanelState } from '../types/LobbyCodexTypes';
 import type { LobbyHeroItemVO, LobbyHeroRosterPanelState } from '../types/LobbyHeroTypes';
 import type { LobbyNoticePanelState } from '../types/LobbyNoticeTypes';
 import type { ProtagonistCreateFormState, ProtagonistForm, ProtagonistGender } from '../types/ProtagonistTypes';
+import { LoginVideoBackground } from '../../resources/login-bg/scripts/login/LoginVideoBackground';
 
 const { ccclass, property } = _decorator;
 
@@ -73,7 +76,7 @@ type AsyncAction = () => Promise<void>;
 type CursorDocument = { body?: { style?: { cursor: string } } };
 type ViewName =
   | 'login'
-  | 'loginDialog'
+  | 'loginAccount'
   | 'protagonistCreate'
   | 'loading'
   | 'lobby'
@@ -86,11 +89,41 @@ type ViewName =
   | 'heroDetail'
   | 'notice'
   | 'gacha'
+  | 'gachaResult'
   | 'placeholder';
 type LobbyPlaceholderDialogState = {
   title: string;
   detail: string;
 };
+
+const LOGIN_SCENE_BACKGROUND_NODE_NAMES = [
+  'Login_BG_Poster',
+  'Login_BG_Video',
+] as const;
+
+const LOGIN_SCENE_LEGACY_NODE_NAMES = [
+  'Audio_BGM',
+  'BG_Main',
+  'BG_Main-001',
+  'BG_Main-002',
+  'Sky_Effects',
+  'Vortex_Center_Debug',
+  'Sky_Mask',
+  'Sky_MaskNew2',
+  'Sky_MaskNew',
+  'FG_Architecture',
+  'Architecture_Edge_Shadow_Soft',
+  'Architecture_Edge_Shadow_Tight',
+  'Crystal_Effects',
+  'Dragon_Layer',
+  'Character_Effects',
+  'Lightning_Particle',
+  'Foreground_Effects',
+] as const;
+
+const LOGIN_SCENE_STAGE_NODE_NAMES = [...LOGIN_SCENE_BACKGROUND_NODE_NAMES, ...LOGIN_SCENE_LEGACY_NODE_NAMES] as const;
+
+const LOBBY_BACKGROUND_NODE_NAMES = ['Lobby_BG_Poster', 'Lobby_BG_Video', 'Lobby_BG_Fallback'] as const;
 
 /**
  * Cocos 场景根组件。
@@ -157,6 +190,7 @@ export class LootChainGameRoot extends Component {
   private lobbyHeroRosterPanelOpen = false;
   private lobbyNoticePanelOpen = false;
   private lobbyPlaceholderDialog: LobbyPlaceholderDialogState | null = null;
+  private gachaResultMode: GachaPreviewResultMode | null = null;
   private selectedLobbyStageCode: string | null = null;
   private selectedLobbyFormationHeroIds: number[] = [];
 
@@ -211,6 +245,10 @@ export class LootChainGameRoot extends Component {
       this.renderGachaScene();
       return;
     }
+    if (this.currentView === 'gachaResult') {
+      this.renderGachaResultScene();
+      return;
+    }
     if (this.isLobbyScenePageView(this.currentView)) {
       this.renderLobbyScenePage();
       return;
@@ -223,8 +261,8 @@ export class LootChainGameRoot extends Component {
       this.renderProtagonistCreate();
       return;
     }
-    if (this.currentView === 'loginDialog') {
-      this.renderLoginDialog();
+    if (this.currentView === 'loginAccount') {
+      this.renderLoginAccountScene();
       return;
     }
     this.renderLogin();
@@ -236,10 +274,10 @@ export class LootChainGameRoot extends Component {
     this.loginRenderer.renderLogin(layout);
   }
 
-  private renderLoginDialog(): void {
-    this.currentView = 'loginDialog';
+  private renderLoginAccountScene(): void {
+    this.currentView = 'loginAccount';
     const layout = this.renderBase();
-    this.loginRenderer.renderLoginDialog(layout, {
+    this.loginRenderer.renderLoginAccountScene(layout, {
       agreementAccepted: this.loginFlow.agreementAccepted,
       defaultDevUserId: this.loginFlow.defaultDevUserId,
     });
@@ -279,10 +317,16 @@ export class LootChainGameRoot extends Component {
     this.gachaSceneRenderer.render(layout);
   }
 
+  private renderGachaResultScene(): void {
+    this.currentView = 'gachaResult';
+    const layout = this.renderBase();
+    this.gachaSceneRenderer.renderResultScene(layout, this.gachaResultMode ?? 'once');
+  }
+
   private renderLobbyScenePage(): void {
     const layout = this.renderBase();
-    // 功能页仍复用大厅动态背景作统一世界底图，但不渲染大厅 HUD，避免看起来像弹框。
-    this.renderLobbyBackground(layout);
+    // 大厅功能入口必须切换到独立全屏逻辑场景，不再把内容浮在大厅背景/HUD 上。
+    this.renderLobbyFeatureSceneBackdrop(layout);
     if (this.currentView === 'profile') {
       this.renderPlayerProfileDialog(layout);
       return;
@@ -415,25 +459,24 @@ export class LootChainGameRoot extends Component {
     const scale = Math.max(0.7, Math.min(1, layout.uiScale));
     const centerX = (layout.stageLeft + layout.stageRight) / 2;
     const centerY = (layout.stageTop + layout.stageBottom) / 2;
-    const pagePadding = Math.max(16 * scale, Math.min(34 * scale, layout.safeWidth * 0.026));
-    const panelWidth = Math.max(280 * scale, layout.safeWidth - pagePadding * 2);
-    const panelHeight = Math.max(220 * scale, layout.safeHeight - pagePadding * 2);
+    const panelWidth = Math.max(280 * scale, layout.stageWidth);
+    const panelHeight = Math.max(220 * scale, layout.stageHeight);
 
-    // 未开放入口以独立场景页承载，只给本地反馈，不承载任何跳转、领取、购买或经济写入逻辑。
-    const dim = this.addRect('LobbyPlaceholderDim', centerX, centerY, layout.width, layout.height, new Color(0, 0, 0, 142));
-    dim.node.addComponent(BlockInputEvents);
+    // 未开放入口以独立全屏逻辑场景承载，只给本地反馈，不承载任何跳转、领取、购买或经济写入逻辑。
+    const scene = this.addRect('LobbyPlaceholderSceneRoot', centerX, centerY, layout.width, layout.height, new Color(0, 0, 0, 178));
+    scene.node.addComponent(BlockInputEvents);
 
     const panel = this.addBeveledPanelNode(
-      'LobbyPlaceholderPanel',
+      'LobbyPlaceholderScenePanel',
       centerX,
       centerY,
       panelWidth,
       panelHeight,
-      new Color(8, 7, 9, 238),
+      new Color(8, 7, 9, 232),
       new Color(185, 138, 58, 220),
       16 * scale,
     );
-    // 面板本体阻挡输入事件，避免点击弹框内容区时穿透到遮罩关闭弹框。
+    // 场景页本体阻挡输入事件，避免内容区点击穿透到底层大厅。
     panel.addComponent(BlockInputEvents);
     const titleLabel = this.addChildLabel(
       panel,
@@ -489,14 +532,14 @@ export class LootChainGameRoot extends Component {
       boundary.overflow = Label.Overflow.SHRINK;
     }
 
-    const okWidth = Math.min(180 * scale, panelWidth - 82 * scale);
-    const okHeight = 44 * scale;
-    const okButton = this.addChildPlainNode(panel, 'LobbyPlaceholderOkButton', 0, -panelHeight / 2 + 48 * scale, okWidth, okHeight);
-    this.drawBeveledPanelOnNode(okButton, okWidth, okHeight, new Color(22, 18, 17, 224), new Color(185, 138, 58, 218), 12 * scale);
-    okButton.addComponent(Button);
-    okButton.on(Button.EventType.CLICK, () => this.closeLobbyPlaceholderDialog(), this);
-    this.applyImageButtonFeedback(okButton, 1.025, 0.975);
-    this.addChildLabel(okButton, 'LobbyPlaceholderOkLabel', '返回大厅', 0, 0, 20 * scale, new Color(245, 210, 122), new Size(okWidth, okHeight));
+    renderSceneBackButton(
+      this as unknown as SceneBackButtonHost,
+      panel,
+      layout,
+      'LobbyPlaceholderBackButton',
+      () => this.closeLobbyPlaceholderDialog(),
+      scale,
+    );
   }
 
   private placeholderSubtitle(title: string, detail: string): string {
@@ -543,7 +586,7 @@ export class LootChainGameRoot extends Component {
     this.lobbyNoticePanelOpen = false;
     this.lobbyPlaceholderDialog = null;
     this.currentView = 'lobby';
-    this.renderLobby();
+    this.renderCurrentView();
   }
 
   private renderCurrentLobbyScenePage(): void {
@@ -608,6 +651,8 @@ export class LootChainGameRoot extends Component {
   private removePlayerProfileDialog(): void {
     this.removeNodeFromContent('LobbyProfileDim');
     this.removeNodeFromContent('LobbyProfilePanel');
+    this.removeNodeFromContent('LobbyProfileSceneRoot');
+    this.removeNodeFromContent('LobbyProfileSceneContent');
   }
 
   private openLobbyAdventurePanel(): void {
@@ -636,6 +681,7 @@ export class LootChainGameRoot extends Component {
   private removeLobbyAdventurePanel(): void {
     this.removeNodeFromContent('LobbyAdventureDim');
     this.removeNodeFromContent('LobbyAdventurePanel');
+    this.removeNodeFromContent('LobbyAdventureSceneContent');
   }
 
   private reloadLobbyAdventure(): void {
@@ -867,6 +913,7 @@ export class LootChainGameRoot extends Component {
   private removeLobbyFormationPanel(): void {
     this.removeNodeFromContent('LobbyFormationDim');
     this.removeNodeFromContent('LobbyFormationPanel');
+    this.removeNodeFromContent('LobbyFormationSceneContent');
   }
 
   private closeLobbyCodexPanel(): void {
@@ -879,6 +926,7 @@ export class LootChainGameRoot extends Component {
   private removeLobbyCodexPanel(): void {
     this.removeNodeFromContent('LobbyCodexDim');
     this.removeNodeFromContent('LobbyCodexPanel');
+    this.removeNodeFromContent('LobbyCodexSceneContent');
   }
 
   private reloadLobbyCodex(): void {
@@ -914,6 +962,7 @@ export class LootChainGameRoot extends Component {
   private removeLobbyHeroRosterPanel(): void {
     this.removeNodeFromContent('LobbyHeroRosterDim');
     this.removeNodeFromContent('LobbyHeroRosterPanel');
+    this.removeNodeFromContent('LobbyHeroRosterSceneContent');
   }
 
   private reloadLobbyHeroRoster(): void {
@@ -953,6 +1002,7 @@ export class LootChainGameRoot extends Component {
   private removeLobbyHeroDetailPanel(): void {
     this.removeNodeFromContent('LobbyHeroDetailDim');
     this.removeNodeFromContent('LobbyHeroDetailPanel');
+    this.removeNodeFromContent('LobbyHeroDetailSceneContent');
   }
 
   private currentLobbyHeroDetailHero(): LobbyHeroItemVO | null {
@@ -1026,17 +1076,35 @@ export class LootChainGameRoot extends Component {
     this.lobbyHeroRosterPanelOpen = false;
     this.lobbyNoticePanelOpen = false;
     this.lobbyPlaceholderDialog = null;
+    this.gachaResultMode = null;
     this.currentView = 'gacha';
     this.renderCurrentView();
     this.setStatus('已进入召唤预览页，当前不会扣资源或发放英雄。');
   }
 
-  private closeGachaScene(): void {
-    if (this.currentView !== 'gacha') {
+  private openGachaMockResultScene(mode: GachaPreviewResultMode): void {
+    this.gachaResultMode = mode;
+    this.currentView = 'gachaResult';
+    this.renderCurrentView();
+    this.setStatus('本地结果预览：不扣资源、不发英雄、不写入抽卡记录或保底。');
+  }
+
+  private closeGachaMockResultScene(): void {
+    if (this.currentView !== 'gachaResult') {
       return;
     }
+    this.gachaResultMode = null;
+    this.currentView = 'gacha';
+    this.renderCurrentView();
+  }
+
+  private closeGachaScene(): void {
+    if (this.currentView !== 'gacha' && this.currentView !== 'gachaResult') {
+      return;
+    }
+    this.gachaResultMode = null;
     this.currentView = 'lobby';
-    this.renderLobby();
+    this.renderCurrentView();
   }
 
   private closeLobbyNoticePanel(): void {
@@ -1049,6 +1117,7 @@ export class LootChainGameRoot extends Component {
   private removeLobbyNoticePanel(): void {
     this.removeNodeFromContent('LobbyNoticeDim');
     this.removeNodeFromContent('LobbyNoticePanel');
+    this.removeNodeFromContent('LobbyNoticeSceneContent');
   }
 
   private reloadLobbyNotices(): void {
@@ -1087,8 +1156,8 @@ export class LootChainGameRoot extends Component {
   }
 
   private removeLobbyPlaceholderDialog(): void {
-    this.removeNodeFromContent('LobbyPlaceholderDim');
-    this.removeNodeFromContent('LobbyPlaceholderPanel');
+    this.removeNodeFromContent('LobbyPlaceholderSceneRoot');
+    this.removeNodeFromContent('LobbyPlaceholderScenePanel');
   }
 
   private async loadLobbyProfile(userId: number): Promise<void> {
@@ -1143,6 +1212,7 @@ export class LootChainGameRoot extends Component {
   }
 
   private renderBase(): UiLayout {
+    this.setLoginSceneStageVisible(this.isLoginSceneView(this.currentView));
     const layout = this.resolveLayout();
     this.applyRootSize(layout);
     this.layoutKey = this.makeLayoutKey();
@@ -1154,8 +1224,39 @@ export class LootChainGameRoot extends Component {
     return layout;
   }
 
+  private renderLobbyWorldBase(): UiLayout {
+    this.setLoginSceneStageVisible(false);
+    const layout = this.resolveLayout();
+    this.applyRootSize(layout);
+    this.layoutKey = this.makeLayoutKey();
+    this.setPointerCursor(false);
+    this.statusPresenter.reset();
+    // 大厅功能页只替换 HUD/页面层，保留已在播放的大厅 poster/video，避免露出登录背景。
+    this.contentRootController.clearExcept(LOBBY_BACKGROUND_NODE_NAMES);
+    return layout;
+  }
+
   private renderLobbyBackground(layout: UiLayout): void {
     this.lobbyBackgroundController.render(layout);
+  }
+
+  private renderLobbyFeatureSceneBackdrop(layout: UiLayout): void {
+    const centerX = (layout.stageLeft + layout.stageRight) / 2;
+    const centerY = (layout.stageTop + layout.stageBottom) / 2;
+    const backdrop = this.addRect('LobbyFeatureSceneBackdrop', centerX, centerY, layout.width, layout.height, new Color(2, 2, 5, 255));
+    backdrop.fillColor = new Color(12, 8, 10, 230);
+    backdrop.rect(layout.stageLeft - centerX, layout.stageBottom - centerY, layout.stageWidth, layout.stageHeight);
+    backdrop.fill();
+    backdrop.fillColor = new Color(72, 10, 16, 74);
+    backdrop.circle(layout.stageRight - centerX - layout.stageWidth * 0.2, layout.stageTop - centerY - layout.stageHeight * 0.22, Math.min(layout.stageWidth, layout.stageHeight) * 0.42);
+    backdrop.fill();
+    backdrop.strokeColor = new Color(154, 105, 48, 86);
+    backdrop.lineWidth = Math.max(1, 1.4 * layout.uiScale);
+    backdrop.moveTo(layout.stageLeft - centerX + 28 * layout.uiScale, layout.stageTop - centerY - 72 * layout.uiScale);
+    backdrop.lineTo(layout.stageRight - centerX - 28 * layout.uiScale, layout.stageTop - centerY - 72 * layout.uiScale);
+    backdrop.moveTo(layout.stageLeft - centerX + 28 * layout.uiScale, layout.stageBottom - centerY + 70 * layout.uiScale);
+    backdrop.lineTo(layout.stageRight - centerX - 28 * layout.uiScale, layout.stageBottom - centerY + 70 * layout.uiScale);
+    backdrop.stroke();
   }
 
   private resizeLobbyBackground(layout: UiLayout): void {
@@ -1176,6 +1277,48 @@ export class LootChainGameRoot extends Component {
 
   private isLobbyViewActive(): boolean {
     return this.currentView === 'lobby' || this.isLobbyScenePageView(this.currentView);
+  }
+
+  private isLoginSceneView(view: ViewName): boolean {
+    return view === 'login' || view === 'loginAccount';
+  }
+
+  private setLoginSceneStageVisible(visible: boolean): void {
+    // 登录页当前只允许展示 Login_BG_Poster / Login_BG_Video；旧静态舞台层会压住视频，统一关闭。
+    for (const nodeName of LOGIN_SCENE_BACKGROUND_NODE_NAMES) {
+      const stageNode = this.node.getChildByName(nodeName);
+      if (!stageNode) {
+        continue;
+      }
+      stageNode.active = visible;
+      if (visible) {
+        this.tryPlayLoginSceneVideo(stageNode);
+      }
+    }
+    for (const nodeName of LOGIN_SCENE_LEGACY_NODE_NAMES) {
+      const stageNode = this.node.getChildByName(nodeName);
+      if (stageNode) {
+        stageNode.active = false;
+      }
+    }
+  }
+
+  private tryPlayLoginSceneVideo(node: Node): void {
+    for (const background of node.getComponents(LoginVideoBackground)) {
+      background.resumeForLoginView();
+    }
+    for (const video of node.getComponents(VideoPlayer)) {
+      try {
+        video.mute = true;
+        video.volume = 0;
+        video.play();
+      } catch (error) {
+        console.warn('[LootChain] login background video play failed:', error);
+      }
+    }
+    for (const child of node.children) {
+      this.tryPlayLoginSceneVideo(child);
+    }
   }
 
   private showLobbyLoadingView(): void {
@@ -1227,8 +1370,8 @@ export class LootChainGameRoot extends Component {
     this.protagonistCreateFlow.setNameInput(input);
   }
 
-  private openLoginDialog(): void {
-    this.renderLoginDialog();
+  private openLoginAccountScene(): void {
+    this.renderLoginAccountScene();
   }
 
   private submitLogin(): void {
@@ -1237,7 +1380,7 @@ export class LootChainGameRoot extends Component {
 
   private toggleLoginAgreement(): void {
     this.loginFlow.toggleAgreement();
-    this.renderLoginDialog();
+    this.renderLoginAccountScene();
   }
 
   private showProtagonistCreateView(): void {
@@ -1470,7 +1613,7 @@ export class LootChainGameRoot extends Component {
     const stageKey = `${Math.round(layout.stageLeft)},${Math.round(layout.stageBottom)},${Math.round(layout.stageWidth)}x${Math.round(layout.stageHeight)}`;
     // Cocos Preview 在固定设计分辨率下可能只改变浏览器物理视口，必须纳入 key 才会重排 HUD。
     const viewportKey = `${Math.round(layout.viewportWidth)}x${Math.round(layout.viewportHeight)}`;
-    return `${this.currentView}:${layout.width}x${layout.height}:${viewportKey}:${stageKey}:${this.loginFlow.agreementAccepted ? 'agree' : 'deny'}:${this.protagonistCreateFlow.version}:${this.lobbyProfileOpen ? 'profile-open' : 'profile-closed'}:${this.lobbyAdventurePanelOpen ? 'adventure-open' : 'adventure-closed'}:${this.lobbyAdventureLoader.version}:${this.selectedLobbyStageCode}:${this.lobbyBattlePreviewPanelOpen ? 'battle-open' : 'battle-closed'}:${this.lobbyBattleFlow.currentState().version}:${this.lobbyCodexPanelOpen ? 'codex-open' : 'codex-closed'}:${this.lobbyCodexLoader.version}:${this.lobbyFormationPanelOpen ? 'formation-open' : 'formation-closed'}:${this.selectedLobbyFormationHeroIds.join(',')}:${this.lobbyHeroRosterPanelOpen ? 'heroes-open' : 'heroes-closed'}:${this.lobbyHeroDetailHeroId ?? 'detail-closed'}:${this.lobbyHeroRosterLoader.version}:${this.lobbyNoticePanelOpen ? 'notice-open' : 'notice-closed'}:${this.lobbyNoticeLoader.version}:${this.currentView === 'gacha' ? 'gacha-open' : 'gacha-closed'}:${this.lobbyPlaceholderDialog ? 'placeholder-open' : 'placeholder-closed'}`;
+    return `${this.currentView}:${layout.width}x${layout.height}:${viewportKey}:${stageKey}:${this.loginFlow.agreementAccepted ? 'agree' : 'deny'}:${this.protagonistCreateFlow.version}:${this.lobbyProfileOpen ? 'profile-open' : 'profile-closed'}:${this.lobbyAdventurePanelOpen ? 'adventure-open' : 'adventure-closed'}:${this.lobbyAdventureLoader.version}:${this.selectedLobbyStageCode}:${this.lobbyBattlePreviewPanelOpen ? 'battle-open' : 'battle-closed'}:${this.lobbyBattleFlow.currentState().version}:${this.lobbyCodexPanelOpen ? 'codex-open' : 'codex-closed'}:${this.lobbyCodexLoader.version}:${this.lobbyFormationPanelOpen ? 'formation-open' : 'formation-closed'}:${this.selectedLobbyFormationHeroIds.join(',')}:${this.lobbyHeroRosterPanelOpen ? 'heroes-open' : 'heroes-closed'}:${this.lobbyHeroDetailHeroId ?? 'detail-closed'}:${this.lobbyHeroRosterLoader.version}:${this.lobbyNoticePanelOpen ? 'notice-open' : 'notice-closed'}:${this.lobbyNoticeLoader.version}:${this.currentView === 'gacha' ? 'gacha-open' : 'gacha-closed'}:${this.gachaResultMode ?? 'gacha-result-closed'}:${this.lobbyPlaceholderDialog ? 'placeholder-open' : 'placeholder-closed'}`;
   }
 
   private resolveLobbyStageCode(stageCode?: string | null): string | null {

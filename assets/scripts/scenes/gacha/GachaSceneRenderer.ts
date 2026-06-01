@@ -1,4 +1,5 @@
 import {
+  assetManager,
   BlockInputEvents,
   Button,
   Color,
@@ -6,29 +7,47 @@ import {
   HorizontalTextAlignment,
   Label,
   Node,
+  resources,
   Size,
   Sprite,
+  sp,
   UITransform,
   UIOpacity,
   Vec3,
   tween,
 } from 'cc';
 import { safeText } from '../UiTextFormatter';
+import { renderSceneBackButton } from '../UiSceneBackButton';
 import { clamp, rgba, type UiLayout } from '../lobby/LobbyHudTypes';
 import {
+  GACHA_ABYSS_FALLBACK_SPINE_IDLE_ANIMATION,
+  GACHA_ABYSS_FALLBACK_SPINE_INTRO_ANIMATION,
+  GACHA_ABYSS_FALLBACK_SPINE_RESOURCE,
+  GACHA_ABYSS_FALLBACK_SPINE_SKIN,
+  GACHA_ABYSS_FALLBACK_SPINE_UUID,
+  GACHA_ABYSS_SPINE_RESOURCE,
+  GACHA_ABYSS_SPINE_IDLE_ANIMATION,
+  GACHA_ABYSS_SPINE_INTRO_ANIMATION,
+  GACHA_ABYSS_SPINE_SKIN,
+  GACHA_ABYSS_SPINE_UUID,
   GACHA_BACKGROUND_ASSET,
-  GACHA_PREVIEW_CARDS,
+  GACHA_MOCK_RESULT_ONCE,
+  GACHA_MOCK_RESULT_TEN,
   GACHA_PREVIEW_POOLS,
   GACHA_RIGHT_ACTIONS,
   gachaRarityTone,
-  type GachaPreviewCard,
+  type GachaMockResultItem,
   type GachaPreviewPool,
   type GachaRarity,
 } from './GachaSceneConfig';
 
+export type GachaPreviewResultMode = 'once' | 'ten';
+
 export interface GachaSceneHost {
   node: Node;
   closeGachaScene(): void;
+  openGachaMockResultScene(mode: GachaPreviewResultMode): void;
+  closeGachaMockResultScene(): void;
   createUiNode(name: string): Node;
   addSprite(name: string, assetPath: string, x: number, y: number, width: number, height: number, parent?: Node): Sprite | null;
   addChildPlainNode(parent: Node, name: string, x: number, y: number, width: number, height: number): Node;
@@ -51,6 +70,15 @@ export interface GachaSceneHost {
 /** 抽奖全屏预览页。
  * 当前阶段只做视觉、布局和只读规则入口，不触发真实扣费、发奖、保底或兑换写入。 */
 export class GachaSceneRenderer {
+  private abyssSpineData: sp.SkeletonData | null = null;
+  private abyssSpineLoading = false;
+  private abyssSpineLoadFailed = false;
+  private readonly abyssSpineLoadCallbacks: Array<(data: sp.SkeletonData) => void> = [];
+  private abyssFallbackSpineData: sp.SkeletonData | null = null;
+  private abyssFallbackSpineLoading = false;
+  private abyssFallbackSpineLoadFailed = false;
+  private readonly abyssFallbackSpineLoadCallbacks: Array<(data: sp.SkeletonData) => void> = [];
+
   constructor(private readonly host: GachaSceneHost) {}
 
   render(layout: UiLayout): void {
@@ -71,9 +99,24 @@ export class GachaSceneRenderer {
       return;
     }
     this.renderPoolRail(root, layout, scale);
-    this.renderCenterStage(root, layout, scale, GACHA_PREVIEW_CARDS);
+    this.renderCenterStage(root, layout, scale);
     this.renderRightPanel(root, layout, scale);
     this.renderBottomSummonBar(root, layout, scale);
+  }
+
+  renderResultScene(layout: UiLayout, mode: GachaPreviewResultMode): void {
+    const scale = this.resolveScale(layout);
+    const centerX = (layout.stageLeft + layout.stageRight) / 2;
+    const centerY = (layout.stageTop + layout.stageBottom) / 2;
+    const root = this.createUiNode('GachaResultSceneRoot');
+    root.setPosition(new Vec3(centerX, centerY, 0));
+    root.addComponent(UITransform).setContentSize(new Size(layout.width, layout.height));
+    root.addComponent(BlockInputEvents);
+
+    this.renderBackground(root, layout);
+    this.renderAbyssAtmosphere(root, layout, scale);
+    this.renderTopBar(root, layout, scale);
+    this.renderMockResultSceneContent(root, layout, scale, mode);
   }
 
   private createUiNode(name: string): Node {
@@ -107,16 +150,6 @@ export class GachaSceneRenderer {
     graphics.fillColor = rgba(0, 0, 0, 84);
     graphics.rect(-layout.width / 2, -layout.height / 2, layout.width, layout.height);
     graphics.fill();
-    graphics.fillColor = rgba(103, 0, 16, 34);
-    graphics.circle(0, layout.stageHeight * 0.16, Math.min(layout.stageWidth, layout.stageHeight) * 0.38);
-    graphics.fill();
-    graphics.strokeColor = rgba(225, 48, 58, 76);
-    graphics.lineWidth = Math.max(1, 2 * scale);
-    for (let index = 0; index < 3; index += 1) {
-      const radius = (128 + index * 52) * scale;
-      graphics.circle(0, -layout.stageHeight * 0.17, radius);
-    }
-    graphics.stroke();
     const opacity = layer.addComponent(UIOpacity);
     opacity.opacity = 190;
     // 只用低频透明度呼吸，保证预览页有生命感但不会影响低端设备。
@@ -126,17 +159,7 @@ export class GachaSceneRenderer {
   private renderTopBar(parent: Node, layout: UiLayout, scale: number): void {
     const y = layout.stageTop - 42 * scale;
     const titleX = layout.stageLeft + 112 * scale;
-    const back = this.host.addChildPlainNode(parent, 'GachaBackButton', layout.stageLeft + 46 * scale, y, 60 * scale, 44 * scale);
-    back.addComponent(Button);
-    back.on(Button.EventType.CLICK, () => this.host.closeGachaScene(), this);
-    this.host.applyImageButtonFeedback(back, 1.04, 0.96);
-    const backGraphics = back.addComponent(Graphics);
-    backGraphics.strokeColor = rgba(218, 170, 84, 220);
-    backGraphics.lineWidth = Math.max(2, 2 * scale);
-    backGraphics.moveTo(14 * scale, 15 * scale);
-    backGraphics.lineTo(-13 * scale, 0);
-    backGraphics.lineTo(14 * scale, -15 * scale);
-    backGraphics.stroke();
+    renderSceneBackButton(this.host, parent, layout, 'GachaBackButton', () => this.host.closeGachaScene(), scale);
 
     const title = this.host.addChildLabel(parent, 'GachaTitle', '召唤', titleX, y + 1 * scale, 31 * scale, rgba(250, 221, 156), new Size(150 * scale, 46 * scale), HorizontalTextAlignment.LEFT);
     title.overflow = Label.Overflow.SHRINK;
@@ -217,56 +240,243 @@ export class GachaSceneRenderer {
     subline.overflow = Label.Overflow.SHRINK;
   }
 
-  private renderCenterStage(parent: Node, layout: UiLayout, scale: number, cards: GachaPreviewCard[]): void {
-    const stageWidth = layout.stageWidth;
-    const centerY = (layout.stageTop + layout.stageBottom) / 2 - 8 * scale;
-    const baseCardWidth = clamp(stageWidth * 0.12, 126 * scale, 238 * scale);
-    const baseCardHeight = baseCardWidth * 1.58;
-    const spacing = clamp(stageWidth * 0.105, 110 * scale, 205 * scale);
-    const offsets = cards.length === 3 ? [-1, 0, 1] : [-2, -1, 0, 1, 2];
-    const activeIndex = Math.floor(cards.length / 2);
-    for (let index = 0; index < cards.length; index += 1) {
-      const card = cards[index];
-      const offset = offsets[index] ?? 0;
-      const width = baseCardWidth * card.scale;
-      const height = baseCardHeight * card.scale;
-      const x = offset * spacing;
-      const y = centerY + (card.scale < 1 ? -22 * scale : 0);
-      this.renderPreviewCard(parent, card, x, y, width, height, scale, index === activeIndex);
-    }
+  private renderCenterStage(parent: Node, layout: UiLayout, scale: number): void {
+    this.renderAbyssSpineStage(parent, layout, scale);
     this.renderPityLine(parent, layout, scale);
   }
 
-  private renderPreviewCard(parent: Node, card: GachaPreviewCard, x: number, y: number, width: number, height: number, scale: number, active: boolean): void {
-    const node = this.host.addChildPlainNode(parent, `GachaPreviewCard_${card.rarity}_${safeText(card.name)}`, x, y, width, height);
-    const tone = gachaRarityTone(card.rarity);
-    const graphics = node.addComponent(Graphics);
-    graphics.fillColor = tone.fill;
-    graphics.rect(-width / 2, -height / 2, width, height);
+  private renderAbyssSpineStage(parent: Node, layout: UiLayout, scale: number): void {
+    const stageWidth = clamp(layout.stageWidth * 0.46, 390 * scale, 730 * scale);
+    const stageHeight = clamp(layout.stageHeight * 0.63, 360 * scale, 610 * scale);
+    const centerY = (layout.stageTop + layout.stageBottom) / 2 - 18 * scale;
+    const stage = this.host.addChildPlainNode(parent, 'GachaAbyssSpineStage', 0, centerY, stageWidth, stageHeight);
+    const graphics = stage.addComponent(Graphics);
+    graphics.fillColor = rgba(0, 0, 0, 70);
+    graphics.ellipse(0, -stageHeight * 0.34, stageWidth * 0.34, stageHeight * 0.09);
     graphics.fill();
-    graphics.strokeColor = tone.stroke;
-    graphics.lineWidth = Math.max(1.4, active ? 3 * scale : 1.6 * scale);
-    graphics.stroke();
-    graphics.fillColor = tone.glow;
-    graphics.rect(-width / 2, height * 0.12, width, height * 0.38);
-    graphics.fill();
-    this.drawCardOrnaments(graphics, width, height, scale, active);
-    this.drawPortraitSilhouette(graphics, width, height, scale, card.rarity);
 
-    const rarity = this.host.addChildLabel(node, 'GachaCardRarity', card.rarity, -width / 2 + 18 * scale, height / 2 - 34 * scale, active ? 34 * scale : 26 * scale, tone.text, new Size(width - 36 * scale, 44 * scale), HorizontalTextAlignment.LEFT);
-    rarity.overflow = Label.Overflow.SHRINK;
-    this.applyOutline(rarity, scale, true);
-    const name = this.host.addChildLabel(node, 'GachaCardName', card.name, 0, -height / 2 + 72 * scale, active ? 27 * scale : 20 * scale, rgba(249, 223, 161), new Size(width - 28 * scale, 35 * scale));
-    name.overflow = Label.Overflow.SHRINK;
-    this.applyOutline(name, scale, true);
-    const title = this.host.addChildLabel(node, 'GachaCardTitle', card.title, 0, -height / 2 + 38 * scale, active ? 18 * scale : 14 * scale, rgba(204, 171, 111), new Size(width - 32 * scale, 25 * scale));
-    title.overflow = Label.Overflow.SHRINK;
-    const stars = this.host.addChildLabel(node, 'GachaCardStars', '★'.repeat(card.stars), 0, -height / 2 + 15 * scale, active ? 21 * scale : 16 * scale, tone.text, new Size(width - 32 * scale, 24 * scale));
-    stars.overflow = Label.Overflow.SHRINK;
-    if (active) {
-      // 中央主卡做轻微呼吸，模拟召唤卡待机，不涉及任何结果随机。
-      tween(node).repeatForever(tween().to(1.25, { scale: new Vec3(1.018, 1.018, 1) }).to(1.25, { scale: Vec3.ONE })).start();
+    const spineNode = this.host.addChildPlainNode(stage, 'GachaAbyssSpineNode', 0, -stageHeight * 0.23, stageWidth, stageHeight);
+    const skeleton = spineNode.addComponent(sp.Skeleton);
+    skeleton.premultipliedAlpha = false;
+    skeleton.timeScale = 0.78;
+    const spineScale = this.resolveAbyssSpineScale(layout, scale);
+    spineNode.setScale(new Vec3(spineScale, spineScale, 1));
+
+    const fallback = this.renderAbyssSpineFallback(stage, stageWidth, stageHeight, scale);
+    this.ensureAbyssSpineData((data) => {
+      if (!skeleton.node.isValid) {
+        return;
+      }
+      if (this.applyAbyssSpineData(skeleton, data, 'huangfengjiaozong', GACHA_ABYSS_SPINE_SKIN, GACHA_ABYSS_SPINE_INTRO_ANIMATION, GACHA_ABYSS_SPINE_IDLE_ANIMATION)) {
+        if (fallback.isValid) {
+          fallback.destroy();
+        }
+        return;
+      }
+      this.ensureAbyssFallbackSpineData((fallbackData) => {
+        if (!skeleton.node.isValid) {
+          return;
+        }
+        if (this.applyAbyssSpineData(skeleton, fallbackData, 'Lord of the Dark Abyss', GACHA_ABYSS_FALLBACK_SPINE_SKIN, GACHA_ABYSS_FALLBACK_SPINE_INTRO_ANIMATION, GACHA_ABYSS_FALLBACK_SPINE_IDLE_ANIMATION)) {
+          if (fallback.isValid) {
+            fallback.destroy();
+          }
+          this.host.setStatus('huangfengjiaozong Spine 运行时解析失败，已临时显示可用预览 Spine；需要重新导出 huangfengjiaozong。');
+        }
+      });
+    });
+  }
+
+  private renderAbyssSpineFallback(parent: Node, width: number, height: number, scale: number): Node {
+    const node = this.host.addChildPlainNode(parent, 'GachaAbyssSpineLoadingFallback', 0, -height * 0.12, width * 0.46, height * 0.52);
+    const graphics = node.addComponent(Graphics);
+    graphics.fillColor = rgba(10, 5, 8, 116);
+    graphics.rect(-width * 0.23, -height * 0.26, width * 0.46, height * 0.52);
+    graphics.fill();
+    graphics.strokeColor = rgba(210, 154, 73, 140);
+    graphics.lineWidth = Math.max(1, 1.2 * scale);
+    graphics.stroke();
+    graphics.fillColor = rgba(122, 12, 18, 78);
+    graphics.circle(0, 0, Math.min(width, height) * 0.18);
+    graphics.fill();
+    const label = this.host.addChildLabel(node, 'GachaAbyssSpineLoadingLabel', '黄风教宗准备中', 0, -height * 0.18, 18 * scale, rgba(225, 190, 112), new Size(width * 0.42, 30 * scale));
+    label.overflow = Label.Overflow.SHRINK;
+    this.applyOutline(label, scale, false);
+    const opacity = node.addComponent(UIOpacity);
+    opacity.opacity = 160;
+    tween(opacity).repeatForever(tween().to(0.9, { opacity: 230 }).to(0.9, { opacity: 130 })).start();
+    return node;
+  }
+
+  private resolveAbyssSpineScale(layout: UiLayout, scale: number): number {
+    const stageFactor = clamp(Math.min(layout.stageWidth / 1920, layout.stageHeight / 1080), 0.58, 1.15);
+    return 0.36 * scale * stageFactor;
+  }
+
+  private ensureAbyssSpineData(onLoaded: (data: sp.SkeletonData) => void): void {
+    if (this.abyssSpineData) {
+      onLoaded(this.abyssSpineData);
+      return;
     }
+    if (this.abyssSpineLoadFailed) {
+      return;
+    }
+    this.abyssSpineLoadCallbacks.push(onLoaded);
+    if (this.abyssSpineLoading) {
+      return;
+    }
+    this.abyssSpineLoading = true;
+    resources.load(GACHA_ABYSS_SPINE_RESOURCE, sp.SkeletonData, (resourceError: Error | null, data: sp.SkeletonData | null) => {
+      if (!resourceError && data) {
+        this.finishAbyssSpineLoad(data);
+        return;
+      }
+      assetManager.loadAny({ uuid: GACHA_ABYSS_SPINE_UUID }, (uuidError: Error | null, asset: unknown) => {
+        if (!uuidError && asset) {
+          this.finishAbyssSpineLoad(asset as sp.SkeletonData);
+          return;
+        }
+        this.abyssSpineLoading = false;
+        this.abyssSpineLoadFailed = true;
+        this.abyssSpineLoadCallbacks.length = 0;
+        const message = resourceError?.message || uuidError?.message || 'unknown error';
+        console.warn(`[Gacha] huangfengjiaozong spine load failed: ${message}`);
+        this.host.setStatus('召唤 Spine 资源加载失败，请确认 assets/resources/spine/gacha/huangfengjiaozong 已重新导入。');
+      });
+    });
+  }
+
+  private finishAbyssSpineLoad(data: sp.SkeletonData): void {
+    this.abyssSpineLoading = false;
+    this.abyssSpineData = data;
+    const callbacks = this.abyssSpineLoadCallbacks.splice(0);
+    callbacks.forEach((callback) => callback(data));
+  }
+
+  private ensureAbyssFallbackSpineData(onLoaded: (data: sp.SkeletonData) => void): void {
+    if (this.abyssFallbackSpineData) {
+      onLoaded(this.abyssFallbackSpineData);
+      return;
+    }
+    if (this.abyssFallbackSpineLoadFailed) {
+      return;
+    }
+    this.abyssFallbackSpineLoadCallbacks.push(onLoaded);
+    if (this.abyssFallbackSpineLoading) {
+      return;
+    }
+    this.abyssFallbackSpineLoading = true;
+    resources.load(GACHA_ABYSS_FALLBACK_SPINE_RESOURCE, sp.SkeletonData, (resourceError: Error | null, data: sp.SkeletonData | null) => {
+      if (!resourceError && data) {
+        this.finishAbyssFallbackSpineLoad(data);
+        return;
+      }
+      assetManager.loadAny({ uuid: GACHA_ABYSS_FALLBACK_SPINE_UUID }, (uuidError: Error | null, asset: unknown) => {
+        if (!uuidError && asset) {
+          this.finishAbyssFallbackSpineLoad(asset as sp.SkeletonData);
+          return;
+        }
+        this.abyssFallbackSpineLoading = false;
+        this.abyssFallbackSpineLoadFailed = true;
+        this.abyssFallbackSpineLoadCallbacks.length = 0;
+        const message = resourceError?.message || uuidError?.message || 'unknown error';
+        console.warn(`[Gacha] fallback spine load failed: ${message}`);
+        this.host.setStatus('huangfengjiaozong Spine 解析失败，备用预览 Spine 也加载失败，请检查 resources/spine/gacha 资源导入。');
+      });
+    });
+  }
+
+  private finishAbyssFallbackSpineLoad(data: sp.SkeletonData): void {
+    this.abyssFallbackSpineLoading = false;
+    this.abyssFallbackSpineData = data;
+    const callbacks = this.abyssFallbackSpineLoadCallbacks.splice(0);
+    callbacks.forEach((callback) => callback(data));
+  }
+
+  private applyAbyssSpineData(
+    skeleton: sp.Skeleton,
+    data: sp.SkeletonData,
+    assetLabel: string,
+    preferredSkin: string,
+    preferredIntroAnimation: string,
+    preferredIdleAnimation: string,
+  ): boolean {
+    try {
+      skeleton.skeletonData = data;
+      const runtimeData = data.getRuntimeData(true);
+      if (!runtimeData) {
+        console.warn(`[Gacha] ${assetLabel} spine runtime data missing; skel/atlas/texture may be mismatched or unsupported by Cocos Spine runtime.`);
+        this.host.setStatus(`${assetLabel} Spine 运行时解析失败，请检查 skel/atlas/texture 是否匹配。`);
+        return false;
+      }
+      const skinName = this.resolveAbyssSpineSkinName(data, preferredSkin);
+      if (skinName) {
+        skeleton.setSkin(skinName);
+        skeleton.setSlotsToSetupPose();
+      }
+      const idleAnimation = this.resolveAbyssSpineAnimationName(data, preferredIdleAnimation);
+      if (!idleAnimation) {
+        skeleton.setToSetupPose();
+        this.logAbyssSpineResolved(data, skinName, '<setup-pose>', assetLabel);
+        this.host.setStatus(`${assetLabel} 未找到导出动画，已显示静态骨骼首帧。`);
+        return true;
+      }
+      const introAnimation = this.resolveAbyssSpineAnimationName(data, preferredIntroAnimation);
+      if (introAnimation && introAnimation !== idleAnimation) {
+        const introTrack = skeleton.setAnimation(0, introAnimation, false);
+        const idleTrack = skeleton.addAnimation(0, idleAnimation, true, 0);
+        if (!introTrack && !idleTrack) {
+          this.host.setStatus(`召唤 Spine 动画 ${introAnimation}/${idleAnimation} 播放失败。`);
+          return false;
+        }
+        this.logAbyssSpineResolved(data, skinName, idleAnimation, assetLabel);
+        return true;
+      }
+      const track = skeleton.setAnimation(0, idleAnimation, true);
+      if (!track) {
+        this.host.setStatus(`召唤 Spine 动画 ${idleAnimation} 播放失败。`);
+        return false;
+      }
+      this.logAbyssSpineResolved(data, skinName, idleAnimation, assetLabel);
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`[Gacha] ${assetLabel} spine apply failed: ${message}`);
+      this.host.setStatus(`召唤 Spine 播放失败：${message}`);
+      return false;
+    }
+  }
+
+  private resolveAbyssSpineSkinName(data: sp.SkeletonData, preferred: string): string | null {
+    return this.resolveSpineEnumName(data.getSkinsEnum(), preferred, []);
+  }
+
+  private resolveAbyssSpineAnimationName(data: sp.SkeletonData, preferred: string): string | null {
+    return this.resolveSpineEnumName(data.getAnimsEnum(), preferred, ['idle', 'stand', 'loop', 'animation', 'daiji', 'wait', '待机']);
+  }
+
+  private resolveSpineEnumName(enumMap: { [key: string]: number } | null, preferred: string, fallbackHints: string[]): string | null {
+    if (!enumMap) {
+      return null;
+    }
+    const names = Object.keys(enumMap).filter((name) => name !== '<None>' && typeof enumMap[name] === 'number');
+    if (preferred && names.includes(preferred)) {
+      return preferred;
+    }
+    for (const hint of fallbackHints) {
+      const matched = names.find((name) => name.toLowerCase().includes(hint.toLowerCase()));
+      if (matched) {
+        return matched;
+      }
+    }
+    return names[0] ?? null;
+  }
+
+  private logAbyssSpineResolved(data: sp.SkeletonData, skinName: string | null, animationName: string, assetLabel: string): void {
+    const runtimeData = data.getRuntimeData(true);
+    const width = runtimeData?.width ?? 0;
+    const height = runtimeData?.height ?? 0;
+    console.info(`[Gacha] ${assetLabel} spine applied: skin=${skinName ?? '<setup>'}, animation=${animationName}, size=${Math.round(width)}x${Math.round(height)}`);
   }
 
   private drawCardOrnaments(graphics: Graphics, width: number, height: number, scale: number, active: boolean): void {
@@ -407,14 +617,17 @@ export class GachaSceneRenderer {
     const y = layout.stageBottom + 62 * scale;
     const onceWidth = 300 * scale;
     const tenWidth = 360 * scale;
-    this.renderSummonButton(parent, 'GachaSummonOnceButton', '召唤1次', '消耗预览 1', -onceWidth * 0.56, y, onceWidth, 58 * scale, scale, false);
-    this.renderSummonButton(parent, 'GachaSummonTenButton', '召唤10次', '消耗预览 10', tenWidth * 0.46, y, tenWidth, 62 * scale, scale, true);
+    this.renderSummonButton(parent, layout, 'once', 'GachaSummonOnceButton', '召唤1次', '消耗预览 1', -onceWidth * 0.56, y, onceWidth, 58 * scale, scale, false);
+    this.renderSummonButton(parent, layout, 'ten', 'GachaSummonTenButton', '召唤10次', '消耗预览 10', tenWidth * 0.46, y, tenWidth, 62 * scale, scale, true);
   }
 
-  private renderSummonButton(parent: Node, name: string, title: string, cost: string, x: number, y: number, width: number, height: number, scale: number, strong: boolean): void {
+  private renderSummonButton(parent: Node, layout: UiLayout, mode: GachaPreviewResultMode, name: string, title: string, cost: string, x: number, y: number, width: number, height: number, scale: number, strong: boolean): void {
     const node = this.host.addChildPlainNode(parent, name, x, y, width, height);
     node.addComponent(Button);
-    node.on(Button.EventType.CLICK, () => this.host.setStatus('抽奖写入尚未开放：当前不会扣资源、不会发奖、不会更新保底。'), this);
+    node.on(Button.EventType.CLICK, () => {
+      this.host.setStatus('本地结果预览：不扣资源、不发英雄、不写入抽卡记录或保底。');
+      this.host.openGachaMockResultScene(mode);
+    }, this);
     this.host.applyImageButtonFeedback(node, 1.028, 0.965);
     const graphics = node.addComponent(Graphics);
     graphics.fillColor = strong ? rgba(82, 15, 17, 232) : rgba(9, 9, 12, 226);
@@ -433,6 +646,143 @@ export class GachaSceneRenderer {
     costLabel.overflow = Label.Overflow.SHRINK;
   }
 
+  private renderMockResultSceneContent(parent: Node, layout: UiLayout, scale: number, mode: GachaPreviewResultMode): void {
+    const results = mode === 'once' ? GACHA_MOCK_RESULT_ONCE : GACHA_MOCK_RESULT_TEN;
+    const backdropNode = this.host.addChildPlainNode(parent, 'GachaResultSceneBackdrop', 0, 0, layout.width, layout.height);
+    const backdrop = backdropNode.addComponent(Graphics);
+    backdrop.fillColor = rgba(0, 0, 0, 178);
+    backdrop.rect(-layout.width / 2, -layout.height / 2, layout.width, layout.height);
+    backdrop.fill();
+    backdrop.fillColor = rgba(104, 8, 14, 55);
+    backdrop.circle(0, 0, Math.min(layout.width, layout.height) * 0.36);
+    backdrop.fill();
+
+    const panelWidth = Math.max(320 * scale, layout.safeWidth - 34 * scale);
+    const panelHeight = Math.max(260 * scale, layout.safeHeight - 96 * scale);
+    const panel = this.host.addChildBeveledPanelNode(parent, 'GachaResultScenePanel', 0, -24 * scale, panelWidth, panelHeight, rgba(8, 7, 8, 236), rgba(213, 160, 74, 224), 16 * scale);
+    panel.addComponent(BlockInputEvents);
+
+    const title = this.host.addChildLabel(panel, 'GachaResultSceneTitle', mode === 'once' ? '召唤结果预览' : '十连结果预览', 0, panelHeight / 2 - 48 * scale, 31 * scale, rgba(252, 222, 153), new Size(panelWidth - 118 * scale, 46 * scale));
+    title.overflow = Label.Overflow.SHRINK;
+    this.applyOutline(title, scale, true);
+
+    const subtitle = this.host.addChildLabel(panel, 'GachaResultSceneNoWriteNote', '本结果为本地 mock：未扣资源、未写入抽卡记录、未发放英雄、未更新保底。', 0, -panelHeight / 2 + 82 * scale, 15 * scale, rgba(186, 162, 116), new Size(panelWidth - 52 * scale, 30 * scale));
+    subtitle.overflow = Label.Overflow.SHRINK;
+
+    this.renderMockResultCards(panel, results, mode, panelWidth, panelHeight, scale);
+    this.renderMockResultCloseButton(panel, panelWidth, panelHeight, scale);
+    this.renderMockResultConfirmButton(panel, panelWidth, panelHeight, scale);
+  }
+
+  private renderMockResultCards(parent: Node, results: GachaMockResultItem[], mode: GachaPreviewResultMode, panelWidth: number, panelHeight: number, scale: number): void {
+    const top = panelHeight / 2 - 106 * scale;
+    const bottom = -panelHeight / 2 + 126 * scale;
+    const availableHeight = Math.max(120 * scale, top - bottom);
+    if (mode === 'once') {
+      const cardHeight = Math.min(availableHeight, 300 * scale);
+      const cardWidth = cardHeight / 1.48;
+      this.renderMockResultCard(parent, results[0], 0, (top + bottom) / 2, cardWidth, cardHeight, scale, true);
+      return;
+    }
+
+    const columns = 5;
+    const rows = Math.ceil(results.length / columns);
+    const gapX = Math.max(6 * scale, 16 * scale);
+    const gapY = Math.max(8 * scale, 18 * scale);
+    const availableWidth = Math.max(220 * scale, panelWidth - 78 * scale);
+    let cardWidth = Math.min(128 * scale, (availableWidth - gapX * (columns - 1)) / columns);
+    let cardHeight = cardWidth * 1.46;
+    const maxCardHeight = (availableHeight - gapY * (rows - 1)) / rows;
+    if (cardHeight > maxCardHeight) {
+      cardHeight = maxCardHeight;
+      cardWidth = cardHeight / 1.46;
+    }
+    const gridWidth = columns * cardWidth + (columns - 1) * gapX;
+    const gridHeight = rows * cardHeight + (rows - 1) * gapY;
+    const startX = -gridWidth / 2 + cardWidth / 2;
+    const startY = (top + bottom) / 2 + gridHeight / 2 - cardHeight / 2;
+    results.forEach((item, index) => {
+      const column = index % columns;
+      const row = Math.floor(index / columns);
+      const x = startX + column * (cardWidth + gapX);
+      const y = startY - row * (cardHeight + gapY);
+      this.renderMockResultCard(parent, item, x, y, cardWidth, cardHeight, scale, item.featured);
+    });
+  }
+
+  private renderMockResultCard(parent: Node, item: GachaMockResultItem, x: number, y: number, width: number, height: number, scale: number, featured: boolean): void {
+    const node = this.host.addChildPlainNode(parent, `GachaMockResultCard_${item.rarity}_${safeText(item.name)}`, x, y, width, height);
+    const tone = gachaRarityTone(item.rarity);
+    const graphics = node.addComponent(Graphics);
+    graphics.fillColor = tone.fill;
+    graphics.rect(-width / 2, -height / 2, width, height);
+    graphics.fill();
+    graphics.fillColor = tone.glow;
+    graphics.rect(-width / 2, height * 0.06, width, height * 0.44);
+    graphics.fill();
+    graphics.strokeColor = featured ? rgba(255, 224, 122, 255) : tone.stroke;
+    graphics.lineWidth = Math.max(1.4, featured ? 3 * scale : 1.5 * scale);
+    graphics.stroke();
+    this.drawCardOrnaments(graphics, width, height, scale, featured);
+    this.drawPortraitSilhouette(graphics, width, height, scale, item.rarity);
+
+    const rarity = this.host.addChildLabel(node, 'GachaMockResultRarity', item.rarity, -width / 2 + 12 * scale, height / 2 - 24 * scale, featured ? 26 * scale : 21 * scale, tone.text, new Size(width - 24 * scale, 32 * scale), HorizontalTextAlignment.LEFT);
+    rarity.overflow = Label.Overflow.SHRINK;
+    this.applyOutline(rarity, scale, true);
+    const kind = item.kind === 'hero' ? '英雄' : item.kind === 'shard' ? '碎片' : '材料';
+    const kindLabel = this.host.addChildLabel(node, 'GachaMockResultKind', kind, width / 2 - 34 * scale, height / 2 - 24 * scale, 14 * scale, rgba(232, 199, 124), new Size(52 * scale, 24 * scale), HorizontalTextAlignment.RIGHT);
+    kindLabel.overflow = Label.Overflow.SHRINK;
+
+    const name = this.host.addChildLabel(node, 'GachaMockResultName', item.name, 0, -height / 2 + 54 * scale, featured ? 22 * scale : 17 * scale, rgba(249, 224, 166), new Size(width - 20 * scale, 30 * scale));
+    name.overflow = Label.Overflow.SHRINK;
+    this.applyOutline(name, scale, true);
+    const title = this.host.addChildLabel(node, 'GachaMockResultSubtitle', item.title, 0, -height / 2 + 29 * scale, 14 * scale, rgba(201, 169, 111), new Size(width - 20 * scale, 22 * scale));
+    title.overflow = Label.Overflow.SHRINK;
+    const stars = this.host.addChildLabel(node, 'GachaMockResultStars', '★'.repeat(item.stars), 0, -height / 2 + 10 * scale, 15 * scale, tone.text, new Size(width - 18 * scale, 18 * scale));
+    stars.overflow = Label.Overflow.SHRINK;
+  }
+
+  private renderMockResultCloseButton(parent: Node, panelWidth: number, panelHeight: number, scale: number): void {
+    const button = this.host.addChildPlainNode(parent, 'GachaResultSceneCloseButton', panelWidth / 2 - 34 * scale, panelHeight / 2 - 34 * scale, 42 * scale, 42 * scale);
+    button.addComponent(Button);
+    button.on(Button.EventType.CLICK, () => {
+      this.host.closeGachaMockResultScene();
+      this.host.setStatus('已关闭本地结果预览，真实抽卡写入仍未开放。');
+    }, this);
+    this.host.applyImageButtonFeedback(button, 1.08, 0.94);
+    const graphics = button.addComponent(Graphics);
+    graphics.strokeColor = rgba(221, 173, 86, 220);
+    graphics.lineWidth = Math.max(1.5, 2 * scale);
+    graphics.circle(0, 0, 18 * scale);
+    graphics.moveTo(-7 * scale, 7 * scale);
+    graphics.lineTo(7 * scale, -7 * scale);
+    graphics.moveTo(7 * scale, 7 * scale);
+    graphics.lineTo(-7 * scale, -7 * scale);
+    graphics.stroke();
+  }
+
+  private renderMockResultConfirmButton(parent: Node, panelWidth: number, panelHeight: number, scale: number): void {
+    const width = Math.min(260 * scale, panelWidth - 92 * scale);
+    const height = 48 * scale;
+    const button = this.host.addChildPlainNode(parent, 'GachaResultSceneConfirmButton', 0, -panelHeight / 2 + 38 * scale, width, height);
+    button.addComponent(Button);
+    button.on(Button.EventType.CLICK, () => {
+      this.host.closeGachaMockResultScene();
+      this.host.setStatus('Gacha 仍处于视觉预览阶段：真实单抽、十连、兑换、补发全部关闭。');
+    }, this);
+    this.host.applyImageButtonFeedback(button, 1.035, 0.965);
+    const graphics = button.addComponent(Graphics);
+    graphics.fillColor = rgba(78, 14, 17, 232);
+    graphics.rect(-width / 2, -height / 2, width, height);
+    graphics.fill();
+    graphics.strokeColor = rgba(226, 71, 52, 230);
+    graphics.lineWidth = Math.max(1.5, 1.8 * scale);
+    graphics.stroke();
+    const label = this.host.addChildLabel(button, 'GachaResultSceneConfirmLabel', '返回召唤', 0, 1 * scale, 22 * scale, rgba(250, 224, 162), new Size(width - 30 * scale, height));
+    label.overflow = Label.Overflow.SHRINK;
+    this.applyOutline(label, scale, true);
+  }
+
   private renderCompactContent(parent: Node, layout: UiLayout, scale: number): void {
     const tabsY = layout.stageTop - 92 * scale;
     const tabWidth = Math.max(92 * scale, Math.min(150 * scale, layout.stageWidth / 4.8));
@@ -442,8 +792,7 @@ export class GachaSceneRenderer {
     visiblePools.forEach((pool, index) => {
       this.renderCompactPoolTab(parent, pool, startX + index * (tabWidth + tabGap), tabsY, tabWidth, 42 * scale, scale);
     });
-    const visibleCards = [GACHA_PREVIEW_CARDS[1], GACHA_PREVIEW_CARDS[2], GACHA_PREVIEW_CARDS[3]];
-    this.renderCenterStage(parent, layout, scale * 0.9, visibleCards);
+    this.renderCenterStage(parent, layout, scale * 0.9);
     this.renderBottomSummonBar(parent, layout, scale);
   }
 

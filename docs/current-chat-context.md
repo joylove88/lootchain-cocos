@@ -1,8 +1,8 @@
 # LootChain Cocos 当前聊天窗口交接上下文
 
-更新时间：2026-05-31
+更新时间：2026-06-01
 
-本文用于其他 Codex 窗口快速接手当前阶段。先读本文件，再按 LootChain 规则读取服务端 `D:\business\project\LootChain` 下的 `README.md`、`AGENTS.md`、`AI_RULE.md`、`PROJECT_CONTEXT1.md`、`PROJECT_CONTEXT2.md`、`docs/`、`sql/`、`team-history/CURRENT_PROGRESS.md`。
+本文用于其他 Codex 窗口快速接手当前阶段。先读本文件，再按 LootChain 规则读取服务端 `D:\project\LootChain` 下的 `README.md`、`AGENTS.md`、`AI_RULE.md`、`PROJECT_CONTEXT1.md`、`PROJECT_CONTEXT2.md`、`docs/`、`sql/`、`team-history/CURRENT_PROGRESS.md`。
 
 ## 当前目标
 
@@ -11,8 +11,11 @@
 - 当前验收入口是 Cocos Creator 3.8.8 的 `D:\project\lootchain-cocos\assets\main.scene`。
 - 登录阶段只接入玩家 `dev-login`。
 - dev-login 成功后先检查/创建服务端主角色，再进入 Cocos 资源加载进度页，加载 `assets/resources/lobby` 下的大厅背景资源。
-- 加载完成后切换到大厅背景界面；当前大厅已包含背景视频、左上玩家信息、只读资料弹窗、顶部资源栏、右上系统图标、左侧活动、中央建筑热点、右侧挑战卡、底部导航、聊天预览、冒险按钮和统一未开放弹窗。
+- 加载完成后切换到大厅背景界面；当前大厅已包含背景视频、左上玩家信息、只读资料场景页、顶部资源栏、右上系统图标、左侧活动、中央建筑热点、右侧挑战卡、底部导航、聊天预览、冒险按钮和统一未开放占位场景页。
 - 大厅当前开放资料、公告、图鉴、英雄队列等只读展示；其他玩法/经济入口仍是本地 placeholder。
+- 当前继续推进 `Stage 4AR：大厅功能入口全屏新场景化`，大厅内资料、公告、冒险、编队、英雄、英雄详情、图鉴、占位入口都不再浮在大厅背景/HUD 上，而是进入独立全屏逻辑场景。
+- `Stage 4AK/4AO：Gacha 本地 mock 结果展示` 当前只进入 `gachaResult` 全屏逻辑场景，展示前端固定 mock 结果，不请求真实抽卡、不扣资源、不发放英雄、不写入抽卡记录或保底。
+- 2026-06-01 追加修复：点击主角页“进入游戏”出现“系统异常”的本地根因是 `lootchain` 库未执行 `sql/12_protagonist_module.sql`，缺少 `player_protagonist` 表；已在本机执行该 SQL，并用测试玩家复验 `POST /api/player/protagonist` 成功。
 - 不开放抽卡、英雄养成、背包使用/出售、USDT、资金池、领取、购买、结算或任何经济写入口。
 - Zeno 子代理继续作为“用户视角监督 agent”，负责从玩家验收角度拦截体验断点；当前监督口径要求直到完整游玩流程打通前持续检查流程可达性、误触、文案误导和经济红线。
 
@@ -2404,7 +2407,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-player-f
 ## 2026-05-31 Stage 4AJ Gacha Summon Preview
 
 - 当前阶段仍然以 Cocos-only 为准，不回到 `web-vue`。
-- 本轮已读取 `D:\business\project\LootChain\docs\gacha` 全部文档，并按产品、数值、架构、UI、美术、VFX、后端、前端、QA、Review 角色完成当前阶段输出。
+- 本轮已读取 `D:\project\LootChain\docs\gacha` 全部文档，并按产品、数值、架构、UI、美术、VFX、后端、前端、QA、Review 角色完成当前阶段输出。
 - 后端边界：
   - 当前真实玩家接口路径是 `/api/player/gacha/*`；
   - 文档旧口径 `/api/game/gacha/*` 不作为本轮实现路径；
@@ -2419,11 +2422,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-player-f
   - `LobbyHudRenderer.ts` 将活动入口 `深渊召唤` 和场景热点 `召唤祭坛` 接到全屏召唤预览页；
   - 单抽/十连按钮只提示未开放，不调用后端写接口。
 - 生成素材：
-  - `D:\business\project\lootchain-cocos\docs\ui-reference\gacha\generated\gacha_bg_cathedral.png`
-  - `D:\business\project\lootchain-cocos\docs\ui-reference\gacha\generated\gacha_ui_target_mockup.png`
+  - `D:\project\lootchain-cocos\docs\ui-reference\gacha\generated\gacha_bg_cathedral.png`
+  - `D:\project\lootchain-cocos\docs\ui-reference\gacha\generated\gacha_ui_target_mockup.png`
 - 后端项目同步文档：
-  - `D:\business\project\LootChain\docs\gacha\gacha-current-stage-output.md`
-  - `D:\business\project\LootChain\docs\gacha\gacha-art-pack-manifest.json`
+  - `D:\project\LootChain\docs\gacha\gacha-current-stage-output.md`
+  - `D:\project\LootChain\docs\gacha\gacha-art-pack-manifest.json`
 - 已跑验证：
   - `npm.cmd run check:layout` 通过；
   - Cocos Creator 3.8.8 focused TypeScript no-emit 通过。
@@ -2432,3 +2435,314 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-player-f
   - 再做 gacha 结果展示层；
   - 真实抽卡前必须先单独做后端 G1 只读白名单和 G2 测试环境单抽授权。
 - 红线不变：不发奖励、不扣资源、不发放英雄、不更新保底、不开放兑换、不开放 EX V1、不新增任何经济写入口。
+
+## 2026-06-01 Stage 4AK Gacha Local Mock Result Layer
+
+- 当前阶段继续保持 Cocos-only，不回到 `web-vue`。
+- 本轮只修改 Cocos 前端展示层：
+  - `assets/scripts/scenes/gacha/GachaSceneConfig.ts` 新增 `GachaMockResultItem`、`GACHA_MOCK_RESULT_ONCE`、`GACHA_MOCK_RESULT_TEN`；
+  - `assets/scripts/scenes/gacha/GachaSceneRenderer.ts` 新增 `GachaMockResultLayer`、`GachaMockResultPanel`、`GachaMockResultNoWriteNote`、`GachaMockResultConfirmButton`；
+  - 单抽/十连按钮从单纯状态提示升级为打开本地 mock 结果弹层；
+  - 结果卡片仍由 Cocos `Graphics` 绘制，避免截图式模糊资源。
+- 行为边界：
+  - 结果内容是固定本地 mock，只用于 UI/动效验收；
+  - 不调用 `GachaApi`，不请求 `/api/player/gacha/draw`；
+  - 不扣资源、不发英雄、不写入抽卡记录、不更新保底、不开放兑换或补发。
+- 守卫同步：
+  - `scripts/check-layout.mjs` 新增 gacha mock 配置、结果弹层节点和前端-only 禁止项检查；
+  - `scripts/check-preview-freshness.mjs` 新增 Gacha 结果弹层 chunk freshness token，刷新/重开 Cocos Preview 后可复验运行包是否最新。
+- 已跑验证：
+  - `npm.cmd run check:layout` 通过；
+  - Cocos Creator 3.8.8 focused TypeScript no-emit 通过。
+- Preview 状态：
+  - `npm.cmd run check:preview` 当前失败，原因是运行中的 Cocos Preview 仍在服务旧 `GachaSceneRenderer.ts` chunk，缺少 `GachaMockResultLayer`、`GachaMockResultPanel`、`GachaMockResultNoWriteNote`、`GachaMockResultConfirmButton`；
+  - 需要在 Cocos Creator 中刷新/重开 Preview 后再复验。
+- 下次继续建议：
+  - 重开/刷新 Cocos Creator Preview 后运行 `npm.cmd run check:preview`；
+  - 做一次大厅 `深渊召唤`、场景热点 `召唤祭坛`、小屏 `召唤` 到 Gacha 页的点击 QA；
+  - 继续补透明卡框、按钮三态、概率/记录/兑换/保底图标、召唤阵和粒子素材。
+- 红线不变：真实单抽、十连、兑换、补发仍全部关闭；不改变经济规则，不开放 EX V1，不新增任何经济写入口。
+
+## 2026-06-01 Stage 4AL Protagonist Full-Screen Scene
+
+- 用户反馈“选择角色弹框需要更改为全屏场景”。
+- 本轮只修改 Cocos 前端主角选择/创建页，不改后端接口、SQL 或经济配置。
+- Cocos 本轮实现：
+  - `assets/scripts/scenes/protagonist/ProtagonistCreateRenderer.ts` 保留 `currentView = 'protagonistCreate'` 逻辑视图；
+  - `ProtagonistCreatePanel` 从居中弹框尺寸改为安全区全屏场景尺寸；
+  - 新增 `drawFullSceneFrame()`，只绘制薄边框和顶部/底部暗色压层，不再使用居中弹框视觉；
+  - 男/女主角卡、SSR 形态预览、角色名输入和“进入游戏”按钮按全屏舞台重新排布；
+  - `ProtagonistCreatePanel` 加入 `BlockInputEvents`，作为独立全屏场景吞掉输入。
+- 行为边界：
+  - 仍只提交 `gender` 和 `protagonistName`；
+  - 不允许客户端提交 `heroCode`、稀有度、等级、星级、战力或属性；
+  - 主角色创建仍是账号初始化写入，不是抽卡、奖励、购买、结算、资金池或链上领取入口。
+- 守卫同步：
+  - `scripts/check-layout.mjs` 已更新主角选择页的全屏场景布局公式和多分辨率边界/重叠检查；
+  - `scripts/check-preview-freshness.mjs` 已新增 `ProtagonistCreateRenderer.ts` 全屏场景 token。
+- 已跑验证：
+  - `npm.cmd run check:layout` 通过；
+  - Cocos Creator 3.8.8 focused TypeScript no-emit 通过。
+- Preview 状态：
+  - `npm.cmd run check:preview` 当前失败，运行中的 Cocos Preview 仍在服务旧 `ProtagonistCreateRenderer.ts` chunk，缺少 `drawFullSceneFrame`、`scene.addComponent(BlockInputEvents)` 和全屏场景说明 token；
+  - 同时旧 `GachaSceneRenderer.ts` chunk 仍缺少 Stage 4AK 的 Gacha 结果层 token；
+  - 需要在 Cocos Creator 中刷新/重开 Preview 后再复验。
+- 下次继续建议：
+  - 刷新/重开 Cocos Creator Preview 后运行 `npm.cmd run check:preview`；
+  - 用新账号走一遍 `登录 -> 全屏选择角色 -> 创建主角 -> loading -> 大厅` 运行时 QA。
+- 红线不变：不改变经济规则，不开放 EX V1，不新增任何经济写入口。
+
+## 2026-06-01 Stage 4AM Protagonist Local Schema Fix
+
+- 用户反馈点击主角选择页“进入游戏”提示“系统异常”。
+- 本地接口实调定位：
+  - `POST /api/player/auth/dev-login` 对 `userId=1` 返回 `code=0`；
+  - `GET /api/player/protagonist/state` 返回 `code=500 / 系统异常`；
+  - MySQL 查询确认本地 `lootchain` schema 缺少 `player_protagonist` 表。
+- 修复动作：
+  - 已执行 `D:\project\LootChain\sql\12_protagonist_module.sql` 到本地 `lootchain` 数据库；
+  - 该脚本创建 `player_protagonist`，补齐 `user_hero.source_type/sort_weight`，并插入男女主角攻击形态模板；
+  - 这是既有主角模块迁移，不改变概率、消耗、保底、奖励、USDT、资金池或 EX 规则。
+- 复验结果：
+  - `userId=1` 的 `GET /api/player/protagonist/state` 已恢复 `code=0`，当前仍为 `created=false`，没有被提前创建主角；
+  - 用已有测试玩家 `userId=3` 调用 `POST /api/player/protagonist` 成功，返回 `rarity=SSR`、`currentForm=attack`、`heroCode=PROTAGONIST_FEMALE_ATTACK`、`userHeroId=4`；
+  - `npm.cmd run check:layout` 通过，focused Cocos Creator TypeScript no-emit 通过，前后端 `git diff --check` 通过且仅有既有 LF->CRLF warning；
+  - 后续在 Cocos Preview 中用默认 `userId=1` 点击“进入游戏”应进入正常创建流程。
+- 注意：本次修复了本机数据库缺失迁移；如果其他机器或数据库重置后再次出现同样 500，先执行 `sql/12_protagonist_module.sql`。
+
+## 2026-06-01 Stage 4AN Lobby Scene Page Background Flash Fix
+
+- 用户反馈点击部分大厅功能弹框/功能页时，会短暂闪出登录界面的背景视频。
+- 根因：
+  - 主场景里登录背景节点 `Login_BG_Video`、`Login_BG_Poster`、`BG_Main`、`Sky_Effects`、`Foreground_Effects` 等仍是 Canvas 的常驻静态节点；
+  - 部分大厅功能页进入时走 `renderBase()`，会先 `releaseLobbyVideoRuntime()` 并 `contentRootController.clear()`，导致 `Lobby_BG_Poster` / `Lobby_BG_Video` 被销毁；
+  - 大厅背景重建前的这一帧会露出底层登录视频。
+- 修复：
+  - `LootChainGameRoot.ts` 新增 `LOGIN_SCENE_STAGE_NODE_NAMES`，离开 `login/loginDialog` 后统一隐藏登录静态舞台节点；
+  - 新增 `tryPlayLoginSceneVideo()`，回到 `login/loginDialog` 时递归尝试恢复登录背景 `VideoPlayer` 播放，避免登录页视频被上一轮隐藏动作永久停掉；
+  - 新增 `LOBBY_BACKGROUND_NODE_NAMES` 与 `renderLobbyWorldBase()`，大厅功能页切换时只清掉 HUD/页面层，保留现有 `Lobby_BG_Poster`、`Lobby_BG_Video`、`Lobby_BG_Fallback`；
+  - `UiContentRootController.ts` 新增 `clearExcept()`，支撑保留指定运行时节点；
+  - `returnToLobbyFromScenePage()` 和 `closeGachaScene()` 改为回到 `renderCurrentView()`，能复用已存在的大厅背景保活路径；
+  - `scripts/check-layout.mjs` 与 `scripts/check-preview-freshness.mjs` 加入本次背景保活和登录舞台隐藏 token。
+- 验证：
+  - `npm.cmd run check:layout` 通过；
+  - focused Cocos Creator 3.8.8 TypeScript no-emit 通过；
+  - `npm.cmd run check:preview` 当前失败，原因是运行中的 Cocos Preview 仍在服务旧 `LootChainGameRoot.ts` chunk，缺少 `renderLobbyWorldBase`、`clearExcept(LOBBY_BACKGROUND_NODE_NAMES)`、`LOGIN_SCENE_STAGE_NODE_NAMES`、`setLoginSceneStageVisible`；需要刷新/重开 Preview 后复验。
+- 红线不变：本次只改 Cocos 前端渲染生命周期，不改变经济规则，不开放 EX V1，不新增任何经济写入口。
+
+### 2026-06-01 Stage 4AN Login Video Restore Patch
+
+- 用户反馈上一轮修复后登录背景视频没了。
+- 修正：
+  - 移除离开登录态时主动 `VideoPlayer.stop()` / `AudioSource.stop()` 的逻辑；
+  - 登录舞台隐藏只控制节点 `active`，不销毁登录背景节点，也不永久停止登录视频；
+  - 回到 `login/loginDialog` 时通过 `tryPlayLoginSceneVideo()` 对登录背景视频执行静音播放尝试。
+- 验证：
+  - `npm.cmd run check:layout` 通过；
+  - focused Cocos Creator TypeScript no-emit 通过。
+
+## 2026-06-01 Stage 4AO Remaining Popup Paths Converted To Full-Screen Scenes
+
+- 用户要求：全部弹框都改为切换新的全屏场景。
+- 当前仍按项目既定方案使用单 Cocos 主场景内的 `currentView` 逻辑场景切换，未拆新的物理 `.scene` 文件，避免破坏登录态、资源缓存、背景视频保活和当前 no-write 预览流。
+- 本轮已收敛剩余弹层路径：
+  - 登录账号页可见节点改为 `LoginAccountSceneRoot` / `LoginAccountScenePanel`，面板按安全区全屏铺开并阻断底层输入；
+  - Gacha 单抽/十连本地 mock 结果从 `GachaMockResultLayer` 覆盖层改为 `currentView = 'gachaResult'` 的全屏结果场景，由 `renderResultScene()` 渲染；
+  - 未开放/占位入口可见节点改为 `LobbyPlaceholderSceneRoot` / `LobbyPlaceholderScenePanel`，继续只做本地提示，不跳转、不发奖、不写入经济数据。
+- 已确认核心源码和守卫脚本不再包含旧的 `DialogDim`、`LoginDialogPanel`、`GachaMockResultLayer`、`GachaMockResultPanel`、`GachaMockResultNoWriteNote`、`GachaMockResultConfirmButton`、`LobbyPlaceholderDim`、`LobbyPlaceholderPanel` token。
+- `scripts/check-layout.mjs` 与 `scripts/check-preview-freshness.mjs` 已同步改为检查新的全屏场景 token。
+- 验证：
+  - `npm.cmd run check:layout` 通过；
+  - focused Cocos Creator 3.8.8 TypeScript no-emit 通过；
+  - `npm.cmd run check:preview` 当前失败，原因是运行中的 Cocos Preview 仍在服务旧 chunk，缺少 `LobbyPlaceholderSceneRoot`、`LoginAccountSceneRoot`、`GachaResultSceneRoot` 和 `gachaResult` 相关 token；需要刷新/重开 Preview 后复验。
+- 红线不变：不改变经济规则，不开放 EX V1，不请求真实抽卡，不扣资源，不发英雄，不写抽卡记录/保底，不新增任何经济写入口。
+
+## 2026-06-01 Stage 4AP Login Account Scene And Video Restore Hardening
+
+- 用户反馈：预览里“没有变”，登录页背景视频没了，账号登录仍像弹框而不是新场景切换。
+- 本轮修正：
+  - `LootChainGameRoot.ts` 将登录账号页逻辑视图从 `loginDialog` 改为 `loginAccount`；
+  - `LoginRenderer.ts` 将 `renderLoginDialog()` / `openLoginDialog()` 语义改为 `renderLoginAccountScene()` / `openLoginAccountScene()`；
+  - 账号登录页不再渲染登录首页 Logo rail/右侧占位按钮/主登录入口，进入后只显示独立账号登录全屏场景；
+  - `LoginAccountScenePanel` 从大号 beveled 弹框改为全屏半透明场景面，增加顶部/底部场景压层；
+  - `LoginVideoBackground.ts` 新增 `resumeForLoginView()`，回到登录/账号登录场景时恢复 video 节点、poster 兜底和静音播放；
+  - `LootChainGameRoot.ts` 在恢复登录舞台时递归调用 `resumeForLoginView()`，避免 poster 已淡出但视频未恢复时出现黑屏/空背景。
+- 守卫同步：
+  - `scripts/check-layout.mjs` 已改为检查 `renderLoginAccountScene()`、`openLoginAccountScene()`；
+  - `scripts/check-preview-freshness.mjs` 已增加 `loginAccount`、`resumeForLoginView()` 和账号登录场景 chrome token。
+- 验证：
+  - `npm.cmd run check:layout` 通过；
+  - focused Cocos Creator 3.8.8 TypeScript no-emit 通过；
+  - 旧弹层/旧登录弹框 token 扫描无匹配；
+  - `npm.cmd run check:preview` 当前失败，原因是运行中的 Cocos Preview 仍在服务旧 chunk，缺少 `resumeForLoginView`、`loginAccount`、`renderLoginAccountScene`、`openLoginAccountScene` 和 `drawAccountSceneChrome`；需要刷新/重开 Preview 后复验。
+- 红线不变：本轮只改 Cocos 前端 UI/视频恢复路径，不改后端、不改 SQL、不改经济规则、不开放 EX V1、不新增经济写入口。
+
+## 2026-06-01 Stage 4AQ Login Background Poster/Video Only
+
+- 用户反馈：登录页展示的是静态图，不是背景视频；登录页仅需要展示 `Login_BG_Poster`、`Login_BG_Video`。
+- 本轮修正：
+  - `LootChainGameRoot.ts` 拆分 `LOGIN_SCENE_BACKGROUND_NODE_NAMES` 与 `LOGIN_SCENE_LEGACY_NODE_NAMES`；
+  - 登录态只激活 `Login_BG_Poster`、`Login_BG_Video`；
+  - `BG_Main`、`BG_Main-001`、`BG_Main-002`、`Sky_Effects`、`FG_Architecture`、`Dragon_Layer`、`Character_Effects`、`Foreground_Effects` 等旧静态舞台层即使在登录态也强制关闭；
+  - `AdaptiveStageLayoutResolver.ts` 的登录舞台测量节点改为 `Login_BG_Poster` / `Login_BG_Video`，不再依赖 `BG_Main`；
+  - `LoginVideoBackground.ts` 增加 `schedulePosterHideFallback()` 与 `hidePosterForVideo()`，视频播放请求后如果 `PLAYING` 事件没有及时淡出 poster，也会在短延迟后隐藏 poster，避免 poster 永远挡住 video。
+- 守卫同步：
+  - `scripts/check-layout.mjs` 更新登录背景节点守卫与 main.scene 登录舞台测量节点；
+  - `scripts/check-preview-freshness.mjs` 增加 legacy 节点关闭、poster 隐藏 fallback token。
+- 验证：
+  - `npm.cmd run check:layout` 通过；
+  - focused Cocos Creator 3.8.8 TypeScript no-emit 通过；
+  - `npm.cmd run check:preview` 当前失败，原因是运行中的 Cocos Preview 仍在服务旧 chunk，缺少 `LOGIN_SCENE_BACKGROUND_NODE_NAMES`、`LOGIN_SCENE_LEGACY_NODE_NAMES`、`stageNode.active = false`、`schedulePosterHideFallback`、`hidePosterForVideo`；需要刷新/重开 Preview 后复验。
+- 红线不变：只改 Cocos 前端背景显示与布局测量，不改后端、不改 SQL、不改经济规则、不开放 EX V1、不新增经济写入口。
+
+## 2026-06-01 Stage 4AR Lobby Feature Entries Full-Screen Scenes
+
+- 用户反馈：游戏大厅内点击某个功能时仍然是弹框，需要换成全屏新场景。
+- 本轮修正：
+  - `LootChainGameRoot.ts` 的 `renderLobbyScenePage()` 不再走 `renderLobbyWorldBase()` 保留大厅背景，也不再渲染大厅背景；
+  - 大厅功能页改走 `renderBase()`，清空当前大厅运行时内容后渲染 `LobbyFeatureSceneBackdrop`，形成独立全屏逻辑场景；
+  - `LobbyAdventurePanelRenderer.ts` 改为 `LobbyAdventureSceneContent` / `LobbyAdventureSceneFrame`，内容尺寸使用 `layout.stageWidth/stageHeight`；
+  - `LobbyCodexPanelRenderer.ts` 改为 `LobbyCodexSceneContent` / `LobbyCodexSceneFrame`；
+  - `LobbyFormationPanelRenderer.ts` 改为 `LobbyFormationSceneContent` / `LobbyFormationSceneFrame`；
+  - `LobbyHeroRosterPanelRenderer.ts` 改为 `LobbyHeroRosterSceneContent` / `LobbyHeroRosterSceneFrame`；
+  - `LobbyHeroDetailPanelRenderer.ts` 改为 `LobbyHeroDetailSceneContent` / `LobbyHeroDetailSceneFrame`；
+  - `LobbyNoticePanelRenderer.ts` 改为 `LobbyNoticeSceneContent` / `LobbyNoticeSceneFrame`；
+  - `LobbyProfileDialogRenderer.ts` 改为 `LobbyProfileSceneRoot` / `LobbyProfileSceneContent`；
+  - 未开放占位入口同步铺满 `layout.stageWidth/stageHeight`。
+- 守卫同步：
+  - `scripts/check-layout.mjs` 更新功能页全屏场景 token 与多分辨率边界公式；
+  - `scripts/check-preview-freshness.mjs` 更新各功能页 Preview chunk token，检查新 `SceneContent/SceneFrame`。
+- 验证：
+  - `npm.cmd run check:layout` 通过；
+  - focused Cocos Creator 3.8.8 TypeScript no-emit 通过；
+  - `npm.cmd run check:preview` 当前失败，原因是运行中的 Cocos Preview 仍在服务旧 chunk，缺少 `LobbyFeatureSceneBackdrop` 及各 `Lobby*SceneContent/SceneFrame` token；需要刷新/重开 Preview 后复验。
+- 红线不变：本轮只改 Cocos 前端场景承载方式，不改后端、不改 SQL、不改经济规则、不开放 EX V1、不新增经济写入口。
+
+## 2026-06-01 Stage 4AS Unified Full-Screen Scene Back Button
+
+- 用户反馈：所有功能进入的新场景的返回按钮需要统一成抽奖模块里的样式。
+- 本轮修正：
+  - 新增 `assets/scripts/scenes/UiSceneBackButton.ts`，抽出与 Gacha 一致的左上角箭头返回按钮，统一位置、尺寸、金色线条和按压反馈；
+  - `GachaSceneRenderer.ts` 改为调用共享 `renderSceneBackButton()`，避免 Gacha 和其他场景后续样式分叉；
+  - 大厅功能页、资料页、未开放占位页和战斗预览页全部接入同一返回按钮；
+  - 旧底部“返回大厅”文字按钮从大厅功能页移除，底部仅保留刷新、战斗预演等非返回操作按钮。
+- 验证：`npm.cmd run check:layout` 通过；focused Cocos Creator 3.8.8 TypeScript no-emit 通过；`npm.cmd run check:preview` 当前失败，原因是运行中的 Cocos Preview 仍在服务旧 chunk，需刷新/重开 Preview 后复验。
+- 红线不变：只改 Cocos 前端 UI 组件和场景返回交互，不改后端、不改 SQL、不改经济规则、不开放 EX V1、不新增任何经济写入口。
+
+## 2026-06-01 Stage 4AT Gacha Center Spine Animation
+
+- 用户要求：召唤界面中心展示的背景卡牌替换成 `D:\project\lootchain-cocos\assets\spine\gacha\Lord of the Dark Abyss` 里的 Spine 骨骼动画。
+- 本轮修正：
+  - `GachaSceneConfig.ts` 新增 `GACHA_ABYSS_SPINE_UUID`、`GACHA_ABYSS_SPINE_SKIN`、`GACHA_ABYSS_SPINE_INTRO_ANIMATION`、`GACHA_ABYSS_SPINE_IDLE_ANIMATION`；
+  - `GachaSceneRenderer.ts` 中心展示区改为 `GachaAbyssSpineStage` / `GachaAbyssSpineNode`，通过 `assetManager.loadAny({ uuid: GACHA_ABYSS_SPINE_UUID })` 加载 `sp.SkeletonData`；
+  - 动画先播放 `appear`，随后循环 `idle`；加载期间显示本地前端 fallback，不请求后端；
+  - 召唤结果预览页仍使用本地 mock 卡片，不接真实单抽/十连/兑换/补发。
+- 守卫同步：`scripts/check-layout.mjs` 检查 Spine 资源文件、Gacha Spine 配置和渲染 token；`scripts/check-preview-freshness.mjs` 检查 Preview chunk 是否包含最新 Spine 渲染逻辑。
+- 验证：`npm.cmd run check:layout` 通过；focused Cocos Creator 3.8.8 TypeScript no-emit 通过；运行中的 Preview 可能仍是旧 chunk，需要刷新/重开后复验。
+- 红线不变：不改后端、不改 SQL、不改经济规则、不开放 EX V1、不新增任何经济写入口，不接真实抽卡写接口。
+
+## 2026-06-01 Stage 4AU Remove Friendship Summon Pool
+
+- 用户要求：移除“友情召唤”。
+- 本轮修正：
+  - `GachaSceneConfig.ts` 从 `GACHA_PREVIEW_POOLS` 删除 `id: 'friend'` 池；
+  - Gacha 卡池预览当前只保留限定召唤、英雄召唤、普通召唤、光暗召唤锁定占位；
+  - `scripts/check-layout.mjs` 新增守卫，禁止 Gacha 配置回退出现 `id: 'friend'` 或“友情召唤”。
+- 范围说明：大厅右上角社交 friends 图标不是友情召唤池，本轮不改社交占位图标。
+- 红线不变：不改后端、不改 SQL、不改经济规则、不开放 EX V1、不新增任何经济写入口，不接真实抽卡写接口。
+
+## 2026-06-01 Backend Hero Roster Art Sync
+
+- 用户指定英雄素材：
+  - `act_21053` -> `UR_EVELYN` / 深渊魔女·伊芙琳；
+  - `act_21023` -> `UR_ARTHAS` / 永夜龙骑·阿尔萨斯。
+- 后端新增 `hero_template.portrait_asset` 展示字段，并通过 `D:\project\LootChain\sql\15_hero_roster_art_refresh.sql` 同步本地数据库。
+- R/SR 当前启用模板已收敛为六职业各一个；SSR 当前启用法师、坦克、战士、刺客各一个；UR 已补齐战士、辅助、刺客、法师、射手、坦克六职业各一个。
+- 新增 UR：`UR_SERAPHINA` 辅助、`UR_NYX` 刺客、`UR_AURELIA` 射手、`UR_ATLAS` 坦克。
+- 新增 UR 没有加入 `gacha_pool_item`，避免改变普通英雄池概率、权重、保底、消耗或掉落分布。
+- Cocos 当前仍只做召唤预览/mock，不开放真实抽卡写接口；立绘文件当前在 `C:\Users\axian\Desktop\hero`，后续如要前端展示需单独导入 `assets/resources`。
+
+## 2026-06-01 Stage 4AV Hero Portrait Resource Keys And Gacha Spine Swap
+
+- 后端 `hero_template.portrait_asset` 已从“文件名”语义收敛为不带扩展名的 `act_数字` 资源编号；本地 `lootchain` 库已执行 `sql/15_hero_roster_art_refresh.sql`，复验 `.png` 后缀计数为 `0`。
+- 后端只读英雄/图鉴 VO 已带出 `portraitAsset`：`UserHeroListItemVO`、`UserHeroDetailVO`、`HeroCodexItemVO`、`PlayerLobbyHeroItemVO`、`PlayerLobbyCodexItemVO`。
+- Cocos 只读 API/types 已接收 `portraitAsset`：`LobbyHeroApi`、`LobbyCodexApi`、`LobbyHeroTypes`、`LobbyCodexTypes`、`HeroTypes`；当前仅建立资源映射字段，不新增渲染写入口。
+- Gacha 中心 Spine 从 `Lord of the Dark Abyss` 切换为 `assets/spine/gacha/huangfengjiaozong/huangfengjiaozong.skel`，UUID 为 `ef87498c-2ef4-44e6-bee9-2d499e6ac570`，使用 `default` 皮肤并循环 `idle`。
+- Gacha 背景/中心舞台已移除原先可见的红色圆圈/法阵环；`check:layout` 增加回归守卫，禁止旧红圈颜色 token 回来。
+- 新补 UR 仍未写入 `gacha_pool_item`；真实单抽、十连、兑换、补发、扣资源、发英雄、记录、保底全部仍关闭。
+- 已验证：Cocos `npm.cmd run check:layout`、focused Cocos TypeScript no-emit、后端 Maven compile、后台 typecheck、`PlayerLobbyHeroServiceImplTest` 均通过；Preview 仍需要刷新/重开后看最新运行 chunk。
+
+## 2026-06-01 Stage 4AW Gacha Spine Runtime Resource Fix
+
+- 用户反馈：Gacha 中心 Spine 已切到 `huangfengjiaozong`，但 Preview 中没有展示新的骨骼动画。
+- 定位结论：旧实现只按 UUID 动态加载，Spine 文件位于 `assets/spine/...`，不在 Cocos `resources` 运行时包内；当前 Preview 还在服务旧 chunk，因此运行时可能拿不到新 SkeletonData。
+- Cocos 修正：
+  - 已将 Gacha Spine 资源移动到 `assets/resources/spine/gacha/huangfengjiaozong/`，保留原 `skel/atlas/png` 及 meta UUID；
+  - `GachaSceneConfig.ts` 新增 `GACHA_ABYSS_SPINE_RESOURCE = 'spine/gacha/huangfengjiaozong/huangfengjiaozong'`；
+  - `GachaSceneRenderer.ts` 改为优先 `resources.load(GACHA_ABYSS_SPINE_RESOURCE, sp.SkeletonData)`，UUID `assetManager.loadAny` 只作为兜底；
+  - 加载或播放失败时会保留本地 fallback，并给出明确状态提示，避免静默失败。
+- 守卫同步：
+  - `scripts/check-layout.mjs` 已改为检查 `assets/resources/spine/gacha/huangfengjiaozong` 路径和 `resources.load` token；
+  - `scripts/check-preview-freshness.mjs` 已改为检查 Gacha 最新 chunk 中的 `GACHA_ABYSS_SPINE_RESOURCE` / `resources.load` / UUID 兜底 token。
+- 验证状态：
+  - `npm.cmd run check:layout` 通过；
+  - focused Cocos Creator TypeScript no-emit 通过；
+  - `node .\scripts\check-preview-freshness.mjs` 当前仍失败，原因是运行中的 Cocos Preview 还在服务旧 chunk；需要在 Cocos Creator 里刷新/重开 Preview，等待资源重新导入后再复验。
+- 红线不变：本轮只改 Cocos 前端资源加载与文档，不改后端、不改 SQL、不改经济规则、不开放 EX V1、不新增任何经济写入口，不接真实抽卡写接口。
+
+## 2026-06-01 Stage 4AX Gacha Spine Skin/Animation Auto Resolve
+
+- 用户继续反馈：Gacha 中心仍然空白。
+- 追加定位：
+  - `assets/resources/config.json` 已能在 Preview 中访问，且已包含 `spine/gacha/huangfengjiaozong/huangfengjiaozong` 与 UUID `ef87498c-2ef4-44e6-bee9-2d499e6ac570`；
+  - SkeletonData、`.bin`、texture PNG 都能被 Preview HTTP 正常返回；
+  - 因此剩余高概率问题是 `huangfengjiaozong` 的实际皮肤/动画名并非固定的 `default` / `idle`；
+  - Cocos `sp.Skeleton.setAnimation()` 找不到动画时只返回 `null`，不抛异常，旧逻辑会误判成功并销毁 fallback，表现为空白。
+- Cocos 修正：
+  - `GachaSceneRenderer.ts` 改为读取 `SkeletonData.getSkinsEnum()` / `getAnimsEnum()`；
+  - 若找不到配置的 `default` / `idle`，自动选择资源实际存在的第一个皮肤和第一个可播放动画；
+  - 只有 `setAnimation()` 或 `addAnimation()` 返回有效 TrackEntry 后才销毁 fallback；
+  - 新增运行时 `console.info`，会打印实际使用的 `skin`、`animation` 和 Spine 原始尺寸，便于继续排查缩放/位置。
+- 守卫同步：
+  - `scripts/check-layout.mjs` 已加入 skin/animation 自动解析 token；
+  - `scripts/check-preview-freshness.mjs` 已更新 Gacha chunk token。
+- 验证状态：
+  - `npm.cmd run check:layout` 通过；
+  - focused Cocos Creator TypeScript no-emit 通过；
+  - 当前运行中的 Preview 仍是旧 chunk，必须重开/刷新 Preview 后才能看到本轮修正。
+- 红线不变：只修 Cocos 前端 Spine 播放逻辑，不改后端、不改 SQL、不接真实抽卡、不新增经济写入口。
+
+## 2026-06-01 Stage 4AY Gacha Spine No-Animation Static Pose Fallback
+
+- 用户截图显示：Gacha 中心一直停留在 `黄风教宗准备中`，底部提示 `召唤 Spine 未找到可播放动画，请检查 huangfengjiaozong 的导出动画列表。`
+- 结论：
+  - 这说明 `huangfengjiaozong` SkeletonData 已加载，但 Cocos 运行时没有从该资源中枚举到可播放 animation；
+  - 该问题不属于抽卡或后端问题，而是当前 Spine 导出资源缺少 Cocos 可识别的动画列表，或导出的动画数据未包含在当前 `.skel` 中。
+- Cocos 修正：
+  - `GachaSceneRenderer.ts` 在 `data.getRuntimeData(true)` 成功后，如果没有 animation，不再停留在 loading fallback；
+  - 调用 `skeleton.setToSetupPose()` 展示静态骨骼首帧，并提示 `huangfengjiaozong 未找到导出动画，已显示静态骨骼首帧。`；
+  - 只有运行时解析失败（skel/atlas/texture 不匹配）才继续保留 fallback。
+- 守卫同步：
+  - `scripts/check-layout.mjs` 增加 `setToSetupPose`、`<setup-pose>` 和静态骨骼首帧提示 token；
+  - `scripts/check-preview-freshness.mjs` 同步检查最新 Gacha chunk。
+- 验证状态：
+  - `npm.cmd run check:layout` 通过；
+  - focused Cocos Creator TypeScript no-emit 通过；
+  - `git diff --check` 通过，仅有既有 LF/CRLF warning。
+- 后续美术要求：如必须播放动态动画，需要重新导出 `huangfengjiaozong`，确保 Cocos Inspector 能看到至少一个 animation 名称；前端会自动使用实际可用动画。
+- 红线不变：只改 Cocos 前端展示兜底，不改后端、不改 SQL、不接真实抽卡、不新增经济写入口。
+## 2026-06-01 Stage 4AZ Gacha Spine Runtime Fallback
+
+- 用户截图显示：Gacha 中心继续停留在 `黄风教宗准备中`，状态提示变为 `召唤 Spine 运行时解析失败，请检查 huangfengjiaozong 的 skel/atlas/texture 是否匹配。`
+- 定位结论：
+  - `huangfengjiaozong` 的 `SkeletonData`、`.bin` 和贴图资源已经能被 Cocos 加载；
+  - 失败点是 `data.getRuntimeData(true)` 返回空，说明当前 `.skel/atlas/texture` 组合无法被 Cocos 3.8.8 Spine runtime 正常解析；
+  - 这不是前端资源路径问题，也不是动画名问题，当前资源需要重新导出或重新匹配 atlas/texture。
+- Cocos 修正：
+  - Gacha 中心仍优先加载 `spine/gacha/huangfengjiaozong/huangfengjiaozong`；
+  - 如果运行时解析失败，自动加载已验证可播放的 `spine/gacha/Lord of the Dark Abyss/1605` 作为临时视觉预览，避免中心区域继续空白；
+  - fallback 成功后状态提示：`huangfengjiaozong Spine 运行时解析失败，已临时显示可用预览 Spine；需要重新导出 huangfengjiaozong。`
+- 守卫同步：
+  - `scripts/check-layout.mjs` 增加 fallback Spine 资源存在性、fallback 配置与渲染 token；
+  - `scripts/check-preview-freshness.mjs` 增加 fallback 运行时 token。
+- 红线不变：只改 Cocos 前端视觉兜底和诊断，不改后端、不改 SQL、不接真实抽卡、不扣资源、不发英雄、不写抽卡记录/保底、不新增经济写入口、不开放 EX V1。

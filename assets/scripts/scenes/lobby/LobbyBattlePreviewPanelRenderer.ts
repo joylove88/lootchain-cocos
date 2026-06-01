@@ -16,6 +16,7 @@ import {
 import type { PlayerBattleEnemyVO, PlayerBattleLineupHeroVO } from '../../types/BattleTypes';
 import type { LobbyHeroItemVO, LobbyHeroRosterPanelState } from '../../types/LobbyHeroTypes';
 import { safeText } from '../UiTextFormatter';
+import { renderSceneBackButton } from '../UiSceneBackButton';
 import type { LobbyBattlePanelState } from './LobbyBattleState';
 import type { BattlePresentationLayout, BattlePresentationRect, BattlePresentationSlot } from './LobbyBattlePresentationLayout';
 import { resolveBattlePresentationLayout } from './LobbyBattlePresentationLayout';
@@ -126,6 +127,13 @@ export class LobbyBattlePreviewPanelRenderer {
     this.renderHeader(panel, panelWidth, panelHeight, scale, battleState, presentation);
     this.renderBattleField(panel, presentationLayout, scale, heroState.heroes, battleState, presentation);
     this.renderFooter(panel, presentationLayout, scale, battleState, presentation);
+    renderSceneBackButton(this.host, sceneRoot, layout, 'LobbyBattlePreviewBackButton', () => {
+      if (presentation.returnToLobby) {
+        this.host.returnToLobbyFromBattlePreview();
+        return;
+      }
+      this.host.closeLobbyBattlePreviewPanel();
+    }, scale);
   }
 
   private createUiNode(name: string): Node {

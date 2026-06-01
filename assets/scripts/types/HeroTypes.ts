@@ -7,6 +7,7 @@ export interface UserHeroListItemVO {
   level: number;
   star: number;
   power: number;
+  portraitAsset?: string | null;
   tokenNo?: string | null;
 }
 
@@ -34,6 +35,7 @@ export interface UserHeroDetailVO {
   luckValue: number;
   faction: string;
   heroClass: string;
+  portraitAsset?: string | null;
   skills?: string | null;
   ultimateSkillCode?: string | null;
   story?: string | null;
@@ -54,6 +56,7 @@ export interface HeroCodexItemVO {
   faction: string;
   heroClass: string;
   roleDesc?: string | null;
+  portraitAsset?: string | null;
   owned: boolean;
   ownedCount: number;
   exLocked: boolean;

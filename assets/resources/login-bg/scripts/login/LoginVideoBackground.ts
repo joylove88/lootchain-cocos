@@ -44,6 +44,7 @@ export class LoginVideoBackground extends Component {
     private activeMode: LoginBackgroundMode | null = null;
     private assetLoadTicket = 0;
     private layoutCheckTimer = 0;
+    private posterFallbackScheduled = false;
 
     onLoad() {
         if (!this.video) {
@@ -90,6 +91,15 @@ export class LoginVideoBackground extends Component {
         }, 1.0);
     }
 
+    public resumeForLoginView() {
+        this.node.active = true;
+        if (this.video) {
+            this.video.node.active = true;
+        }
+        this.applyResponsiveBackground(false);
+        this.tryPlayVideo();
+    }
+
     private tryPlayVideo() {
         if (!this.video) return;
 
@@ -102,6 +112,7 @@ export class LoginVideoBackground extends Component {
             }
 
             this.video.play();
+            this.schedulePosterHideFallback();
         } catch (err) {
             console.warn('[LoginVideoBackground] play failed:', err);
         }
@@ -156,9 +167,7 @@ export class LoginVideoBackground extends Component {
         this.posterOpacity.opacity = 255 * (1 - t);
 
         if (t >= 1) {
-            this.posterOpacity.opacity = 0;
-            this.fadingPoster = false;
-            this.posterHidden = true;
+            this.hidePosterForVideo();
         }
     }
 
@@ -197,6 +206,26 @@ export class LoginVideoBackground extends Component {
 
         this.loadPoster(posterPath, ticket);
         this.loadVideoClip(videoPath, ticket);
+    }
+
+    private schedulePosterHideFallback() {
+        if (this.posterFallbackScheduled) return;
+        this.posterFallbackScheduled = true;
+        this.scheduleOnce(() => {
+            this.posterFallbackScheduled = false;
+            if (!this.video?.clip || this.posterHidden || this.fadingPoster) {
+                return;
+            }
+            this.hidePosterForVideo();
+        }, 0.6);
+    }
+
+    private hidePosterForVideo() {
+        if (this.posterOpacity) {
+            this.posterOpacity.opacity = 0;
+        }
+        this.fadingPoster = false;
+        this.posterHidden = true;
     }
 
     private resolveBackgroundMode(): LoginBackgroundMode {

@@ -45,6 +45,7 @@ function normalizeCodexItem(item: unknown, index: number): LobbyCodexItemVO | nu
     faction: readText(item, 'faction', 32, '未知阵营'),
     heroClass: readText(item, 'heroClass', 32, '未知职业'),
     roleDesc: readOptionalText(item, 'roleDesc', MAX_TEXT_LENGTH),
+    portraitAsset: readOptionalText(item, 'portraitAsset', 64),
     owned: item.owned === true,
     ownedCount: readInteger(item.ownedCount, 0, 999),
   };

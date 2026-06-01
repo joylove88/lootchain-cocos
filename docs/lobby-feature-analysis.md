@@ -1538,3 +1538,243 @@
   - 大屏使用左卡池 + 中央 5 卡 + 右功能栏；
   - 窄屏使用顶部卡池 tab + 中央 3 卡 + 底部按钮；
   - 背景按 cover 方式铺满，UI 按 `safeWidth/safeHeight/uiScale` 自适应。
+
+## 2026-06-01 Stage 4AK 召唤结果层产品补充
+
+- 本阶段把单抽/十连从纯提示推进为“本地 mock 结果展示”，用于验证结果页视觉节奏和弹层交互。
+- 点击单抽/十连后进入 `GachaMockResultLayer`，展示固定 mock 卡牌结果；关闭或返回后仍停留在 Gacha 召唤预览页。
+- 结果层必须明确传达当前不是正式抽卡：
+  - 未扣资源；
+  - 未写入抽卡记录；
+  - 未发放英雄；
+  - 未更新保底。
+- 产品边界不变：
+  - 真实单抽、十连、兑换、补发仍未开放；
+  - 概率、记录、兑换、保底按钮仍是只读/占位提示；
+  - 不调用后端抽卡、兑换、补发、奖励或任何资源变更接口。
+- 后续素材方向：
+  - 继续补透明卡框、按钮三态、概率/记录/兑换/保底图标、召唤阵、粒子；
+  - 真实抽卡开放前必须先完成后端 G1 只读白名单和 G2 测试环境单抽授权评审。
+
+## 2026-06-01 Stage 4AL 主角选择全屏场景补充
+
+- 选择角色不再按弹框理解，而是登录成功后的独立全屏阶段：`登录 -> 选择角色/创建主角 -> 资源加载 -> 大厅`。
+- UI 目标：
+  - 用全屏暗黑大殿背景承接主角创建；
+  - 男/女角色卡作为主视觉中心；
+  - SSR 形态说明和角色名输入作为右侧/底部操作区；
+  - “进入游戏”是创建主角后的流程推进按钮，不是弹窗确认按钮。
+- 当前产品边界：
+  - 仍只开放男/女主角和默认攻击形态；
+  - 防御/辅助形态继续锁定展示；
+  - 主角不进入抽卡池，不参与抽卡概率，不产出抽卡碎片；
+  - 不开放换头像、改名付费、重选角色、职业转化等写入口。
+- 后续验收重点：
+  - 新账号首次登录时必须看到全屏选择角色场景；
+  - 创建中防重复点击仍有效；
+  - 创建成功后进入 loading，再到大厅；
+  - 小屏下角色卡、形态说明、输入框和进入按钮不能重叠。
+
+## 2026-06-01 Stage 4AM 主角创建异常定位补充
+
+- 现象：点击主角选择页“进入游戏”后提示“系统异常”。
+- 定位：
+  - 前端提交路径仍是 `POST /api/player/protagonist`，只提交 `gender` 与 `protagonistName`；
+  - 后端 `GET /api/player/protagonist/state` 在本地返回 `code=500`；
+  - MySQL 查询确认本地库缺少 `player_protagonist` 表，属于本地 schema 未执行主角模块 SQL。
+- 修复：
+  - 已执行 `D:\project\LootChain\sql\12_protagonist_module.sql`；
+  - 默认 `userId=1` 仅复验状态接口，保持未创建状态，方便继续从 Cocos UI 走真实创建；
+  - 另用测试玩家 `userId=3` 复验创建接口成功。
+- 验证：
+  - `userId=1` 的状态接口已返回 `code=0 / created=false`；
+  - 主角模板 `PROTAGONIST_MALE_ATTACK`、`PROTAGONIST_FEMALE_ATTACK` 已存在；
+  - `npm.cmd run check:layout` 与 focused Cocos Creator TypeScript no-emit 已通过。
+- 产品边界：
+  - 主角创建仍仅是账号初始化写入；
+  - 不开放抽卡、奖励、购买、结算、资金池、链上领取、EX V1 或任何经济写入口。
+
+## 2026-06-01 Stage 4AN 大厅功能页背景保活补充
+
+- 现象：部分大厅功能页打开或关闭时，会闪出登录页背景视频。
+- 产品判断：
+  - 大厅功能页应以大厅世界背景为底图；
+  - 页面切换可以替换 HUD 和内容页，但不能在中间帧露出登录舞台；
+  - 登录舞台只属于 `login/loginDialog`，登录后不应继续参与大厅底图显示。
+- 技术调整：
+  - 登录舞台静态节点统一纳入 `LOGIN_SCENE_STAGE_NODE_NAMES`，非登录视图时隐藏；
+  - 登录舞台通过节点显隐隔离底层画面，不再主动停止登录背景视频；
+  - 回到登录页时递归尝试恢复登录背景视频播放；
+  - 大厅功能页使用 `renderLobbyWorldBase()`，保留大厅 `Lobby_BG_*` 节点并只清理页面层；
+  - `clearExcept()` 成为 UI root 的受控清理能力，避免再次用全清空路径处理大厅功能页。
+- 验收重点：
+  - 从大厅点击个人信息、公告、冒险、编队、英雄、图鉴、占位入口时不应闪登录背景；
+  - 回到登录页或重新打开 Preview 时登录背景视频仍应播放；
+  - 功能页返回大厅时大厅背景视频/poster 应连续；
+  - 刷新/重开 Preview 后必须复验最新 chunk。
+- 边界不变：只处理 Cocos 前端渲染生命周期，不新增后端接口或经济写入口。
+
+## 2026-06-01 Stage 4AO 剩余弹层全屏场景化补充
+
+- 产品要求：全部弹框都应表现为“进入新的全屏场景”，不再以局部弹层覆盖当前页。
+- 当前实现仍采用单 Cocos 主场景内 `currentView` 逻辑场景切换：
+  - 登录账号页使用 `LoginAccountSceneRoot` / `LoginAccountScenePanel`；
+  - Gacha 本地结果使用 `gachaResult` 视图和 `GachaResultSceneRoot`；
+  - 未开放占位入口使用 `LobbyPlaceholderSceneRoot` / `LobbyPlaceholderScenePanel`。
+- 交互规则：
+  - 全屏场景根节点必须挂 `BlockInputEvents`，阻断底层大厅或登录页输入；
+  - 退出必须走明确返回按钮或场景内确认按钮，不再依赖遮罩点击关闭；
+  - Gacha 结果关闭后回到 Gacha 预览页，不回大厅，不触发真实抽卡。
+- 审查结论：
+  - 本轮只改 Cocos 前端渲染组织和守卫 token；
+  - 不新增后端接口、SQL、抽卡写口、奖励写口或经济变更；
+  - `GachaMockResultItem` 仍只作为本地 UI mock 数据结构。
+- 验收重点：
+  - 点击账号登录应进入全屏账号页；
+  - 点击 Gacha 单抽/十连应进入全屏结果预览页；
+  - 点击未开放入口应进入全屏占位页；
+  - 刷新/重开 Preview 后执行 `npm.cmd run check:preview` 复验最新运行包。
+
+## 2026-06-01 Stage 4AP 登录账号页返修补充
+
+- 反馈问题：
+  - 登录背景视频在当前预览中消失；
+  - 账号登录页视觉仍像弹框，没有明显“新场景切换”感。
+- 调整结论：
+  - 登录账号页从 `loginDialog` 改为 `loginAccount` 逻辑场景；
+  - 账号登录页不再复用登录首页的 Logo、右侧 rail 和主登录按钮；
+  - 登录账号页使用全屏半透明场景面和顶部/底部压层，保留视频背景但不再是居中弹框；
+  - 登录视频控制组件提供 `resumeForLoginView()`，确保返回登录场景时视频和 poster 兜底能恢复。
+- 验收重点：
+  - 初始登录页必须能看到 `login_bg_loop_1080p` 或 poster 兜底；
+  - 点击账号登录后应进入 `loginAccount` 全屏账号页，而不是显示旧 `loginDialog` 弹框；
+  - 账号页返回登录页后背景视频仍应存在；
+  - 重开/刷新 Preview 后执行 `npm.cmd run check:preview`。
+
+## 2026-06-01 Stage 4AQ 登录背景只保留 Poster/Video
+
+- 反馈问题：登录页当前看到的是静态背景，不是替换后的背景视频。
+- 调整结论：
+  - 登录页背景层只保留 `Login_BG_Poster` 和 `Login_BG_Video`；
+  - 旧静态舞台节点全部关闭，避免与新视频资源叠加；
+  - poster 只作为视频首帧/加载兜底，视频播放请求后会主动隐藏 poster；
+  - 登录布局以 `Login_BG_Poster` / `Login_BG_Video` 作为舞台测量依据。
+- 验收重点：
+  - 重新打开 Preview 后，登录页不应再看到旧静态舞台层；
+  - `Login_BG_Video` 应显示动态视频；
+  - 视频加载前允许短暂显示 `Login_BG_Poster`，但不应长期停留在静态图；
+  - 执行 `npm.cmd run check:preview` 确认运行包已更新。
+
+## 2026-06-01 Stage 4AR 大厅功能入口全屏新场景化
+
+- 反馈问题：从大厅点击某些功能时仍像弹框。
+- 调整结论：
+  - 大厅主界面只负责 HUD 和场景热点；
+  - 点击资料、公告、冒险、编队、英雄、英雄详情、图鉴或占位入口后，先清空大厅运行时内容，再进入独立全屏功能场景；
+  - 功能页不再复用大厅世界背景作为底图，避免视觉上继续像“覆盖在大厅上的弹框”；
+  - 功能页内容层铺满舞台，不再按安全区缩成居中面板。
+- 新场景节点：
+  - `LobbyFeatureSceneBackdrop`：功能页统一全屏底图；
+  - `LobbyAdventureSceneContent` / `LobbyAdventureSceneFrame`；
+  - `LobbyCodexSceneContent` / `LobbyCodexSceneFrame`；
+  - `LobbyFormationSceneContent` / `LobbyFormationSceneFrame`；
+  - `LobbyHeroRosterSceneContent` / `LobbyHeroRosterSceneFrame`；
+  - `LobbyHeroDetailSceneContent` / `LobbyHeroDetailSceneFrame`；
+  - `LobbyNoticeSceneContent` / `LobbyNoticeSceneFrame`；
+  - `LobbyProfileSceneRoot` / `LobbyProfileSceneContent`。
+- 验收重点：
+  - 从大厅点击任一功能后不应继续看到大厅 HUD；
+  - 功能页应铺满舞台边界，而不是居中弹框；
+  - 返回大厅后再重建大厅背景与 HUD；
+  - 刷新/重开 Preview 后执行 `npm.cmd run check:preview`。
+
+## 2026-06-01 Stage 4AS 返回按钮统一补充
+
+- 产品要求：所有功能进入的新全屏场景，返回按钮要和抽奖模块保持一致。
+- 交互结论：全屏功能页统一使用左上角金色箭头，不再使用底部“返回大厅”文字按钮作为返回入口。
+- 英雄详情页的左上角箭头返回英雄列表，保持页面层级关系；战斗预览页未结算时返回编队，已记录结果后返回大厅。
+- 未开放占位页也使用同款箭头，避免占位页仍像确认弹框。
+- 技术落地：新增 `UiSceneBackButton.ts`，Gacha 与大厅功能页统一调用 `renderSceneBackButton()`，`check-layout` 和 `check-preview-freshness` 同步检查新按钮 token。
+- 当前验证：静态布局检查与 focused TypeScript 编译已通过；运行中 Preview 仍为旧 chunk，需重开 Preview 后复验视觉与点击行为。
+
+## 2026-06-01 Stage 4AT 召唤中心 Spine 展示补充
+
+- 产品要求：召唤界面中心不再展示背景占位卡牌，改为展示 `Lord of the Dark Abyss` Spine 骨骼动画。
+- 交互结论：该 Spine 仅作为召唤预览页中心视觉展示，不能表示真实抽卡结果、概率命中或奖励发放。
+- 技术落地：Gacha 中心区新增 `GachaAbyssSpineStage` / `GachaAbyssSpineNode`，运行时按 UUID 加载 `sp.SkeletonData`，设置皮肤 `0`，先播 `appear` 再循环 `idle`。
+- 结果页边界：单抽/十连仍只进入本地 mock 结果预览页，不扣资源、不发英雄、不写记录、不更新保底。
+- 当前验证：`check:layout` 与 focused TypeScript 编译已通过；Preview 需要刷新/重开后复验 Spine 运行时渲染。
+
+## 2026-06-01 Stage 4AU 友情召唤移除补充
+
+- 产品要求：移除召唤页中的“友情召唤”卡池入口，避免玩家误解当前存在友情点或友情池经济规则。
+- 交互结论：Gacha 卡池列表仅保留限定召唤、英雄召唤、普通召唤，以及锁定态光暗召唤占位。
+- 技术落地：删除 `GACHA_PREVIEW_POOLS` 中 `id: 'friend'` 的池配置，并在 `check-layout` 加入回归守卫。
+- 边界不变：这只是前端卡池分类展示调整，不开放真实抽卡、友情点、扣费、发奖、记录、保底或兑换写入。
+
+## 2026-06-01 Backend Hero Roster Art Sync 补充
+
+- 后端英雄模板新增 `portrait_asset` 字段后，Cocos 后续英雄列表/图鉴/详情页可以按该字段接入立绘资源映射。
+- 当前立绘文件仍在 `C:\Users\axian\Desktop\hero`，没有进入 Cocos `assets/resources`，因此本轮不改变前端渲染逻辑。
+- 已确认后端职业口径：战士、辅助、刺客、法师、射手、坦克。
+- R/SR 当前已做到六职业各一个启用模板；SSR 当前启用法师、坦克、战士、刺客各一个；UR 已补齐六职业各一个。
+- 新增 UR 不进入 `gacha_pool_item`，召唤页仍是视觉预览和本地 mock，不改变真实抽卡概率或结果池。
+
+## 2026-06-01 Stage 4AV 英雄立绘资源编号与 Gacha 视觉修正
+
+- 产品语义修正：英雄立绘绑定字段使用 `act_数字` 资源编号，不再把 `.png` 文件后缀写入数据库字段；实际图片文件仍可在 Cocos 资源目录中保留 `.png`。
+- Cocos 大厅英雄队列、图鉴和普通英雄类型已具备 `portraitAsset` 只读字段，后续可在英雄列表/详情卡片接入立绘展示。
+- Gacha 视觉修正：中心展示 Spine 从深渊之主换为 `huangfengjiaozong`，并移除背景/中心舞台上的红色圆圈，避免画面出现多余红色法阵环。
+- 当前仍只做视觉预览和本地 mock 结果层，不开放真实抽卡、兑换、补发、扣资源、发英雄、记录或保底写入。
+
+## 2026-06-01 Stage 4AW Gacha Spine 运行时资源加载补充
+
+- 现象：配置已经切到 `huangfengjiaozong`，但 Preview 中没有显示新的中心 Spine。
+- 原因：Spine 原先放在 `assets/spine/...`，不是 `resources` 运行时可寻址目录；按 UUID 动态加载在当前 Preview/build bundle 里不稳定，且旧 Preview chunk 未刷新时仍会执行旧逻辑。
+- 调整结论：Gacha 中心 Spine 作为运行时动态资源，必须放入 `assets/resources/spine/gacha/huangfengjiaozong/`，并优先用 `resources.load` 加载。
+- 交互边界：加载失败时只保留本地视觉 fallback 和状态提示，不触发抽卡、不扣资源、不发英雄、不写任何经济数据。
+- 验收重点：
+  - 重开 Cocos Creator Preview 后进入 Gacha，中心应显示 `huangfengjiaozong` 的 `idle` Spine；
+  - `node .\scripts\check-preview-freshness.mjs` 应不再提示 Gacha chunk 缺少 `GACHA_ABYSS_SPINE_RESOURCE` 或 `resources.load`；
+  - 召唤页单抽/十连仍只进入本地 mock 结果页，不调用真实抽卡写接口。
+
+## 2026-06-01 Stage 4AX Gacha Spine 皮肤/动画自动解析补充
+
+- 现象：资源进入 `resources` 后，Gacha 中心仍可能空白。
+- 技术判断：`huangfengjiaozong` 的实际皮肤/动画名可能不是 `default` / `idle`；Cocos 在动画名无效时返回 `null` 而不抛异常，容易造成 fallback 被提前销毁。
+- 调整结论：
+  - Gacha 中心 Spine 不再硬依赖固定皮肤/动画名；
+  - 播放前从 `SkeletonData` 枚举实际存在的 skin 和 animation；
+  - 若配置名不存在，自动选择可用项，并保留运行时日志辅助验收；
+  - TrackEntry 无效时保留 fallback 和状态提示。
+- 验收重点：
+  - 重开 Preview 后进入 Gacha，控制台应出现 `[Gacha] huangfengjiaozong spine applied`；
+  - 日志中的 `skin` / `animation` 应为资源实际存在的名称；
+  - 中心不应再出现完全空白。
+
+## 2026-06-01 Stage 4AY Gacha Spine 无动画兜底补充
+
+- 现象：界面一直显示 `黄风教宗准备中`，并提示未找到可播放动画。
+- 结论：当前资源能被加载，但 Cocos 无法枚举到 animation；这通常表示 `.skel` 没有导出动画，或当前导出的动画数据不是 Cocos 运行时可识别格式。
+- 调整结论：
+  - 无 animation 不再视为阻塞显示；
+  - 运行时解析成功后，先展示静态骨骼 setup pose；
+  - 真正的解析失败仍保留 fallback 和错误提示；
+  - 动态播放依赖后续重新导出带 animation 的 Spine。
+- 验收重点：
+  - 重开 Preview 后不应再一直停在 `黄风教宗准备中`；
+  - 若资源没有 animation，应看到静态骨骼首帧和对应状态提示；
+  - 若要动态效果，需要在 Cocos Inspector 中能看到 `huangfengjiaozong` 的 animation 列表。
+## 2026-06-01 Stage 4AZ Gacha Spine 运行时解析失败兜底
+
+- 现象：`huangfengjiaozong` 已进入 `resources` 并能返回 `sp.SkeletonData`，但运行时 `getRuntimeData(true)` 为空，界面继续显示准备中。
+- 产品判断：当前不能继续让召唤中心空白；但也不能把该问题误判为抽卡、概率或后端问题。
+- 技术结论：
+  - 资源路径与 UUID 加载链已打通；
+  - 当前失败点是 `.skel/atlas/texture` 在 Cocos 3.8.8 Spine runtime 中无法解析；
+  - 要显示真正的黄风教宗动态 Spine，需要重新导出或重新匹配该资源包。
+- 临时交互策略：
+  - 优先加载 `huangfengjiaozong`；
+  - 运行时解析失败时自动展示 `Lord of the Dark Abyss/1605` 作为可用 Spine 预览，确保中心区域不空白；
+  - 状态栏明确说明需要重新导出 `huangfengjiaozong`，避免误以为已经显示目标资源。
+- 边界不变：该 fallback 只是 Cocos 视觉预览兜底，不触发真实单抽/十连，不扣资源，不发英雄，不写抽卡记录/保底，不开放兑换、补发或 EX V1。

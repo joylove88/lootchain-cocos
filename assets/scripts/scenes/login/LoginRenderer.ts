@@ -76,7 +76,7 @@ export interface LoginRendererHost {
   applyImageButtonFeedback(node: Node, hoverScale?: number, pressedScale?: number): void;
   applyPointerCursor(node: Node): void;
   setLoginInputs(accountInput: EditBox | null, passwordInput: EditBox | null): void;
-  openLoginDialog(): void;
+  openLoginAccountScene(): void;
   renderLogin(): void;
   submitLogin(): void;
   toggleLoginAgreement(): void;
@@ -85,7 +85,7 @@ export interface LoginRendererHost {
 }
 
 /**
- * 登录页/登录弹窗渲染器。
+ * 登录页/账号登录场景渲染器。
  *
  * 这里只组合 Cocos UI 节点，不直接调用登录接口，也不切换到大厅最终态。
  * 用户点击后通过 host 回调交给 LoginFlow 和 Root 处理。
@@ -112,29 +112,19 @@ export class LoginRenderer {
         '账号登录',
         centerX,
         buttonY,
-        () => this.host.openLoginDialog(),
+        () => this.host.openLoginAccountScene(),
         layout,
         buttonWidth,
         buttonHeight,
         Math.max(18 * layout.uiScale, layout.bodyFont + 7 * layout.uiScale),
       );
     } else {
-      this.host.addGoldButton('账号登录', centerX, buttonY, () => this.host.openLoginDialog(), layout, Math.min(320 * layout.uiScale, layout.contentWidth * 0.3), 48 * layout.uiScale);
+      this.host.addGoldButton('账号登录', centerX, buttonY, () => this.host.openLoginAccountScene(), layout, Math.min(320 * layout.uiScale, layout.contentWidth * 0.3), 48 * layout.uiScale);
     }
     this.host.addStatus('等待圣契召唤。', layout, buttonY + buttonHeight / 2 + 28 * layout.uiScale);
   }
 
-  renderLoginDialog(layout: UiLayout, state: LoginRendererState): void {
-    if (SHOW_LOGIN_BRAND) {
-      this.renderLoginBrand(layout);
-    }
-    if (SHOW_RIGHT_RAIL) {
-      this.renderRightRail(layout);
-    }
-    const dim = this.host.addRect('DialogDim', 0, 0, layout.width, layout.height, rgba(0, 0, 0, 88));
-    // 登录账号页也按场景页处理，遮罩只负责阻断底层输入。
-    dim.node.addComponent(BlockInputEvents);
-
+  renderLoginAccountScene(layout: UiLayout, state: LoginRendererState): void {
     const centerX = (layout.stageLeft + layout.stageRight) / 2;
     const centerY = (layout.stageTop + layout.stageBottom) / 2;
     const pagePadding = Math.max(18 * layout.uiScale, Math.min(36 * layout.uiScale, layout.safeWidth * 0.03));
@@ -142,10 +132,13 @@ export class LoginRenderer {
     const panelHeight = Math.max((SHOW_DIALOG_THIRD_PARTY_LOGIN ? 560 : 430) * layout.uiScale, layout.safeHeight - pagePadding * 2);
     const panelY = centerY;
     const inputWidth = Math.min(430 * layout.uiScale, panelWidth - 130 * layout.uiScale);
-    const panelGraphics = this.host.addBeveledPanel('LoginDialogPanel', centerX, panelY, panelWidth, panelHeight, rgba(10, 8, 9, 226), rgba(214, 177, 94, 230), 18 * layout.uiScale);
-    // 登录弹框内容区也统一吞掉输入事件，避免点击输入框或按钮空白处穿透到登录页底层入口。
+    const scene = this.host.addRect('LoginAccountSceneRoot', centerX, centerY, layout.width, layout.height, rgba(0, 0, 0, 118));
+    scene.node.addComponent(BlockInputEvents);
+    const panelGraphics = this.host.addRect('LoginAccountScenePanel', centerX, panelY, panelWidth, panelHeight, rgba(5, 5, 8, 146), rgba(214, 177, 94, 150), Math.max(1, 1.4 * layout.uiScale));
+    // 账号登录页是独立全屏逻辑场景，内容区阻断输入，避免穿透到底层登录入口。
     panelGraphics.node.addComponent(BlockInputEvents);
-    // 弹窗内部位置集中计算，后续改第三方登录开关时不需要逐个找节点。
+    this.drawAccountSceneChrome(panelGraphics, panelWidth, panelHeight, layout.uiScale);
+    // 页面内部位置集中计算，后续改第三方登录开关时不需要逐个找节点。
     const titleY = panelY + (SHOW_DIALOG_THIRD_PARTY_LOGIN ? 210 : 168) * layout.uiScale;
     const accountLabelY = panelY + (SHOW_DIALOG_THIRD_PARTY_LOGIN ? 138 : 102) * layout.uiScale;
     const accountInputY = panelY + (SHOW_DIALOG_THIRD_PARTY_LOGIN ? 98 : 62) * layout.uiScale;
@@ -155,6 +148,7 @@ export class LoginRenderer {
     const thirdPartyY = panelY - 162 * layout.uiScale;
     const agreementY = SHOW_DIALOG_THIRD_PARTY_LOGIN ? panelY - 226 * layout.uiScale : panelY - 164 * layout.uiScale;
     this.host.addLabel('账号登录', centerX, titleY, 30 * layout.uiScale, rgba(245, 210, 122), new Size(panelWidth - 80 * layout.uiScale, 46 * layout.uiScale));
+    this.host.addLabel('使用测试账号进入 LootChain 当前 Cocos 阶段', centerX, titleY - 38 * layout.uiScale, 16 * layout.uiScale, rgba(196, 178, 138), new Size(panelWidth - 120 * layout.uiScale, 28 * layout.uiScale));
 
     this.host.addLabel('账号 / 邮箱', centerX, accountLabelY, 17 * layout.uiScale, rgba(215, 210, 198), new Size(inputWidth, 28 * layout.uiScale));
     const accountInput = this.host.addFramedEditBox(String(state.defaultDevUserId), centerX, accountInputY, inputWidth, layout);
@@ -167,8 +161,24 @@ export class LoginRenderer {
       this.renderThirdPartyLogin(thirdPartyY, layout, centerX);
     }
     this.renderAgreement(agreementY, layout, centerX, state.agreementAccepted);
-    this.host.addButton('返回', centerX - panelWidth / 2 + 68 * layout.uiScale, panelY + panelHeight / 2 - 42 * layout.uiScale, () => this.host.renderLogin(), layout, 92 * layout.uiScale, 38 * layout.uiScale);
+    this.host.addButton('返回登录', centerX - panelWidth / 2 + 82 * layout.uiScale, panelY + panelHeight / 2 - 42 * layout.uiScale, () => this.host.renderLogin(), layout, 118 * layout.uiScale, 38 * layout.uiScale);
     this.host.addStatus('当前阶段只接入 dev-login；账号为数字时作为 User ID。', layout);
+  }
+
+  private drawAccountSceneChrome(graphics: Graphics, width: number, height: number, scale: number): void {
+    const topBand = Math.min(92 * scale, height * 0.18);
+    const bottomBand = Math.min(88 * scale, height * 0.18);
+    graphics.fillColor = rgba(0, 0, 0, 122);
+    graphics.rect(-width / 2, height / 2 - topBand, width, topBand);
+    graphics.rect(-width / 2, -height / 2, width, bottomBand);
+    graphics.fill();
+    graphics.strokeColor = rgba(214, 177, 94, 132);
+    graphics.lineWidth = Math.max(1, 1.2 * scale);
+    graphics.moveTo(-width / 2 + 28 * scale, height / 2 - topBand);
+    graphics.lineTo(width / 2 - 28 * scale, height / 2 - topBand);
+    graphics.moveTo(-width / 2 + 28 * scale, -height / 2 + bottomBand);
+    graphics.lineTo(width / 2 - 28 * scale, -height / 2 + bottomBand);
+    graphics.stroke();
   }
 
   private renderLoginBrand(layout: UiLayout): void {

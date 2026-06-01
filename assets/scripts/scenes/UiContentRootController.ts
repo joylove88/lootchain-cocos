@@ -51,6 +51,19 @@ export class UiContentRootController {
     }
   }
 
+  clearExcept(preservedNodeNames: readonly string[]): void {
+    const preserved = new Set(preservedNodeNames);
+    const root = this.ensure();
+    const children = [...root.children];
+    for (const child of children) {
+      if (preserved.has(child.name)) {
+        continue;
+      }
+      child.removeFromParent();
+      child.destroy();
+    }
+  }
+
   ensure(): Node {
     if (this.contentRoot?.isValid) {
       return this.contentRoot;

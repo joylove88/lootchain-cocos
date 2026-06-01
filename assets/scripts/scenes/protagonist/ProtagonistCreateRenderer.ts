@@ -1,4 +1,5 @@
 import {
+  BlockInputEvents,
   Button,
   Color,
   EditBox,
@@ -53,31 +54,23 @@ export class ProtagonistCreateRenderer {
   render(layout: UiLayout, state: ProtagonistCreateFormState): void {
     const metrics = this.resolveMetrics(layout);
     this.renderBackdrop(layout);
-    const panel = this.host.addChildBeveledPanelNode(
-      this.createRootGroup('ProtagonistCreatePanel', metrics.centerX, metrics.centerY, metrics.panelWidth, metrics.panelHeight),
-      'ProtagonistCreateFrame',
-      0,
-      0,
-      metrics.panelWidth,
-      metrics.panelHeight,
-      rgba(7, 6, 8, 230),
-      rgba(198, 146, 66, 218),
-      18 * metrics.scale,
-    );
-    this.renderTitle(panel, metrics);
-    this.renderGenderCards(panel, metrics, state);
-    this.renderFormArea(panel, metrics, state);
+    const scene = this.createRootGroup('ProtagonistCreatePanel', metrics.centerX, metrics.centerY, metrics.panelWidth, metrics.panelHeight);
+    scene.addComponent(BlockInputEvents);
+    this.drawFullSceneFrame(scene, metrics.panelWidth, metrics.panelHeight, metrics.scale);
+    this.renderTitle(scene, metrics);
+    this.renderGenderCards(scene, metrics, state);
+    this.renderFormArea(scene, metrics, state);
     this.renderCreateControls(layout, metrics, state);
   }
 
   private resolveMetrics(layout: UiLayout): ProtagonistMetrics {
-    const rawScale = Math.min((layout.safeWidth - 16) / 1180, (layout.safeHeight - 12) / 660);
-    const scale = clamp(rawScale, 0.24, 1);
-    const panelWidth = Math.min(1180 * scale, layout.safeWidth - 12 * scale);
-    const panelHeight = Math.min(660 * scale, layout.safeHeight - 10 * scale);
-    const centerX = (layout.stageLeft + layout.stageRight) / 2;
-    const centerY = (layout.stageTop + layout.stageBottom) / 2;
-    const compact = panelWidth < 760 * scale || panelHeight < 420 * scale;
+    const rawScale = Math.min(layout.safeWidth / 1520, layout.safeHeight / 860);
+    const scale = clamp(rawScale, 0.34, 1);
+    const panelWidth = Math.max(320 * scale, layout.safeWidth - 16 * scale);
+    const panelHeight = Math.max(180 * scale, layout.safeHeight - 12 * scale);
+    const centerX = (layout.safeLeft + layout.safeRight) / 2;
+    const centerY = (layout.safeTop + layout.safeBottom) / 2;
+    const compact = panelWidth < 720 || panelHeight < 420;
     return {
       scale,
       panelWidth,
@@ -118,11 +111,11 @@ export class ProtagonistCreateRenderer {
       parent,
       'ProtagonistCreateTitle',
       '选择角色',
-      -metrics.panelWidth / 2 + 94 * metrics.scale,
-      metrics.panelHeight / 2 - 44 * metrics.scale,
-      34 * metrics.scale,
+      -metrics.panelWidth / 2 + 64 * metrics.scale,
+      metrics.panelHeight / 2 - 54 * metrics.scale,
+      40 * metrics.scale,
       rgba(248, 219, 150),
-      new Size(180 * metrics.scale, 42 * metrics.scale),
+      new Size(220 * metrics.scale, 52 * metrics.scale),
       HorizontalTextAlignment.LEFT,
     );
     this.applyOutline(title, metrics.scale, true);
@@ -130,11 +123,11 @@ export class ProtagonistCreateRenderer {
       parent,
       'ProtagonistCreateSubtitle',
       '创建你的 SSR 主角。主角不进入抽卡池，攻击形态默认开放。',
-      -metrics.panelWidth / 2 + 94 * metrics.scale,
-      metrics.panelHeight / 2 - 82 * metrics.scale,
-      17 * metrics.scale,
+      -metrics.panelWidth / 2 + 64 * metrics.scale,
+      metrics.panelHeight / 2 - 96 * metrics.scale,
+      18 * metrics.scale,
       rgba(185, 155, 100),
-      new Size(metrics.panelWidth * 0.56, 28 * metrics.scale),
+      new Size(metrics.compact ? metrics.panelWidth - 110 * metrics.scale : metrics.panelWidth * 0.58, 32 * metrics.scale),
       HorizontalTextAlignment.LEFT,
     );
     subtitle.overflow = Label.Overflow.SHRINK;
@@ -142,12 +135,12 @@ export class ProtagonistCreateRenderer {
 
   private renderGenderCards(parent: Node, metrics: ProtagonistMetrics, state: ProtagonistCreateFormState): void {
     const dense = this.isDenseCompact(metrics);
-    const cardWidth = metrics.compact ? metrics.panelWidth * 0.36 : metrics.panelWidth * 0.255;
-    const cardHeight = metrics.compact ? metrics.panelHeight * (dense ? 0.34 : 0.42) : metrics.panelHeight * 0.56;
-    const cardY = metrics.compact ? metrics.panelHeight * (dense ? 0.2 : 0.12) : 32 * metrics.scale;
-    const gap = metrics.compact ? metrics.panelWidth * 0.1 : metrics.panelWidth * 0.06;
-    const maleX = metrics.compact ? -cardWidth / 2 - gap / 2 : -metrics.panelWidth * 0.27;
-    const femaleX = metrics.compact ? cardWidth / 2 + gap / 2 : -metrics.panelWidth * 0.01;
+    const cardWidth = metrics.compact ? metrics.panelWidth * 0.31 : Math.min(metrics.panelWidth * 0.22, 330 * metrics.scale);
+    const cardHeight = metrics.compact ? metrics.panelHeight * (dense ? 0.34 : 0.4) : Math.min(metrics.panelHeight * 0.66, 520 * metrics.scale);
+    const cardY = metrics.compact ? metrics.panelHeight * (dense ? 0.26 : 0.2) : -metrics.panelHeight * 0.01;
+    const gap = metrics.compact ? metrics.panelWidth * 0.1 : Math.max(72 * metrics.scale, metrics.panelWidth * 0.07);
+    const maleX = metrics.compact ? -cardWidth / 2 - gap / 2 : -metrics.panelWidth * 0.21;
+    const femaleX = metrics.compact ? cardWidth / 2 + gap / 2 : maleX + cardWidth + gap;
     this.renderGenderCard(parent, 'male', maleX, cardY, cardWidth, cardHeight, metrics.scale, state.selectedGender === 'male');
     this.renderGenderCard(parent, 'female', femaleX, cardY, cardWidth, cardHeight, metrics.scale, state.selectedGender === 'female');
   }
@@ -196,9 +189,9 @@ export class ProtagonistCreateRenderer {
   private renderFormArea(parent: Node, metrics: ProtagonistMetrics, state: ProtagonistCreateFormState): void {
     const dense = this.isDenseCompact(metrics);
     const areaX = metrics.compact ? 0 : metrics.panelWidth * 0.34;
-    const areaY = metrics.compact ? -metrics.panelHeight * (dense ? 0.13 : 0.17) : 28 * metrics.scale;
-    const areaWidth = metrics.compact ? metrics.panelWidth * 0.78 : metrics.panelWidth * 0.26;
-    const areaHeight = metrics.compact ? metrics.panelHeight * (dense ? 0.14 : 0.19) : metrics.panelHeight * 0.46;
+    const areaY = metrics.compact ? -metrics.panelHeight * (dense ? 0.08 : 0.14) : 8 * metrics.scale;
+    const areaWidth = metrics.compact ? metrics.panelWidth * 0.78 : Math.min(metrics.panelWidth * 0.26, 440 * metrics.scale);
+    const areaHeight = metrics.compact ? metrics.panelHeight * (dense ? 0.17 : 0.2) : Math.min(metrics.panelHeight * 0.44, 390 * metrics.scale);
     const area = this.host.addChildPlainNode(parent, 'ProtagonistFormPreview', areaX, areaY, areaWidth, areaHeight);
     const graphics = area.addComponent(Graphics);
     graphics.fillColor = rgba(8, 7, 8, 205);
@@ -286,16 +279,17 @@ export class ProtagonistCreateRenderer {
   private renderCreateControls(layout: UiLayout, metrics: ProtagonistMetrics, state: ProtagonistCreateFormState): void {
     const dense = this.isDenseCompact(metrics);
     const compactControls = dense || layout.inputHeight > 30 * metrics.scale;
-    const buttonYOffset = dense ? 22 : compactControls ? 26 : 48;
-    const buttonHeight = (dense ? 38 : compactControls ? 42 : 54) * metrics.scale;
-    const inputWidth = Math.min(390 * metrics.scale, metrics.panelWidth * (dense ? 0.62 : 0.46));
-    const inputY = metrics.centerY - metrics.panelHeight / 2 + (dense ? 92 : 104) * metrics.scale;
-    const input = this.host.addFramedEditBox(state.protagonistName, metrics.centerX, inputY, inputWidth, layout);
+    const controlX = metrics.centerX + (metrics.compact ? 0 : metrics.panelWidth * 0.34);
+    const buttonYOffset = dense ? 20 : compactControls ? 46 : 70;
+    const buttonHeight = (dense ? 32 : compactControls ? 42 : 54) * metrics.scale;
+    const inputWidth = Math.min(390 * metrics.scale, metrics.panelWidth * (dense ? 0.62 : 0.28));
+    const inputY = metrics.centerY - metrics.panelHeight / 2 + (dense ? 128 : compactControls ? 132 : 154) * metrics.scale;
+    const input = this.host.addFramedEditBox(state.protagonistName, controlX, inputY, inputWidth, layout);
     input.maxLength = 12;
     this.host.setProtagonistNameInput(input);
 
     this.host.addChildLabel(
-      this.createRootGroup('ProtagonistCreateInputLabelLayer', metrics.centerX, inputY + (dense ? 24 : 39) * metrics.scale, inputWidth, 26 * metrics.scale),
+      this.createRootGroup('ProtagonistCreateInputLabelLayer', controlX, inputY + (dense ? 30 : 39) * metrics.scale, inputWidth, 26 * metrics.scale),
       'ProtagonistNameLabel',
       '角色名',
       0,
@@ -308,7 +302,7 @@ export class ProtagonistCreateRenderer {
     const buttonText = state.creating ? '创建中' : '进入游戏';
     const createButton = this.host.addGoldButton(
       buttonText,
-      metrics.centerX,
+      controlX,
       metrics.centerY - metrics.panelHeight / 2 + buttonYOffset * metrics.scale,
       () => this.host.submitProtagonistCreate(),
       layout,
@@ -318,7 +312,7 @@ export class ProtagonistCreateRenderer {
     createButton.interactable = !state.creating;
     if (state.error) {
       const error = this.host.addChildLabel(
-        this.createRootGroup('ProtagonistCreateErrorLayer', metrics.centerX, metrics.centerY - metrics.panelHeight / 2 + (dense ? 8 : 12) * metrics.scale, metrics.panelWidth, 24 * metrics.scale),
+        this.createRootGroup('ProtagonistCreateErrorLayer', controlX, metrics.centerY - metrics.panelHeight / 2 + (dense ? 55 : 102) * metrics.scale, metrics.panelWidth * (metrics.compact ? 0.86 : 0.34), 24 * metrics.scale),
         'ProtagonistCreateError',
         state.error,
         0,
@@ -329,6 +323,28 @@ export class ProtagonistCreateRenderer {
       );
       error.overflow = Label.Overflow.SHRINK;
     }
+  }
+
+  private drawFullSceneFrame(parent: Node, width: number, height: number, scale: number): void {
+    const graphics = parent.addComponent(Graphics);
+    // 全屏场景只保留薄边框和顶部/底部暗色压层，不再使用居中弹框视觉。
+    graphics.fillColor = rgba(3, 3, 6, 92);
+    graphics.rect(-width / 2, -height / 2, width, height);
+    graphics.fill();
+    graphics.fillColor = rgba(0, 0, 0, 112);
+    graphics.rect(-width / 2, height / 2 - 126 * scale, width, 126 * scale);
+    graphics.rect(-width / 2, -height / 2, width, 118 * scale);
+    graphics.fill();
+    graphics.strokeColor = rgba(207, 151, 68, 170);
+    graphics.lineWidth = Math.max(1, 1.5 * scale);
+    graphics.rect(-width / 2 + 10 * scale, -height / 2 + 10 * scale, width - 20 * scale, height - 20 * scale);
+    graphics.stroke();
+    graphics.strokeColor = rgba(199, 45, 41, 110);
+    graphics.moveTo(-width * 0.18, height / 2 - 110 * scale);
+    graphics.lineTo(width * 0.18, height / 2 - 110 * scale);
+    graphics.moveTo(-width * 0.14, -height / 2 + 92 * scale);
+    graphics.lineTo(width * 0.14, -height / 2 + 92 * scale);
+    graphics.stroke();
   }
 
   private createRootGroup(name: string, x: number, y: number, width: number, height: number): Node {

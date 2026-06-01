@@ -14,52 +14,97 @@ const REQUIRED_CHUNKS = [
   },
   {
     source: 'assets/scripts/scenes/LootChainGameRoot.ts',
-    // 确认关卡守卫、场景式页面切换、全屏战斗视图、英雄详情和内容区输入拦截已经进入 Cocos Preview 最新运行包。
-    tokens: ['selectLobbyAdventureStage', 'previewLockedLobbyAdventureStage', 'findLobbyAdventureStage', 'this.selectedLobbyStageCode = resolvedStageCode', 'LobbyPlaceholderPanel', 'panel.addComponent(BlockInputEvents)', 'renderLobbyScenePage', 'isLobbyScenePageView', 'returnToLobbyFromScenePage', "this.currentView = 'adventure'", "this.currentView = 'formation'", "this.currentView = 'heroes'", "this.currentView = 'heroDetail'", "this.currentView = 'notice'", "this.currentView = 'placeholder'", "this.currentView = 'battle'", 'renderBattleScene', 'openLobbyHeroDetail', 'LobbyHeroDetailPanel'],
+    tokens: ['selectLobbyAdventureStage', 'previewLockedLobbyAdventureStage', 'findLobbyAdventureStage', 'this.selectedLobbyStageCode = resolvedStageCode', 'LobbyFeatureSceneBackdrop', 'renderLobbyFeatureSceneBackdrop', 'LobbyPlaceholderSceneRoot', 'LobbyPlaceholderScenePanel', 'LobbyPlaceholderBackButton', 'renderSceneBackButton', 'panel.addComponent(BlockInputEvents)', 'renderLobbyScenePage', 'LOGIN_SCENE_BACKGROUND_NODE_NAMES', 'LOGIN_SCENE_LEGACY_NODE_NAMES', 'stageNode.active = false', 'setLoginSceneStageVisible', 'tryPlayLoginSceneVideo', 'resumeForLoginView', 'isLobbyScenePageView', 'returnToLobbyFromScenePage', 'renderGachaResultScene', 'openGachaMockResultScene', 'closeGachaMockResultScene', "this.currentView = 'adventure'", "this.currentView = 'formation'", "this.currentView = 'heroes'", "this.currentView = 'heroDetail'", "this.currentView = 'notice'", "this.currentView = 'placeholder'", "this.currentView = 'battle'", "this.currentView = 'gachaResult'", "this.currentView = 'loginAccount'", 'renderBattleScene', 'openLobbyHeroDetail', 'LobbyHeroDetailSceneContent'],
+  },
+  {
+    source: 'assets/scripts/scenes/UiSceneBackButton.ts',
+    tokens: ['layout.stageLeft + 46 * buttonScale', 'layout.stageTop - 42 * buttonScale', 'host.applyImageButtonFeedback(button, 1.04, 0.96)'],
   },
   {
     source: 'assets/scripts/scenes/lobby/LobbyAdventurePanelRenderer.ts',
-    // 冒险面板既要显示锁定关卡，也要作为场景页拦截底层点击。
-    tokens: ['selectLobbyAdventureStage(stage.stageCode)', 'previewLockedLobbyAdventureStage(stage.stageCode)', 'LobbyAdventureStageLockBadge', 'LobbyAdventureRecentBattleSummaryCard', 'dim.addComponent(BlockInputEvents)', 'panelGroup.addComponent(BlockInputEvents)', '返回大厅'],
+    // 鍐掗櫓闈㈡澘鏃㈣鏄剧ず閿佸畾鍏冲崱锛屼篃瑕佷綔涓哄満鏅〉鎷︽埅搴曞眰鐐瑰嚮銆?
+    tokens: ['selectLobbyAdventureStage(stage.stageCode)', 'previewLockedLobbyAdventureStage(stage.stageCode)', 'LobbyAdventureSceneContent', 'LobbyAdventureSceneFrame', 'layout.stageWidth', 'LobbyAdventureStageLockBadge', 'LobbyAdventureRecentBattleSummaryCard', 'dim.addComponent(BlockInputEvents)', 'panelGroup.addComponent(BlockInputEvents)', 'LobbyAdventureBackButton', 'renderSceneBackButton(this.host, panelGroup, layout'],
   },
   {
     source: 'assets/scripts/scenes/lobby/LobbyBattlePreviewPanelRenderer.ts',
-    // 战斗预览已升级为全屏战斗逻辑视图，同时必须保留只读结算回执和内容区点击拦截。
-    tokens: ['LobbyBattleSceneRoot', 'LobbyBattleSceneBackdropSprite', 'LobbyBattleSceneEmberMotion', 'LobbyBattleSettlementReceipt', 'LobbyBattleSettlementReceiptLine_', 'panelGroup.addComponent(BlockInputEvents)'],
+    // 鎴樻枟棰勮宸插崌绾т负鍏ㄥ睆鎴樻枟閫昏緫瑙嗗浘锛屽悓鏃跺繀椤讳繚鐣欏彧璇荤粨绠楀洖鎵у拰鍐呭鍖虹偣鍑绘嫤鎴€?
+    tokens: ['LobbyBattleSceneRoot', 'LobbyBattleSceneBackdropSprite', 'LobbyBattlePreviewBackButton', 'renderSceneBackButton(this.host, sceneRoot, layout', 'LobbyBattleSceneEmberMotion', 'LobbyBattleSettlementReceipt', 'LobbyBattleSettlementReceiptLine_', 'panelGroup.addComponent(BlockInputEvents)'],
   },
   {
     source: 'assets/scripts/scenes/lobby/LobbyHeroRosterLoader.ts',
-    // 编队和战斗预览快速连点时复用同一个英雄列表请求，避免空阵容或重复读。
+    // 缂栭槦鍜屾垬鏂楅瑙堝揩閫熻繛鐐规椂澶嶇敤鍚屼竴涓嫳闆勫垪琛ㄨ姹傦紝閬垮厤绌洪樀瀹规垨閲嶅璇汇€?
     tokens: ['inFlightLoad', 'this.inFlightLoad', 'loadPromise'],
   },
   {
     source: 'assets/scripts/scenes/lobby/LobbyNoticePanelRenderer.ts',
-    tokens: ['LobbyNoticePanel', 'dim.addComponent(BlockInputEvents)', 'panelGroup.addComponent(BlockInputEvents)', '返回大厅'],
+    tokens: ['LobbyNoticeSceneContent', 'LobbyNoticeSceneFrame', 'layout.stageWidth', 'dim.addComponent(BlockInputEvents)', 'panelGroup.addComponent(BlockInputEvents)', 'LobbyNoticeBackButton', 'renderSceneBackButton(this.host, panelGroup, layout'],
   },
   {
     source: 'assets/scripts/scenes/lobby/LobbyFormationPanelRenderer.ts',
-    tokens: ['LobbyFormationPanel', 'dim.addComponent(BlockInputEvents)', 'panelGroup.addComponent(BlockInputEvents)', 'canOpenBattlePreview', 'buttonComponent.interactable = enabled', '返回大厅'],
+    tokens: ['LobbyFormationSceneContent', 'LobbyFormationSceneFrame', 'layout.stageWidth', 'dim.addComponent(BlockInputEvents)', 'panelGroup.addComponent(BlockInputEvents)', 'canOpenBattlePreview', 'buttonComponent.interactable = enabled', 'LobbyFormationBackButton', 'renderSceneBackButton(this.host, panelGroup, layout'],
   },
   {
     source: 'assets/scripts/scenes/login/LoginRenderer.ts',
-    tokens: ['LoginDialogPanel', 'dim.node.addComponent(BlockInputEvents)', 'panelGraphics.node.addComponent(BlockInputEvents)'],
+    tokens: ['renderLoginAccountScene', 'openLoginAccountScene', 'LoginAccountSceneRoot', 'LoginAccountScenePanel', 'scene.node.addComponent(BlockInputEvents)', 'panelGraphics.node.addComponent(BlockInputEvents)', 'drawAccountSceneChrome'],
+  },
+  {
+    source: 'assets/resources/login-bg/scripts/login/LoginVideoBackground.ts',
+    tokens: ['resumeForLoginView', 'schedulePosterHideFallback', 'hidePosterForVideo', 'this.posterOpacity.opacity = 0', 'this.tryPlayVideo()'],
+  },
+  {
+    source: 'assets/scripts/scenes/protagonist/ProtagonistCreateRenderer.ts',
+    tokens: ['drawFullSceneFrame', 'scene.addComponent(BlockInputEvents)', 'ProtagonistCreatePanel'],
   },
   {
     source: 'assets/scripts/scenes/lobby/LobbyCodexPanelRenderer.ts',
-    tokens: ['LobbyCodexPanel', 'dim.addComponent(BlockInputEvents)', 'panelGroup.addComponent(BlockInputEvents)', '返回大厅'],
+    tokens: ['LobbyCodexSceneContent', 'LobbyCodexSceneFrame', 'layout.stageWidth', 'dim.addComponent(BlockInputEvents)', 'panelGroup.addComponent(BlockInputEvents)', 'LobbyCodexBackButton', 'renderSceneBackButton(this.host, panelGroup, layout'],
   },
   {
     source: 'assets/scripts/scenes/lobby/LobbyProfileDialogRenderer.ts',
-    tokens: ['LobbyProfilePanel', 'dim.addComponent(BlockInputEvents)', 'panel.addComponent(BlockInputEvents)', '返回大厅'],
+    tokens: ['LobbyProfileSceneRoot', 'LobbyProfileSceneContent', 'sceneRoot.addComponent(BlockInputEvents)', 'panel.addComponent(BlockInputEvents)', 'LobbyProfileBackButton', 'renderSceneBackButton(this.host, panel, layout'],
   },
   {
     source: 'assets/scripts/scenes/lobby/LobbyHeroRosterPanelRenderer.ts',
-    tokens: ['LobbyHeroRosterPanel', 'dim.addComponent(BlockInputEvents)', 'panelGroup.addComponent(BlockInputEvents)', 'openLobbyHeroDetail(hero.id)', '返回大厅'],
+    tokens: ['LobbyHeroRosterSceneContent', 'LobbyHeroRosterSceneFrame', 'layout.stageWidth', 'dim.addComponent(BlockInputEvents)', 'panelGroup.addComponent(BlockInputEvents)', 'openLobbyHeroDetail(hero.id)', 'LobbyHeroRosterBackButton', 'renderSceneBackButton(this.host, panelGroup, layout'],
   },
   {
     source: 'assets/scripts/scenes/lobby/LobbyHeroDetailPanelRenderer.ts',
-    // 英雄详情必须是只读展示层，包含动态立绘、星级、技能、属性和主角形态说明。
-    tokens: ['LobbyHeroDetailPanel', 'LobbyHeroDetailDynamicPortrait', 'LobbyHeroDetailAttributeGrid', 'LobbyHeroDetailSkillList', 'LOBBY_HERO_DETAIL_PROTAGONIST_ASSET', 'dim.addComponent(BlockInputEvents)', '返回大厅'],
+    tokens: ['LobbyHeroDetailSceneContent', 'LobbyHeroDetailSceneFrame', 'layout.stageWidth', 'LobbyHeroDetailDynamicPortrait', 'LobbyHeroDetailAttributeGrid', 'LobbyHeroDetailSkillList', 'LOBBY_HERO_DETAIL_PROTAGONIST_ASSET', 'dim.addComponent(BlockInputEvents)', 'LobbyHeroDetailBackButton', 'renderSceneBackButton(this.host, panelGroup, layout'],
+  },
+  {
+    source: 'assets/scripts/scenes/gacha/GachaSceneRenderer.ts',
+    tokens: [
+      'renderSceneBackButton(this.host, parent, layout',
+      'GachaBackButton',
+      'GachaAbyssSpineStage',
+      'GachaAbyssSpineNode',
+      'GACHA_ABYSS_SPINE_RESOURCE',
+      'resources.load',
+      'GACHA_ABYSS_SPINE_UUID',
+      'assetManager.loadAny',
+      'finishAbyssSpineLoad',
+      'GACHA_ABYSS_FALLBACK_SPINE_RESOURCE',
+      'GACHA_ABYSS_FALLBACK_SPINE_UUID',
+      'ensureAbyssFallbackSpineData',
+      'finishAbyssFallbackSpineLoad',
+      '已临时显示可用预览 Spine',
+      '需要重新导出 huangfengjiaozong',
+      'data.getRuntimeData(true)',
+      'skeleton.setToSetupPose',
+      '<setup-pose>',
+      'resolveAbyssSpineSkinName',
+      'resolveAbyssSpineAnimationName',
+      'skeleton.setSlotsToSetupPose',
+      'skeleton.setAnimation(0, idleAnimation, true)',
+      'huangfengjiaozong',
+      'renderResultScene(layout',
+      'GachaResultSceneRoot',
+      'GachaResultScenePanel',
+      'GachaResultSceneNoWriteNote',
+      'GachaResultSceneConfirmButton',
+      'openGachaMockResultScene(mode)',
+      'closeGachaMockResultScene()',
+    ],
   },
 ];
 
@@ -101,7 +146,7 @@ function normalize(value) {
 
 function getText(url) {
   return new Promise((resolve, reject) => {
-    // 只读取本机 Preview 的静态产物，不触发 Cocos 资源写入。
+    // 鍙鍙栨湰鏈?Preview 鐨勯潤鎬佷骇鐗╋紝涓嶈Е鍙?Cocos 璧勬簮鍐欏叆銆?
     const request = http.get(url, { timeout: 5000 }, (response) => {
       const chunks = [];
       response.setEncoding('utf8');
