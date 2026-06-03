@@ -2056,3 +2056,93 @@ mysql -uroot -p lootchain < .\sql\17_gacha_pool_display_config.sql
 - The newly added `act_1012` / `npc_1012` and `act_1046` / `npc_1046` `.spine` source files were moved to `docs/spine-source-archive/preview-start-scene-fix-20260603/`; runtime `assets/resources/spine` keeps only dynamically loadable Spine assets and now scans with `conflictCount=0`.
 - Verification passed: `http://localhost:7456/settings.js?scene=current_scene` returns 200, `npm.cmd run check:layout` passes, and resource conflict scan reports `fileCount=102`, `conflictCount=0`.
 - Boundary unchanged: Cocos Preview/config and resource-archive cleanup only; no backend, SQL, probability, pool item, pity, reward, EX V1, or economy write-entry change.
+
+## 2026-06-03 Home SQL Sync And Resource Guard Recovery
+
+- Synced backend SQL 12, 15, 16, 17, 18, 19, 20, and 21 into local `lootchain`.
+- On this machine `mysql` is not on PATH; the client is `C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe`.
+- Important local note: Windows PowerShell `Get-Content | mysql` corrupted Chinese SQL text in the native pipe on the first attempt. The scripts were immediately rerun through MySQL `source D:/project/LootChain/sql/...`, which restored UTF-8 Chinese data and comments correctly.
+- DB verification:
+  - `player_protagonist` exists;
+  - `hero_template.spine_uuid` exists;
+  - enabled heroes: `22`, enabled missing uuid: `0`, disabled heroes with uuid: `0`;
+  - repaired text rows still containing `?`: `0`;
+  - `gacha_pool_display_config.tab_logo_asset` exists and the four default pools have tab logo paths;
+  - table comments for `gacha_pool_display_config` and `mq_consume_log` are Chinese.
+- Cocos resource cleanup:
+  - archived newly added `.spine/.spine.meta` source files for `act_1012`, `npc_1012`, and `npc_1046` into `docs/spine-source-archive/home-sql-sync-20260603/`;
+  - restored the four missing tracked runtime files for `assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.{json,atlas,png}` and `huangfengjiaozong2.png`;
+  - `assets/resources/spine` now contains no `.spine/.spine.meta` source files.
+- Verification: `profiles/v2/packages/preview.json` still pins `general.start_scene=623f777a-eb33-4d74-ae88-eb79e749fcfe`; `npm.cmd run check:layout` passes with `layout ok`.
+- Boundary unchanged: SQL sync and display-resource recovery only. No probability, weight, pity, cost, reward, duplicate conversion, pool rule, EX V1, exchange/reissue, bag use/sell, hero growth, or new economy write entry changed.
+
+## 2026-06-03 Hero Roster Reference Layout
+
+- Hero roster now follows the reference-style hero wall layout:
+  - left visual class rail: `全部 / 坦克 / 近战 / 远程 / 物理 / 法术`;
+  - center horizontal vertical hero cards;
+  - top readonly capsules for owned count, total power, readonly state, and refresh;
+  - bottom-right disabled growth dock showing `养成入口未开放 / 升级关闭`.
+- UI art assets were copied from `C:\Users\Ethan\Desktop\决胜之心3.8.99\UI\图标` into:
+  - `assets/resources/ui/hero-roster/card_r.png`;
+  - `assets/resources/ui/hero-roster/card_sr.png`;
+  - `assets/resources/ui/hero-roster/card_ssr.png`;
+  - `assets/resources/ui/hero-roster/card_ur.png`;
+  - selected mapped portraits under `assets/resources/ui/hero-roster/portraits/`.
+- `LobbyHeroRosterPanelRenderer.ts` now uses those card skins, maps stable portrait ids when available, and falls back to an in-card placeholder when a hero has no matching portrait. It never uses Spine atlas textures as roster portraits.
+- Guards updated in `check:layout` and `check-preview-freshness`; `UiSpriteFrameCache` preloads the hero roster card skins.
+- Verification passed: `npm.cmd run check:layout`; focused Cocos Creator TypeScript no-emit.
+- Boundary unchanged: frontend display only. Hero upgrade, star-up, awakening, equipment, reward claim, resource mutation, EX V1, and new economy write entries remain closed.
+
+## 2026-06-03 Hero Roster Dark Themed Card Refresh
+
+- Product/design update: the reference-layout hero roster stays, but the light cream card skins were replaced because they read too cartoon-like against LootChain's dark cathedral theme.
+- Planning boundary: rarity remains visual only here. Filters are still display placeholders except `全部`; hero cards still open the existing readonly hero detail page; the disabled growth dock remains non-interactive.
+- UI art:
+  - generated a high-quality dark gothic empty card frame with the built-in `image_gen` tool;
+  - saved the source image as `docs/generated-art/hero-roster-dark-gothic-card-source.png`;
+  - processed and replaced the runtime card skins at:
+    - `assets/resources/ui/hero-roster/card_r.png`;
+    - `assets/resources/ui/hero-roster/card_sr.png`;
+    - `assets/resources/ui/hero-roster/card_ssr.png`;
+    - `assets/resources/ui/hero-roster/card_ur.png`.
+- Development:
+  - kept the existing card asset paths and meta uuids stable;
+  - redrew the no-portrait card fallback in `LobbyHeroRosterPanelRenderer.ts` as a dark seal/spire emblem instead of the old circular triangle placeholder.
+- Verification passed: `npm.cmd run check:layout`; focused Cocos Creator TypeScript no-emit.
+- Preview note: `npm.cmd run check:preview` still reports stale running Cocos Preview chunks. Restart/refresh Cocos Creator Preview and wait for `ui/hero-roster` reimport before judging the final visual result.
+- Boundary unchanged: Cocos frontend visual asset and fallback drawing only. No backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, EX V1, hero growth, bag write, or new economy write entry changed.
+
+## 2026-06-03 Hero Roster Product Visual Pass
+
+- Product observation from Preview:
+  - the dark card skins loaded, but the cards were still too small against the large cathedral backdrop;
+  - the background red ring competed with the hero cards;
+  - rarity/name/stars needed a clearer in-card information area instead of sitting too close to decorative edges.
+- Layout update:
+  - enlarged hero roster cards on desktop and compact layouts;
+  - slightly increased card spacing and lowered the card group a touch;
+  - widened the portrait area so mapped hero art sits more naturally inside the frame.
+- Card information update:
+  - added `LobbyHeroRosterInfoPlate`, a dark in-card nameplate drawn inside the lower frame;
+  - moved rarity, hero name, and stars into that nameplate using card-height-relative positioning;
+  - updated `check:layout` and `check-preview-freshness` guards with the new information-plate token.
+- Verification passed: `npm.cmd run check:layout`; focused Cocos Creator TypeScript no-emit.
+- Boundary unchanged: Cocos frontend visual/layout only. No backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, EX V1, hero growth, bag write, or new economy write entry changed.
+
+## 2026-06-03 Hero Roster LootChain Visual Language Pass
+
+- Product direction: the imported reference UI/Spine assets are useful as timing and layout references, but their bright/cartoon style should not become LootChain's hero-screen art language.
+- Hero roster now avoids external cartoon portrait assets:
+  - `USE_HERO_ROSTER_EXTERNAL_PORTRAITS = false`;
+  - previous `assets/resources/ui/hero-roster/portraits/` assets were moved out of `resources`;
+  - archive path: `docs/art-source-archive/hero-roster-cartoon-portraits-20260603/portraits/`.
+- Card center art is now code-native:
+  - `LobbyHeroRosterHeroRelief` draws a dark hero relief/silhouette inside each card;
+  - `LobbyHeroRosterAbyssDust` adds restrained red-gold dust in the card stage;
+  - no cartoon UI Spine effect is used in the hero roster.
+- Background shade was deepened slightly so the cathedral red ring reads as atmosphere instead of competing with the cards.
+- Guards updated in `check:layout` and `check-preview-freshness` to keep external portraits disabled and the dark relief/dust tokens present.
+- Verification passed: `npm.cmd run check:layout`; focused Cocos Creator TypeScript no-emit.
+- Preview note: `npm.cmd run check:preview` still reports stale running Cocos Preview chunks missing `USE_HERO_ROSTER_EXTERNAL_PORTRAITS = false`, `LobbyHeroRosterHeroRelief`, and `LobbyHeroRosterAbyssDust`; restart/refresh Cocos Creator Preview before visual acceptance.
+- Boundary unchanged: Cocos frontend visual/resource cleanup only. No backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, EX V1, hero growth, bag write, or new economy write entry changed.

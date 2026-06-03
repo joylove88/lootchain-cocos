@@ -3323,3 +3323,128 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-player-f
   - `npm.cmd run check:layout` 通过；
   - Spine 动态加载冲突扫描：`fileCount=102`、`conflictCount=0`。
 - 边界不变：本阶段只改 Cocos Preview 本地配置、检查脚本和资源源文件归档；不修改后端、SQL、抽卡概率、卡池条目、权重、保底、消耗、奖励、重复转碎片、EX V1 或任何新增经济写入口。
+
+## 2026-06-03 Stage 4CC Home SQL Sync And Resource Guard Recovery
+
+- 按用户要求在本机同步后端 SQL：`12_protagonist_module.sql`、`15_hero_roster_art_refresh.sql`、`16_hero_spine_asset.sql`、`17_gacha_pool_display_config.sql`、`18_hero_template_text_encoding_fix.sql`、`19_table_comment_utf8_fix.sql`、`20_gacha_pool_tab_logo_asset.sql`、`21_hero_spine_uuid.sql`。
+- 本机 `mysql` 不在 PATH，实际客户端为 `C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe`，MySQL 服务 `MySQL80` 正在运行。
+- 首次使用 PowerShell `Get-Content | mysql` 管道时，SQL 中文被 PowerShell 原生命令管道转码成 `????`；已立即改为 MySQL 客户端 `source D:/project/LootChain/sql/...` 方式重新执行全部 8 个 SQL，避免 UTF-8 文件内容经 PowerShell 管道损坏。
+- 只读数据库复验：
+  - `player_protagonist` 表存在；
+  - `hero_template.spine_uuid` 字段存在；
+  - 启用英雄 `status=1` 共 22 个，`spine_asset=22`、`spine_uuid=22`、`enabled_missing_uuid=0`；
+  - 禁用英雄 `disabled_with_uuid=0`；
+  - 6 条文本修复目标行的 `?` 残留计数为 `0`；
+  - `gacha_pool_display_config.tab_logo_asset` 字段存在，默认 4 个卡池均有 `tab_logo_asset`；
+  - `gacha_pool_display_config` 与 `mq_consume_log` 表注释分别为中文 `抽卡卡池展示配置`、`MQ消费幂等日志`。
+- Cocos 本地验收：
+  - `profiles/v2/packages/preview.json` 的 `general.start_scene` 仍等于主场景 uuid `623f777a-eb33-4d74-ae88-eb79e749fcfe`；
+  - `check:layout` 初次失败发现 `assets/resources/spine/hero/act_1012`、`npc_1012`、`npc_1046` 下新加入的 `.spine` 源文件仍在 resources；
+  - 已将 6 个 `.spine/.spine.meta` 源文件移至 `docs/spine-source-archive/home-sql-sync-20260603/`；
+  - `check:layout` 初次还发现 `huangfengjiaozong.json/.atlas/.png/.png2` 运行时文件缺失，且 `D:\project` 下没有其它副本；已仅从 Git 跟踪对象恢复这 4 个缺失运行时文件，不改其它用户资源；
+  - 复跑 `npm.cmd run check:layout` 通过，输出 `layout ok`；`assets/resources/spine` 下已无 `.spine/.spine.meta` 源文件。
+- 后续视觉复验仍需在 Cocos Creator 3.8.8 中等待资源重新导入并重启 Preview，再检查登录、大厅、召唤、英雄详情 Spine。
+- 边界不变：本阶段只同步既有 SQL、修复本机导入编码方式、恢复/归档 Cocos 展示资源；不修改 `gacha_pool_item`、概率、权重、保底、消耗、奖励、重复转碎片、EX V1、兑换/补发、背包使用/出售、英雄养成或任何新增经济写入口。
+
+## 2026-06-03 Stage 4CD Hero Roster Reference Layout
+
+- 用户要求英雄界面排版参考《决胜之心》英雄列表截图，并按产品、UI 美术、开发、审查角色闭环推进。
+- 产品方案：
+  - 英雄页从原“三列横向资料卡”改为参考图式英雄墙；
+  - 左侧为职业筛选栏：`全部 / 坦克 / 近战 / 远程 / 物理 / 法术`，当前只有 `全部` 激活，其余为视觉预留，因为当前 VO 尚未提供职业筛选字段；
+  - 中央为横向竖版英雄卡，展示拥有英雄、稀有度、名称、星级、等级，点击仍进入只读英雄详情；
+  - 顶部右侧使用只读状态胶囊：拥有数量、总战力、只读、刷新；小屏隐藏总战力/状态，避免压住返回标题；
+  - 右下角保留参考图“升级区”视觉，但明确显示 `养成入口未开放 / 升级关闭`，不绑定按钮、不调用写接口。
+- UI 美术：
+  - 从 `C:\Users\Ethan\Desktop\决胜之心3.8.99\UI\图标` 选取 `2001.png`、`2002.png`、`2003.png`、`2004.png`，复制为 `assets/resources/ui/hero-roster/card_r|sr|ssr|ur.png` 作为 R/SR/SSR/UR 竖卡底板；
+  - 从同目录选取部分可稳定映射的头像/半身图，复制到 `assets/resources/ui/hero-roster/portraits/`；
+  - Cocos meta 已同步生成，`UiSpriteFrameCache` 预加载卡牌底板，头像按映射动态请求。
+- 开发实现：
+  - `LobbyHeroRosterPanelRenderer.ts` 重写为参考图式全屏布局；
+  - 新增 `LOBBY_HERO_ROSTER_CARD_ASSETS`、`LOBBY_HERO_ROSTER_BACKDROP_ASSET`、`resolveHeroRosterPortraitAsset()`、`LobbyHeroRosterFilterRail`、`LobbyHeroRosterUpgradeButtonDisabled` 等结构；
+  - 卡牌优先使用 UI 底板和头像资源，未映射英雄使用卡内优雅占位，不再误用 Spine atlas 图集碎片；
+  - `check-layout` 与 `check-preview-freshness` 增加新 UI token 和资源守卫。
+- 审查结果：
+  - `npm.cmd run check:layout` 通过，输出 `layout ok`；
+  - Cocos Creator 3.8.8 自带 TypeScript focused no-emit 通过；
+  - 当前仍需重启/刷新 Cocos Preview 并等待新 UI 资源导入后做视觉验收。
+- 边界不变：本阶段只改 Cocos 英雄列表 UI 视觉和本地资源，不开放升级、升星、觉醒、装备、抽卡、领取、资源消耗、EX V1 或任何新增经济写入口。
+
+## 2026-06-03 Stage 4CE Hero Roster Dark Themed Card Refresh
+
+- 用户反馈：英雄列表参考图排版可接受，但当前浅色竖卡与圆形占位显得偏卡通，和 LootChain 现有暗黑圣殿、黑金、暗红主题不一致。
+- 产品结论：
+  - 保留“左侧分类栏 + 中央竖版英雄卡墙 + 顶部只读状态 + 右下角关闭养成区”的信息架构；
+  - 替换卡面美术，不再使用浅奶油色卡底；
+  - 稀有度差异只通过边框/底部名牌的低饱和色调表达，不引入新职业、新养成或新经济含义。
+- 策划边界：
+  - 当前分类仍是视觉预留，只有 `全部` 激活；
+  - 卡牌仍只展示已拥有英雄，点击进入只读英雄详情；
+  - `升级关闭` / `养成入口未开放` 仍是不可交互视觉状态。
+- UI 美术：
+  - 使用内置 `image_gen` 生成一张黑曜石、哥特金属、暗红圣殿纹理的高质量空卡框源图；
+  - 源图保存到 `docs/generated-art/hero-roster-dark-gothic-card-source.png`；
+  - 已处理成 224x406 的四个 Cocos 卡底资源并覆盖原路径：
+    - `assets/resources/ui/hero-roster/card_r.png`：冷钢蓝；
+    - `assets/resources/ui/hero-roster/card_sr.png`：暗紫；
+    - `assets/resources/ui/hero-roster/card_ssr.png`：血金/暗红；
+    - `assets/resources/ui/hero-roster/card_ur.png`：熔金。
+- 开发实现：
+  - 保持卡底资源路径和 meta uuid 不变，避免 Cocos 引用抖动；
+  - `LobbyHeroRosterPanelRenderer.ts` 的无头像 fallback 从“圆形三角占位”改为暗色封印碑/尖塔纹章；
+  - 没有新增按钮、事件、接口或经济写入。
+- 审查结果：
+  - `npm.cmd run check:layout` 通过；
+  - Cocos Creator 3.8.8 focused TypeScript no-emit 通过；
+  - `npm.cmd run check:preview` 仍失败，原因是运行中的 Cocos Preview 继续服务旧 chunks；需重启/刷新 Cocos Preview 并等待 `ui/hero-roster` 资源重导入后做最终视觉验收。
+- 边界不变：本阶段只替换 Cocos 英雄列表卡牌视觉资源并调整本地 fallback 绘制；不开放升级、升星、觉醒、装备、抽卡、领取、资源消耗、EX V1 或任何新增经济写入口。
+
+## 2026-06-03 Stage 4CF Hero Roster Product Visual Pass
+
+- 用户在 Preview 中反馈：暗黑卡底已生效，但整体仍不够搭配；卡片偏小，背景红环比英雄卡更抢眼；卡内文字需要放到框内更合适的位置。
+- 产品观察：
+  - 当前信息架构可继续保留，问题集中在视觉权重和卡内信息落点；
+  - 英雄卡应成为中景主视觉，背景只作为舞台；
+  - 稀有度、名称、星级应统一落在卡底部信息仓中，并与金属边框保持边距；
+  - 无头像 fallback 继续保持暗黑封印语义，但应避免像功能按钮图标。
+- 开发调整：
+  - `LobbyHeroRosterPanelRenderer.ts` 中非横向卡高上限从约 `306 * scale` 提升到 `372 * scale`，最大允许到 `386 * scale`；
+  - 横向/小屏卡高同步放大到 `252 * scale` 以内；
+  - 卡片间距略增，卡组 Y 轴略回落，让卡片更稳地压在场景中段；
+  - 新增 `LobbyHeroRosterInfoPlate`，在卡底部绘制暗色信息名牌；
+  - `SSR/R`、英雄名、星级改用卡高比例定位，统一收进底部信息名牌内部，避免贴边或漂出框感；
+  - 头像显示区域略加宽，保持人物图和卡框比例更自然。
+- 守卫：
+  - `check-layout` 与 `check-preview-freshness` 增加 `LobbyHeroRosterInfoPlate` token，避免后续回退到无信息仓布局。
+- 审查结果：
+  - `npm.cmd run check:layout` 通过；
+  - Cocos Creator 3.8.8 focused TypeScript no-emit 通过；
+  - 仍需重启/刷新 Cocos Preview 以加载最新 chunk 后做视觉验收。
+- 边界不变：本阶段只调整 Cocos 英雄列表视觉权重与卡内排版；不开放升级、升星、觉醒、装备、抽卡、领取、资源消耗、EX V1 或任何新增经济写入口。
+
+## 2026-06-03 Stage 4CG Hero Roster LootChain Visual Language Pass
+
+- 用户反馈：外部 `spine/ui` 与参考素材整体偏卡通，如果继续叠到 LootChain 英雄界面会和暗黑圣殿、黑金、暗红主题冲突；要求按“先实现英雄界面”的方向收敛。
+- 产品/策划结论：
+  - 英雄界面先统一 LootChain 自己的暗黑视觉语言，不再直接使用《决胜之心》UI Spine 特效或卡通头像作为主视觉；
+  - 外部素材只作为动效节奏/信息层级参考，不作为当前英雄页最终美术资产；
+  - 英雄列表保持只读卡墙，点击卡牌进入只读英雄详情；
+  - 稀有度仍只作为视觉阅读辅助，不增加职业、成长、获取、概率、奖励或经济含义。
+- Cocos 开发：
+  - `LobbyHeroRosterPanelRenderer.ts` 新增 `USE_HERO_ROSTER_EXTERNAL_PORTRAITS = false`，禁用外部头像映射；
+  - 卡内主体从外部头像/圆形占位改为 Cocos `Graphics` 绘制的 `LobbyHeroRosterHeroRelief` 暗色英雄浮雕/剪影；
+  - 卡区新增 `LobbyHeroRosterAbyssDust`，用少量暗金/暗红尘点做仪式感氛围，不使用卡通 Spine 特效；
+  - 背景遮罩略加深，让红环退为舞台，不压过英雄卡；
+  - 仍保留暗黑卡底、底部 `LobbyHeroRosterInfoPlate`、只读顶部状态和不可交互养成关闭区。
+- 资源整理：
+  - 已将此前复制进 `assets/resources/ui/hero-roster/portraits/` 的偏卡通头像资源移出 Cocos `resources` 动态加载目录；
+  - 归档位置：`docs/art-source-archive/hero-roster-cartoon-portraits-20260603/portraits/`；
+  - `check-layout` 不再要求这些头像资源存在。
+- 守卫：
+  - `check-layout` 与 `check-preview-freshness` 增加 `USE_HERO_ROSTER_EXTERNAL_PORTRAITS = false`、`LobbyHeroRosterHeroRelief`、`drawHeroReliefPortrait`、`LobbyHeroRosterAbyssDust` token；
+  - 避免后续回退到外部卡通头像或无暗黑主体的卡片。
+- 审查结果：
+  - `npm.cmd run check:layout` 通过；
+  - Cocos Creator 3.8.8 focused TypeScript no-emit 通过；
+  - `npm.cmd run check:preview` 仍失败，运行中的 Cocos Preview 继续服务旧 chunks，缺少 `USE_HERO_ROSTER_EXTERNAL_PORTRAITS = false`、`LobbyHeroRosterHeroRelief`、`LobbyHeroRosterAbyssDust` 等本轮 token；需重启/刷新 Cocos Preview 后做视觉验收。
+- 边界不变：本阶段只调整 Cocos 英雄列表视觉与本地资源归档；不开放升级、升星、觉醒、装备、抽卡、领取、资源消耗、EX V1 或任何新增经济写入口。

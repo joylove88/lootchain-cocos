@@ -73,7 +73,7 @@ const REQUIRED_CHUNKS = [
   },
   {
     source: 'assets/scripts/scenes/lobby/LobbyHeroRosterPanelRenderer.ts',
-    tokens: ['LobbyHeroRosterSceneContent', 'LobbyHeroRosterSceneFrame', 'layout.stageWidth', 'dim.addComponent(BlockInputEvents)', 'panelGroup.addComponent(BlockInputEvents)', 'openLobbyHeroDetail(hero.id)', 'LobbyHeroRosterBackButton', 'renderSceneBackButton(this.host, panelGroup, layout'],
+    tokens: ['LobbyHeroRosterSceneContent', 'LobbyHeroRosterSceneFrame', 'layout.stageWidth', 'dim.addComponent(BlockInputEvents)', 'panelGroup.addComponent(BlockInputEvents)', 'openLobbyHeroDetail(hero.id)', 'LobbyHeroRosterBackButton', 'renderSceneBackButton(this.host, panelGroup, layout', 'LOBBY_HERO_ROSTER_CARD_ASSETS', 'LobbyHeroRosterFilterRail', 'USE_HERO_ROSTER_EXTERNAL_PORTRAITS = false', 'LobbyHeroRosterHeroRelief', 'LobbyHeroRosterAbyssDust', 'LobbyHeroRosterInfoPlate', 'LobbyHeroRosterUpgradeButtonDisabled', 'resolveHeroRosterPortraitAsset'],
   },
   {
     source: 'assets/scripts/scenes/lobby/LobbyHeroDetailPanelRenderer.ts',

@@ -2057,3 +2057,99 @@
   - exchange keeps its disabled button, with list content reserved above it.
 - QA should restart/refresh Cocos Creator Preview before visual acceptance, because stale chunks can keep the old full-screen panel and old lobby buttons visible.
 - Boundary unchanged: frontend visual/layout only; no backend, SQL, economy rule, EX V1, or new economy write-entry change.
+
+## 2026-06-03 Home SQL Sync / Spine Resource QA Note
+
+- SQL sync QA:
+  - Local SQL 12, 15, 16, 17, 18, 19, 20, and 21 were imported into `lootchain`.
+  - On Windows PowerShell, avoid `Get-Content | mysql` for Chinese SQL unless the native pipe encoding is explicitly controlled; the safer local path used here is MySQL `source D:/project/LootChain/sql/xx.sql` with `--default-character-set=utf8mb4`.
+  - Verification must include `hero_template.spine_uuid`, enabled hero uuid count, repaired text rows with no `?`, `gacha_pool_display_config.tab_logo_asset`, and Chinese table comments.
+- Spine resource QA:
+  - `.spine` source files must not remain under `assets/resources/spine`; they should be archived under `docs/spine-source-archive/`.
+  - `act_1012`, `npc_1012`, and `npc_1046` source files were archived to `docs/spine-source-archive/home-sql-sync-20260603/`.
+  - `huangfengjiaozong` must keep the runtime files `huangfengjiaozong.json`, `huangfengjiaozong.atlas`, `huangfengjiaozong.png`, and `huangfengjiaozong2.png` in `assets/resources/spine/gacha/huangfengjiaozong/`.
+  - Current `check:layout` passes after restoring those runtime files and archiving source files.
+- Visual acceptance still requires restarting Cocos Creator Preview and waiting for asset reimport before judging summon and hero-detail Spine behavior.
+- Boundary unchanged: this QA note covers local SQL/display-resource synchronization only; no gacha probability, cost, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy write surface is opened.
+
+## 2026-06-03 Hero Roster Reference Layout QA Note
+
+- Product acceptance:
+  - hero roster should read like a hero-wall screen, not a data table;
+  - left rail shows class tabs, with only `全部` active until backend provides class-filter data;
+  - hero cards are vertical, large, and visually grouped across the center;
+  - top-right data is readonly, not fake currency;
+  - bottom-right growth area must look disabled and say `升级关闭` / `养成入口未开放`.
+- UI art acceptance:
+  - card skins come from the provided local art folder and live under `assets/resources/ui/hero-roster/`;
+  - mapped portraits live under `assets/resources/ui/hero-roster/portraits/`;
+  - if a hero has no mapped portrait, the card must show the local placeholder instead of a Spine atlas sheet.
+- Development acceptance:
+  - clicking a hero card still opens the existing readonly hero detail page;
+  - refresh still calls the existing readonly hero roster loader;
+  - no upgrade/level-up/star-up/awaken/equipment/bag/gacha/economy write route is added or called.
+- Review result:
+  - `check:layout` passes;
+  - focused TypeScript passes;
+  - Cocos Preview must be restarted/refreshed so newly imported `ui/hero-roster` resources are visible.
+
+## 2026-06-03 Hero Roster Dark Card QA Note
+
+- Product/design acceptance:
+  - hero roster cards should no longer look cream-colored, cute, or cartoon-like;
+  - cards should match the current dark cathedral backdrop with black obsidian, worn metal, restrained gold, and low-saturation rarity accents;
+  - rarity color is a visual reading aid only and must not imply new mechanics.
+- UI art acceptance:
+  - `card_r.png`, `card_sr.png`, `card_ssr.png`, and `card_ur.png` under `assets/resources/ui/hero-roster/` are now generated dark gothic card skins;
+  - generated source is archived at `docs/generated-art/hero-roster-dark-gothic-card-source.png`;
+  - no-portrait fallback should look like a dark seal/spire emblem, not a temporary circle/triangle placeholder.
+- Development acceptance:
+  - card asset paths and meta uuids stay stable;
+  - clicking a card still only opens the existing readonly hero detail page;
+  - disabled growth visual remains non-interactive and must not call upgrade/star/equipment/economy routes.
+- Review result:
+  - `check:layout` passes;
+  - focused TypeScript passes;
+  - `check:preview` still reports stale running Cocos Preview chunks;
+  - restart/refresh Cocos Preview and wait for `ui/hero-roster` reimport before visual acceptance.
+
+## 2026-06-03 Hero Roster Product Visual Pass QA Note
+
+- Product acceptance:
+  - hero cards should read as the screen's main mid-ground object, not as small stickers on the cathedral background;
+  - the red ring backdrop may remain atmospheric, but it should not visually overpower the cards;
+  - card text must sit inside the lower in-card nameplate, with clear padding from the metal frame.
+- UI/layout acceptance:
+  - desktop card height should feel materially larger than the first dark-card pass;
+  - card spacing should leave the cards as a group, not isolated columns;
+  - rarity, name, and stars should be vertically grouped inside `LobbyHeroRosterInfoPlate`;
+  - long hero names may shrink, but they must not escape or overlap the card frame.
+- Development acceptance:
+  - `LobbyHeroRosterInfoPlate` exists and is guarded by `check:layout` / `check-preview-freshness`;
+  - clicking hero cards still only opens readonly hero detail;
+  - disabled growth dock remains non-interactive.
+- Review result:
+  - `check:layout` passes;
+  - focused TypeScript passes;
+  - restart/refresh Cocos Preview before judging final visual placement.
+
+## 2026-06-03 Hero Roster LootChain Visual Language QA Note
+
+- Product acceptance:
+  - the hero roster should no longer depend on bright/cartoon reference portraits or UI Spine effects;
+  - imported reference assets may inform timing and hierarchy, but the visible hero screen should read as LootChain dark fantasy;
+  - the red ring backdrop should sit behind the cards as atmosphere, not become the main subject.
+- UI acceptance:
+  - each hero card center should show `LobbyHeroRosterHeroRelief`, a dark in-card relief/silhouette;
+  - card-stage particles should be restrained red-gold dust through `LobbyHeroRosterAbyssDust`;
+  - no `ui/hero-roster/portraits/*` asset should be required for the current hero roster.
+- Development acceptance:
+  - `USE_HERO_ROSTER_EXTERNAL_PORTRAITS = false`;
+  - clicking a card still opens the existing readonly hero detail page;
+  - refresh still calls the readonly hero roster loader;
+  - disabled growth dock remains non-interactive and must not call upgrade/star/equipment/economy routes.
+- Review result:
+  - `check:layout` passes;
+  - focused TypeScript passes;
+  - `check:preview` still reports stale running Preview chunks missing `USE_HERO_ROSTER_EXTERNAL_PORTRAITS = false`, `LobbyHeroRosterHeroRelief`, and `LobbyHeroRosterAbyssDust`;
+  - restart/refresh Cocos Preview before final visual acceptance.
