@@ -95,6 +95,8 @@ export class LobbyProfileState {
       exp: 0,
       stamina: 0,
       maxStamina: 120,
+      gold: 0,
+      diamond: 0,
       combatPower: 0,
       status: null,
       accountStatus: this.profileError ? '资料占位' : '读取中',
@@ -120,6 +122,8 @@ export class LobbyProfileState {
       exp: positiveInteger(profile.exp, 0),
       stamina: positiveInteger(profile.stamina, 0),
       maxStamina: positiveInteger(profile.maxStamina, 120),
+      gold: normalizeCurrency(profile.gold),
+      diamond: normalizeCurrency(profile.diamond),
       combatPower: positiveInteger(profile.combatPower, 0),
       status: profile.status ?? null,
       accountStatus: safeText(profile.accountStatus || '未知'),
@@ -129,4 +133,9 @@ export class LobbyProfileState {
     };
   }
 
+}
+
+function normalizeCurrency(value: unknown): number {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
 }

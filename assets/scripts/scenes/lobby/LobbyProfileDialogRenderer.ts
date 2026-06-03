@@ -104,7 +104,7 @@ export class LobbyProfileDialogRenderer {
       new Size(panelWidth - 90 * dialogScale, 28 * dialogScale),
     );
     note.overflow = Label.Overflow.SHRINK;
-    renderSceneBackButton(this.host, panel, layout, 'LobbyProfileBackButton', () => this.host.closePlayerProfileDialog(), dialogScale);
+    renderSceneBackButton(this.host, panel, layout, 'LobbyProfileBackButton', () => this.host.closePlayerProfileDialog(), dialogScale, '资料');
   }
 
   private addSceneRoot(layout: UiLayout): Node {

@@ -5,6 +5,10 @@ type UnknownRecord = Record<string, unknown>;
 
 const MAX_CODEX_COUNT = 96;
 const MAX_TEXT_LENGTH = 96;
+const HERO_ASSET_FALLBACKS: Record<string, { portraitAsset: string; spineAsset: string }> = {
+  // 只读展示兜底：当前公司/家里本地服务未重启时，图鉴列表可能暂时不带资源字段。
+  R_PATROL_01: { portraitAsset: 'act_1001', spineAsset: 'npc_1001' },
+};
 
 /** 大厅图鉴只读 API；只允许读取窄口径大厅门面，不能调用英雄养成 Controller。 */
 export class LobbyCodexApi {
@@ -38,6 +42,10 @@ function normalizeCodexItem(item: unknown, index: number): LobbyCodexItemVO | nu
   if (rarity.toUpperCase() === 'EX' || heroCode.toUpperCase().startsWith('EX_')) {
     return null;
   }
+  const fallbackAssets = resolveHeroAssetFallback(heroCode);
+  const portraitAsset = readOptionalText(item, 'portraitAsset', 64) ?? fallbackAssets?.portraitAsset ?? null;
+  const spineAsset = readOptionalText(item, 'spineAsset', 128) ?? deriveSpineAssetFromPortrait(portraitAsset) ?? fallbackAssets?.spineAsset ?? null;
+  const spineUuid = readOptionalText(item, 'spineUuid', 64);
   return {
     heroCode,
     heroName: readText(item, 'heroName', MAX_TEXT_LENGTH, '未命名英雄'),
@@ -45,8 +53,9 @@ function normalizeCodexItem(item: unknown, index: number): LobbyCodexItemVO | nu
     faction: readText(item, 'faction', 32, '未知阵营'),
     heroClass: readText(item, 'heroClass', 32, '未知职业'),
     roleDesc: readOptionalText(item, 'roleDesc', MAX_TEXT_LENGTH),
-    portraitAsset: readOptionalText(item, 'portraitAsset', 64),
-    spineAsset: readOptionalText(item, 'spineAsset', 128),
+    portraitAsset,
+    spineAsset,
+    spineUuid,
     owned: item.owned === true,
     ownedCount: readInteger(item.ownedCount, 0, 999),
   };
@@ -75,6 +84,18 @@ function readOptionalText(record: UnknownRecord, key: string, maxLength: number)
   }
   const trimmed = value.trim();
   return trimmed ? trimmed.slice(0, maxLength) : null;
+}
+
+function deriveSpineAssetFromPortrait(portraitAsset: string | null): string | null {
+  const normalized = (portraitAsset ?? '').replace(/\.(png|jpg|jpeg|webp)$/i, '').trim();
+  if (!/^act_[A-Za-z0-9_-]+$/i.test(normalized)) {
+    return null;
+  }
+  return normalized.replace(/^act/i, 'npc').slice(0, 128);
+}
+
+function resolveHeroAssetFallback(heroCode: string): { portraitAsset: string; spineAsset: string } | null {
+  return HERO_ASSET_FALLBACKS[heroCode.trim().toUpperCase()] ?? null;
 }
 
 function readInteger(value: unknown, min: number, max: number): number {

@@ -85,7 +85,7 @@ export class LobbyFormationPanelRenderer {
     this.renderHeader(panel, panelWidth, panelHeight, scale, state, selectedStageCode, selectedHeroIds);
     this.renderBody(panel, panelWidth, panelHeight, scale, state, selectedHeroIds);
     this.renderFooter(panel, panelWidth, panelHeight, scale, selectedStageCode, state);
-    renderSceneBackButton(this.host, panelGroup, layout, 'LobbyFormationBackButton', () => this.host.closeLobbyFormationPanel(), scale);
+    renderSceneBackButton(this.host, panelGroup, layout, 'LobbyFormationBackButton', () => this.host.closeLobbyFormationPanel(), scale, '编队');
   }
 
   private createUiNode(name: string): Node {

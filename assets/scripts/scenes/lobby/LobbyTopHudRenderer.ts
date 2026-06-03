@@ -100,6 +100,11 @@ export class LobbyTopHudRenderer {
     return this.host.formatInteger(value);
   }
 
+  private compactResourceValue(value: unknown): string {
+    const parsed = Number(value ?? 0);
+    return this.host.compactResourceValue(Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0);
+  }
+
   private renderPlayerInfo(layout: UiLayout): void {
     const profile = this.currentLobbyProfile();
     const playerLayout = resolveLobbyPlayerInfoLayout(layout);
@@ -305,13 +310,13 @@ export class LobbyTopHudRenderer {
       {
         key: 'coin',
         label: '金币',
-        value: '未开放',
+        value: this.compactResourceValue(profile.gold),
         tint: rgba(222, 172, 84),
       },
       {
         key: 'ruby',
-        label: '红宝石',
-        value: '未开放',
+        label: '钻石',
+        value: this.compactResourceValue(profile.diamond),
         tint: rgba(212, 50, 73),
       },
       {

@@ -8,6 +8,7 @@ export interface LobbyCodexItemVO {
   roleDesc?: string | null;
   portraitAsset?: string | null;
   spineAsset?: string | null;
+  spineUuid?: string | null;
   owned: boolean;
   ownedCount: number;
 }

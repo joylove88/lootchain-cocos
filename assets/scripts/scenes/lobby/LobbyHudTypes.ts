@@ -111,6 +111,8 @@ export interface LobbyHudHost {
   openLobbyCodexPanel(): void;
   /** 英雄入口走只读英雄队列；该面板只读取已拥有英雄，不提供任何养成写操作。 */
   openLobbyHeroRosterPanel(): void;
+  /** 背包入口走只读道具列表；该面板只读取背包和来源，不提供使用/出售写操作。 */
+  openLobbyBagPanel(): void;
   /** 冒险入口走主线只读地图；当前不进入战斗、不保存编队、不产生结算。 */
   openLobbyAdventurePanel(): void;
   /** 召唤入口进入独立抽奖预览页；当前只展示卡池视觉和规则入口，不触发抽卡写入。 */

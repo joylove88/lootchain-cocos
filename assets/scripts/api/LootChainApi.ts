@@ -16,8 +16,8 @@ import { ProtagonistApi } from './ProtagonistApi';
 /**
  * 前端 API 聚合入口。
  *
- * 当前 Cocos 登录/大厅阶段只实际使用 auth、profile、protagonist、lobbyNotice、lobbyCodex、lobbyHero 和 lobbyAdventure；gacha/hero/bag 保留为历史接口封装，
- * 不代表当前大厅入口已经开放。
+ * 当前 Cocos 登录/大厅阶段实际使用 auth、profile、protagonist、lobbyNotice、lobbyCodex、lobbyHero、lobbyAdventure、battle、gacha 和 bag。
+ * bag 仅允许只读列表/来源；hero 成长、bag use/sell、gacha exchange/reissue 等写入口仍不能开放。
  */
 export class LootChainApi {
   readonly tokenStore = new TokenStore();

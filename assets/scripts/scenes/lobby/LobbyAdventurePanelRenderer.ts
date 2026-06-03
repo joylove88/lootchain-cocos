@@ -85,7 +85,7 @@ export class LobbyAdventurePanelRenderer {
     this.renderHeader(panel, panelWidth, panelHeight, scale, state);
     this.renderBody(panel, panelWidth, panelHeight, scale, state);
     this.renderFooter(panel, panelWidth, panelHeight, scale);
-    renderSceneBackButton(this.host, panelGroup, layout, 'LobbyAdventureBackButton', () => this.host.closeLobbyAdventurePanel(), scale);
+    renderSceneBackButton(this.host, panelGroup, layout, 'LobbyAdventureBackButton', () => this.host.closeLobbyAdventurePanel(), scale, '冒险');
   }
 
   private createUiNode(name: string): Node {

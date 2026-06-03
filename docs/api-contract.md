@@ -116,6 +116,9 @@
         "power": 8300,
         "protagonist": true,
         "sourceType": "PROTAGONIST",
+        "portraitAsset": "act_1001",
+        "spineAsset": "npc_1001",
+        "spineUuid": "7196cf65-7226-4546-8f38-b60935a6a97a",
         "currentForm": "attack",
         "formLabel": "攻击形态"
       }
@@ -126,6 +129,8 @@
 - 该接口只读，不执行英雄升级、升星、觉醒、洗练、抽卡、发奖、购买、出售或结算。
 - 主角由后端按 `protagonist=true` / `sourceType=PROTAGONIST` 置顶；前端也会再按主角标记排序。
 - EX 稀有度和 `EX_` 英雄编码会在后端和前端双重过滤。
+- `portraitAsset`、`spineAsset`、`spineUuid` 仅用于 Cocos 英雄详情资源展示；`spineUuid` 对应 Cocos `sp.SkeletonData` 资源 uuid，前端优先按 uuid 加载，失败时才按 `assets/resources/spine/hero/{spineAsset}/{spineAsset}` 路径兜底。
+- 这些展示字段不代表获取来源、概率、奖励、消耗、碎片转换或任何经济语义。
 
 ## 大厅冒险主线只读壳
 
@@ -184,11 +189,40 @@
   - body: `{ "poolCode": "NORMAL_HERO", "requestId": "...", "drawCount": 1, "useTicket": false }`
 - `GET /api/player/gacha/logs`
 
+### 2026-06-03 Gacha pool display metadata
+
+- `GET /api/player/gacha/pools` and `GET /api/player/gacha/pools/{poolCode}` now include `tabLogoAsset`.
+- `tabLogoAsset` is a Cocos resources path for the right-side image slot inside each left summon-pool tab.
+- `logoAsset` remains the small pool badge/icon path; `tabLogoAsset` is the larger tab background/logo slot. If `tabLogoAsset` is empty, Cocos falls back to `logoAsset` and then to the theme color block.
+- This field is display-only and does not affect probability, pool items, pity, cost, rewards, duplicate conversion, exchange/reissue, EX V1, or any economy write path.
+
 ## 英雄
 
 - `GET /api/player/heroes`
 - `GET /api/player/heroes/{heroId}`
 - `GET /api/player/heroes/fragments/list`
+
+## 2026-06-02 Cocos Gacha/Asset Readonly Contract Update
+
+- `GET /api/player/me/lobby`
+  - adds readonly `gold` and `diamond` fields for Cocos top asset display;
+  - values come from `user_currency`; missing rows are displayed as `0`;
+  - the read path must not create accounts or write currency logs.
+- `GET /api/player/gacha/pools/{poolCode}/detail`
+  - readonly player-facing pool detail for Cocos side pages;
+  - includes pool display metadata, rates, pool items, pity configs, duplicate conversion configs, and ticket configs;
+  - used by Gacha `概率保底`, `兑换` explanation, and `奖池内容` pages.
+- `GET /api/player/gacha/logs`
+  - used by the Gacha `记录` page with current selected pool filter.
+- `GET /api/player/heroes/fragments/list`
+  - used by the Cocos backpack to merge duplicate-hero fragments into a read-only `英雄碎片` group;
+  - fragments remain stored in `user_hero_fragment`, not `user_bag`.
+- Still not available in this stage:
+  - gacha exchange/reissue;
+  - bag use/batch-use/sell;
+  - hero growth writes;
+  - EX V1;
+  - any new economy write endpoint.
 - `GET /api/player/heroes/codex`
 - `POST /api/player/heroes/{heroId}/level-up`
 - `POST /api/player/heroes/{heroId}/star-up`

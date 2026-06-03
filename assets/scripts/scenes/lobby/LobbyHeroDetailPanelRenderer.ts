@@ -1,4 +1,7 @@
 import {
+  assetManager,
+  AudioClip,
+  AudioSource,
   BlockInputEvents,
   Color,
   Graphics,
@@ -59,6 +62,9 @@ export interface LobbyHeroDetailPanelHost {
 export class LobbyHeroDetailPanelRenderer {
   private readonly heroSpineData = new Map<string, sp.SkeletonData>();
   private readonly heroSpineLoadCallbacks = new Map<string, Array<(data: sp.SkeletonData | null) => void>>();
+  private readonly heroSpineAudioClips = new Map<string, AudioClip>();
+  private readonly heroSpineAudioLoadCallbacks = new Map<string, Array<(clip: AudioClip | null) => void>>();
+  private readonly missingHeroSpineAudioLogs = new Set<string>();
 
   constructor(private readonly host: LobbyHeroDetailPanelHost) {}
 
@@ -110,7 +116,7 @@ export class LobbyHeroDetailPanelRenderer {
     }
     this.renderHeader(panel, hero, panelWidth, panelHeight, scale);
     this.renderFooter(panel, panelWidth, panelHeight, scale);
-    renderSceneBackButton(this.host, panelGroup, layout, 'LobbyHeroDetailBackButton', () => this.host.backToLobbyHeroRosterPanel(), scale);
+    renderSceneBackButton(this.host, panelGroup, layout, 'LobbyHeroDetailBackButton', () => this.host.backToLobbyHeroRosterPanel(), scale, '英雄');
   }
 
   private renderHeader(parent: Node, hero: LobbyHeroItemVO, width: number, height: number, scale: number): void {
@@ -185,17 +191,23 @@ export class LobbyHeroDetailPanelRenderer {
   private renderHeroSpinePreview(parent: Node, hero: LobbyHeroItemVO, fallbackPortrait: Node, width: number, height: number, scale: number): void {
     const resourcePath = this.resolveHeroSpineResource(hero);
     if (!resourcePath) {
+      if (!hero.protagonist) {
+        console.warn(`[HeroDetail] hero spine asset missing: hero=${safeText(hero.heroCode)}, portrait=${safeText(hero.portraitAsset || '<empty>')}, spine=${safeText(hero.spineAsset || '<empty>')}`);
+      }
       return;
     }
+    const spineUuid = this.resolveHeroSpineUuid(hero);
+    console.info(`[HeroDetail] hero spine load start: hero=${safeText(hero.heroCode)}, resource=${resourcePath}, uuid=${safeText(spineUuid || '<empty>')}`);
     const spineNode = this.host.addChildPlainNode(parent, 'LobbyHeroDetailSpineNode', 0, this.resolveHeroDetailGroundY(height), width, height);
     const skeleton = spineNode.addComponent(sp.Skeleton);
+    const audioSource = spineNode.addComponent(AudioSource);
     skeleton.premultipliedAlpha = false;
     skeleton.timeScale = 0.86;
-    this.loadHeroSpineData(resourcePath, (data) => {
+    this.loadHeroSpineData(resourcePath, spineUuid, (data) => {
       if (!parent.isValid || !spineNode.isValid) {
         return;
       }
-      if (!data || !this.applyHeroSpineData(skeleton, data, hero, width, height, scale, resourcePath)) {
+      if (!data || !this.applyHeroSpineData(skeleton, data, hero, width, height, scale, resourcePath, audioSource)) {
         spineNode.destroy();
         return;
       }
@@ -213,29 +225,54 @@ export class LobbyHeroDetailPanelRenderer {
     return `spine/hero/${asset}/${asset}`;
   }
 
-  private loadHeroSpineData(path: string, onLoaded: (data: sp.SkeletonData | null) => void): void {
-    const cached = this.heroSpineData.get(path);
+  private resolveHeroSpineUuid(hero: LobbyHeroItemVO): string | null {
+    const uuid = safeText(hero.spineUuid || '').trim();
+    return /^[0-9a-fA-F-]{36}$/.test(uuid) ? uuid : null;
+  }
+
+  private loadHeroSpineData(path: string, uuid: string | null, onLoaded: (data: sp.SkeletonData | null) => void): void {
+    const cacheKey = uuid || path;
+    const cached = this.heroSpineData.get(cacheKey);
     if (cached) {
       onLoaded(cached);
       return;
     }
-    const pending = this.heroSpineLoadCallbacks.get(path);
+    const pending = this.heroSpineLoadCallbacks.get(cacheKey);
     if (pending) {
       pending.push(onLoaded);
       return;
     }
-    this.heroSpineLoadCallbacks.set(path, [onLoaded]);
-    resources.load(path, sp.SkeletonData, (error: Error | null, data: sp.SkeletonData | null) => {
-      const callbacks = this.heroSpineLoadCallbacks.get(path) ?? [];
-      this.heroSpineLoadCallbacks['delete'](path);
-      if (error || !data) {
-        console.warn(`[HeroDetail] hero spine load failed: ${path}`, error);
-        callbacks.forEach((callback) => callback(null));
-        return;
+    this.heroSpineLoadCallbacks.set(cacheKey, [onLoaded]);
+    const finish = (data: sp.SkeletonData | null): void => {
+      const callbacks = this.heroSpineLoadCallbacks.get(cacheKey) ?? [];
+      this.heroSpineLoadCallbacks['delete'](cacheKey);
+      if (data) {
+        this.heroSpineData.set(cacheKey, data);
       }
-      this.heroSpineData.set(path, data);
       callbacks.forEach((callback) => callback(data));
-    });
+    };
+    const loadByPath = (): void => {
+      resources.load(path, sp.SkeletonData, (error: Error | null, data: sp.SkeletonData | null) => {
+        if (error || !data) {
+          console.warn(`[HeroDetail] hero spine load failed: ${path}`, error);
+          finish(null);
+          return;
+        }
+        finish(data);
+      });
+    };
+    if (uuid) {
+      assetManager.loadAny({ uuid }, (error: Error | null, asset: unknown) => {
+        if (!error && asset) {
+          finish(asset as sp.SkeletonData);
+          return;
+        }
+        console.warn(`[HeroDetail] hero spine uuid load failed, fallback to resource path: ${uuid}`, error);
+        loadByPath();
+      });
+      return;
+    }
+    loadByPath();
   }
 
   private applyHeroSpineData(
@@ -246,6 +283,7 @@ export class LobbyHeroDetailPanelRenderer {
     height: number,
     scale: number,
     resourcePath: string,
+    audioSource: AudioSource,
   ): boolean {
     try {
       skeleton.skeletonData = data;
@@ -259,6 +297,7 @@ export class LobbyHeroDetailPanelRenderer {
         skeleton.setSkin(skinName);
         skeleton.setSlotsToSetupPose();
       }
+      this.bindHeroSpineAudioEvents(skeleton, audioSource, resourcePath);
       const animationNames = this.resolveHeroSpineAnimationNames(data);
       const animationName = animationNames.primary;
       const spineScale = this.resolveHeroSpineScale(runtimeData.width, runtimeData.height, width, height, scale);
@@ -339,6 +378,96 @@ export class LobbyHeroDetailPanelRenderer {
           }),
       )
       .start();
+  }
+
+  private bindHeroSpineAudioEvents(skeleton: sp.Skeleton, audioSource: AudioSource, resourcePath: string): void {
+    skeleton.setEventListener((_entry: sp.spine.TrackEntry, eventOrType: sp.spine.Event | number) => {
+      if (!skeleton.node.isValid || typeof eventOrType === 'number') {
+        return;
+      }
+      this.playHeroSpineAudioEvent(audioSource, resourcePath, eventOrType);
+    });
+  }
+
+  private playHeroSpineAudioEvent(audioSource: AudioSource, resourcePath: string, event: sp.spine.Event): void {
+    const audioPath = safeText(event.data?.audioPath || event.stringValue || event.data?.name || '').trim();
+    if (!audioPath) {
+      return;
+    }
+    const candidates = this.resolveHeroSpineAudioResourceCandidates(resourcePath, audioPath);
+    if (candidates.length === 0) {
+      return;
+    }
+    const volume = clamp(Number(event.volume || event.data?.volume || 1), 0, 1);
+    this.loadFirstHeroSpineAudioClip(candidates, (clip, resolvedPath) => {
+      if (!audioSource.node.isValid) {
+        return;
+      }
+      if (!clip) {
+        const logKey = `${resourcePath}:${audioPath}`;
+        if (!this.missingHeroSpineAudioLogs.has(logKey)) {
+          this.missingHeroSpineAudioLogs.add(logKey);
+          console.warn(`[HeroDetail] hero spine audio missing: event=${safeText(event.data?.name || audioPath)}, audioPath=${audioPath}, candidates=${candidates.join(', ')}`);
+        }
+        return;
+      }
+      audioSource.playOneShot(clip, volume);
+      console.info(`[HeroDetail] hero spine audio played: event=${safeText(event.data?.name || audioPath)}, resource=${resolvedPath}, volume=${volume.toFixed(2)}`);
+    });
+  }
+
+  private resolveHeroSpineAudioResourceCandidates(resourcePath: string, audioPath: string): string[] {
+    const normalizedAudioPath = audioPath.replace(/\\/g, '/').replace(/\.(mp3|wav|ogg|m4a|aac)$/i, '').replace(/^\/+/, '').trim();
+    if (!normalizedAudioPath || normalizedAudioPath.includes('..')) {
+      return [];
+    }
+    const directory = resourcePath.split('/').slice(0, -1).join('/');
+    const fileName = normalizedAudioPath.split('/').pop() || normalizedAudioPath;
+    const candidates = [
+      `${directory}/${normalizedAudioPath}`,
+      `${directory}/audio/${fileName}`,
+      `audio/spine/hero/${fileName}`,
+    ];
+    return Array.from(new Set(candidates.filter((candidate) => /^[A-Za-z0-9_./-]+$/.test(candidate))));
+  }
+
+  private loadFirstHeroSpineAudioClip(candidates: string[], onLoaded: (clip: AudioClip | null, resolvedPath: string) => void): void {
+    const [current, ...rest] = candidates;
+    if (!current) {
+      onLoaded(null, '');
+      return;
+    }
+    this.loadHeroSpineAudioClip(current, (clip) => {
+      if (clip) {
+        onLoaded(clip, current);
+        return;
+      }
+      this.loadFirstHeroSpineAudioClip(rest, onLoaded);
+    });
+  }
+
+  private loadHeroSpineAudioClip(path: string, onLoaded: (clip: AudioClip | null) => void): void {
+    const cached = this.heroSpineAudioClips.get(path);
+    if (cached) {
+      onLoaded(cached);
+      return;
+    }
+    const pending = this.heroSpineAudioLoadCallbacks.get(path);
+    if (pending) {
+      pending.push(onLoaded);
+      return;
+    }
+    this.heroSpineAudioLoadCallbacks.set(path, [onLoaded]);
+    resources.load(path, AudioClip, (error: Error | null, clip: AudioClip | null) => {
+      const callbacks = this.heroSpineAudioLoadCallbacks.get(path) ?? [];
+      this.heroSpineAudioLoadCallbacks['delete'](path);
+      if (error || !clip) {
+        callbacks.forEach((callback) => callback(null));
+        return;
+      }
+      this.heroSpineAudioClips.set(path, clip);
+      callbacks.forEach((callback) => callback(clip));
+    });
   }
 
   private resolveHeroSpineAnimationName(data: sp.SkeletonData): string | null {

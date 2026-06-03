@@ -79,7 +79,7 @@ export class LobbyCodexPanelRenderer {
     this.renderHeader(panel, panelWidth, panelHeight, scale, state);
     this.renderCodexBody(panel, panelWidth, panelHeight, scale, state);
     this.renderFooter(panel, panelWidth, panelHeight, scale);
-    renderSceneBackButton(this.host, panelGroup, layout, 'LobbyCodexBackButton', () => this.host.closeLobbyCodexPanel(), scale);
+    renderSceneBackButton(this.host, panelGroup, layout, 'LobbyCodexBackButton', () => this.host.closeLobbyCodexPanel(), scale, '图鉴');
   }
 
   private createUiNode(name: string): Node {

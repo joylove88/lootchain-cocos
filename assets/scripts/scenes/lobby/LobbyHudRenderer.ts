@@ -39,6 +39,9 @@ export type { LobbyHudHost } from './LobbyHudTypes';
 
 type LobbyNextGoalTone = 'loading' | 'error' | 'empty' | 'locked' | 'ready' | 'recent';
 
+const SHOW_LOBBY_WORLD_CHAT = false;
+const SHOW_LOBBY_RIGHT_CHALLENGE_RAIL = false;
+
 interface LobbyNextGoalView {
   title: string;
   stageLine: string;
@@ -73,7 +76,9 @@ export class LobbyHudRenderer {
     this.renderLobbyActivityRail(layout);
     this.renderLobbySceneHotspots(layout);
     this.renderLobbyGoalTracker(layout);
-    this.renderLobbyChallengeRail(layout);
+    if (SHOW_LOBBY_RIGHT_CHALLENGE_RAIL) {
+      this.renderLobbyChallengeRail(layout);
+    }
     this.renderLobbyBottomHud(layout);
     this.renderCompactSceneEntrances(layout);
     this.renderCompactGoalTracker(layout);
@@ -151,6 +156,10 @@ export class LobbyHudRenderer {
 
   private openLobbyHeroRosterPanel(): void {
     this.host.openLobbyHeroRosterPanel();
+  }
+
+  private openLobbyBagPanel(): void {
+    this.host.openLobbyBagPanel();
   }
 
   private openLobbyAdventurePanel(): void {
@@ -361,7 +370,7 @@ export class LobbyHudRenderer {
     const width = Math.min(410 * scale, Math.max(330 * scale, layout.stageWidth * 0.24));
     const height = 126 * scale;
     const leftRailReserve = Math.min(206 * scale, layout.stageWidth * 0.18) + 18 * scale;
-    const rightRailReserve = Math.min(184 * scale, layout.stageWidth * 0.16) + 18 * scale;
+    const rightRailReserve = SHOW_LOBBY_RIGHT_CHALLENGE_RAIL ? Math.min(184 * scale, layout.stageWidth * 0.16) + 18 * scale : 0;
     const minX = layout.stageLeft + hudInsetX + leftRailReserve + width / 2;
     const maxX = layout.stageRight - hudInsetX - rightRailReserve - width / 2;
     const preferredX = layout.stageLeft + layout.stageWidth * 0.34;
@@ -783,7 +792,9 @@ export class LobbyHudRenderer {
     if (navWidth > 360 * scale) {
       this.addLobbyBottomNav(group, navLeft + navWidth / 2, 0, navWidth, bandHeight, scale);
     }
-    this.addLobbyChatPreview(group, -layout.stageWidth / 2 + hudInsetX, -bandHeight / 2 + 14 * scale, Math.min(520 * scale, navWidth), scale);
+    if (SHOW_LOBBY_WORLD_CHAT) {
+      this.addLobbyChatPreview(group, -layout.stageWidth / 2 + hudInsetX, -bandHeight / 2 + 14 * scale, Math.min(520 * scale, navWidth), scale);
+    }
   }
 
   private drawLobbyBottomPlatform(graphics: Graphics, width: number, height: number, scale: number): void {
@@ -1501,13 +1512,14 @@ export class LobbyHudRenderer {
         scale,
         Boolean(entry.codex),
         Boolean(entry.heroRoster),
+        Boolean(entry.bag),
         Boolean(entry.adventure),
         Boolean(entry.gacha),
       );
     }
   }
 
-  private compactActionEntries(): Array<{ label: string; detail: string; notice?: boolean; codex?: boolean; heroRoster?: boolean; adventure?: boolean; gacha?: boolean }> {
+  private compactActionEntries(): Array<{ label: string; detail: string; notice?: boolean; codex?: boolean; heroRoster?: boolean; bag?: boolean; adventure?: boolean; gacha?: boolean }> {
     // 小屏隐藏侧栏/底栏时，用本地快捷入口保留大厅模块的可达性。
     return [
       { label: '活动', detail: '活动公告只读展示；当前不进入玩法或改变玩家资源。', notice: true },
@@ -1517,21 +1529,22 @@ export class LobbyHudRenderer {
       { label: '聊天', detail: '聊天系统暂未开放；当前仅展示本地欢迎语，不连接聊天服务，也不会发送消息。' },
       { label: '图鉴', detail: '英雄图鉴只读预览；当前不会进入养成或改变英雄状态。', codex: true },
       { label: '英雄', detail: '英雄队列只读展示；当前不会升级、升星、觉醒或写入成长进度。', heroRoster: true },
-      { label: '背包', detail: '背包入口暂未开放；当前不会使用、出售或发放任何道具。' },
+      { label: '背包', detail: '背包只读展示道具和来源；当前不会使用、出售或发放任何道具。', bag: true },
       { label: '任务', detail: '任务系统暂未开放；当前不会领取奖励或写入任务进度。' },
       { label: '商店', detail: '商店入口暂未开放；当前不会购买、兑换或消耗资源。' },
     ];
   }
 
   private filterCompactActionEntries(
-    entries: Array<{ label: string; detail: string; notice?: boolean; codex?: boolean; heroRoster?: boolean; adventure?: boolean; gacha?: boolean }>,
+    entries: Array<{ label: string; detail: string; notice?: boolean; codex?: boolean; heroRoster?: boolean; bag?: boolean; adventure?: boolean; gacha?: boolean }>,
     layout: UiLayout,
-  ): Array<{ label: string; detail: string; notice?: boolean; codex?: boolean; heroRoster?: boolean; adventure?: boolean; gacha?: boolean }> {
+  ): Array<{ label: string; detail: string; notice?: boolean; codex?: boolean; heroRoster?: boolean; bag?: boolean; adventure?: boolean; gacha?: boolean }> {
+    const visibleEntries = SHOW_LOBBY_WORLD_CHAT ? entries : entries.filter((_, index) => index !== 4);
     if (layout.stageHeight >= 300) {
-      return entries;
+      return visibleEntries;
     }
     // 极矮视口下优先保留主流程和只读信息入口，避免完整快捷面板挤压背景与底栏。
-    return entries.filter((entry) => entry.notice || entry.adventure || entry.heroRoster || entry.codex || entry.gacha);
+    return visibleEntries.filter((entry) => entry.notice || entry.adventure || entry.heroRoster || entry.bag || entry.codex || entry.gacha);
   }
 
   private drawCompactActionPanel(graphics: Graphics, width: number, height: number, scale: number): void {
@@ -1555,7 +1568,7 @@ export class LobbyHudRenderer {
     graphics.stroke();
   }
 
-  private addCompactActionEntrance(parent: Node, label: string, detail: string, notice: boolean, x: number, y: number, width: number, height: number, scale: number, codex = false, heroRoster = false, adventure = false, gacha = false): void {
+  private addCompactActionEntrance(parent: Node, label: string, detail: string, notice: boolean, x: number, y: number, width: number, height: number, scale: number, codex = false, heroRoster = false, bag = false, adventure = false, gacha = false): void {
     const node = this.addChildPlainNode(parent, `LobbyCompactAction_${label}`, x, y, width, height);
     node.addComponent(Button);
     node.on(Button.EventType.CLICK, () => {
@@ -1569,6 +1582,10 @@ export class LobbyHudRenderer {
       }
       if (heroRoster) {
         this.openLobbyHeroRosterPanel();
+        return;
+      }
+      if (bag) {
+        this.openLobbyBagPanel();
         return;
       }
       if (adventure) {
@@ -1612,7 +1629,11 @@ export class LobbyHudRenderer {
         this.openLobbyHeroRosterPanel();
         return;
       }
-      this.showUnopenedFeature(label, '底部导航入口暂未开放；当前不会进入养成、背包、商店或其他写入型系统。');
+      if (key === 'bag') {
+        this.openLobbyBagPanel();
+        return;
+      }
+      this.showUnopenedFeature(label, '底部导航入口暂未开放；当前不会进入养成、商店或其他写入型系统。');
     }, this);
     this.applyImageButtonFeedback(node, 1.04, 0.97);
     const graphics = node.addComponent(Graphics);

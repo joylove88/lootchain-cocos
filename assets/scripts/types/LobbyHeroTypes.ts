@@ -11,6 +11,7 @@ export interface LobbyHeroItemVO {
   sourceType: string;
   portraitAsset?: string | null;
   spineAsset?: string | null;
+  spineUuid?: string | null;
   currentForm?: string | null;
   formLabel?: string | null;
 }

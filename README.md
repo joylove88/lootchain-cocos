@@ -99,6 +99,19 @@ GET http://localhost:8081/api/player/lobby/heroes
 
 涉及服务端启动、接口、规则或 SQL 的上下文，同时更新 `D:\project\LootChain` 下对应文档。
 
+## 2026-06-03 Backend Table Comment UTF8 Repair
+
+- 后端本地库 `mq_consume_log` 与 `gacha_pool_display_config` 的表注释/列注释曾因导入字符集错误显示乱码。
+- 已由后端 SQL `D:\project\LootChain\sql\19_table_comment_utf8_fix.sql` 修复，并在相关初始化脚本增加 `SET NAMES utf8mb4;`。
+- 本次为数据库元数据注释修复，不影响 Cocos 页面逻辑、接口调用、抽卡概率、奖池物品、保底、消耗、奖励、EX V1 或任何经济写入口。
+
+## 2026-06-03 Gacha Pool Tab Logo Slot
+
+- 召唤页左侧卡池页签右侧色块新增可配置 logo 背景槽。
+- 后端 `gacha_pool_display_config.tab_logo_asset` 控制该图；Cocos 接口字段为 `tabLogoAsset`。
+- `tabLogoAsset` 为空时 Cocos fallback 到 `logoAsset`，再 fallback 到原金/紫/蓝/红主题色块。
+- 该字段只服务 UI 展示，不影响抽卡概率、奖池物品、保底、消耗、奖励、EX V1 或任何经济写入口。
+
 ## 当前可用入口
 
 - 主界面：左上 Logo、右侧“谕言 / 客服 / 公告 / 修复”占位按钮、一个“账号登录”按钮。
@@ -1791,3 +1804,255 @@ GET http://localhost:8081/api/player/lobby/heroes
 
 - `git diff --check` 通过，仅保留既有 LF/CRLF warning。
 - `npm.cmd run check:preview` 仍失败，原因是运行中的 Cocos Preview 继续服务旧 chunk；旧 `LobbyHeroDetailPanelRenderer.ts` chunk 缺少 `const secondaryAnimation = animationNames.secondary`、`skeleton.addAnimation(0, animationName, true, 0)` 等本轮 token。重开或刷新 Cocos Creator Preview 后复验进入英雄详情时的初始第二动画。
+## 2026-06-02 Stage 4BL Hero Detail Spine Company Preview Diagnosis
+
+- 公司电脑复验英雄详情时，王国巡逻兵仍显示静态占位，没有显示骨骼动画。
+- 当前工作区已有 `assets/resources/spine/hero/npc_1001/npc_1001.skel|atlas|png`，王国巡逻兵按数据库映射应读取 `spineAsset=npc_1001`。
+- `npm.cmd run check:layout` 通过；`npm.cmd run check:preview` 失败，当前 Preview 仍在服务旧 `LobbyHeroDetailPanelRenderer.ts` chunk，缺少 `spine/hero/${asset}/${asset}`、动画解析和初始第二动画播放 token。
+- 处理顺序：
+  - 执行 MySQL 迁移 `D:\project\LootChain\sql\16_hero_spine_asset.sql`，确保接口返回 `spineAsset`；
+  - 重开/刷新 Cocos Creator Preview，等待资源重新导入；
+  - 重新进入英雄详情页复验。
+- 无密码 `mysql -uroot` 查询在本机失败，需要用本机 MySQL 密码执行迁移与验证。
+- 边界不变：英雄详情仍是只读展示，不开放升级、升星、觉醒、装备、抽卡、领取、扣费、保底或任何经济写入口；EX V1 仍不开放。
+
+## 2026-06-02 Stage 4BM Hero Detail Spine Fallback And SQL Sync
+
+- Cocos 只读 API 已增加英雄 Spine 资源字段兼容：
+  - `LobbyHeroApi` / `LobbyCodexApi` 优先使用后端 `spineAsset`；
+  - 后端暂未返回时，从 `portraitAsset` 派生：`act_1001 -> npc_1001`；
+  - 该兼容仅用于展示资源定位，不新增后端请求或任何经济写入口。
+- `scripts/check-layout.mjs` 已加入该兼容逻辑守卫。
+- 已在本机 `D:\project\LootChain` 执行：
+  - `sql/12_protagonist_module.sql`
+  - `sql/15_hero_roster_art_refresh.sql`
+  - `sql/16_hero_spine_asset.sql`
+- SQL 复验：
+  - `R_PATROL_01 / 王国巡逻兵` 为 `portrait_asset=act_1001`、`spine_asset=npc_1001`；
+  - `spine_asset` 派生 mismatch 计数为 `0`。
+- 卡池边界：
+  - 本阶段没有写入或修改 `gacha_pool_item`；
+  - 当前本地普通池已有 `UR_ARTHAS` / `UR_EVELYN` 两条 UR 条目，来源是既有 `sql/07_gacha_module.sql` 初始配置，不是本次新增；未自动删除或调整。
+- 验证：
+  - `npm.cmd run check:layout` 通过；
+  - focused Cocos Creator TypeScript no-emit 通过；
+  - `git diff --check` 通过，仅有 LF/CRLF warning；
+- `npm.cmd run check:preview` 仍提示运行中的 Preview 是旧 chunk，需要重开/刷新 Cocos Creator Preview 后复验英雄详情 Spine。
+- 边界不变：不改变经济规则，不开放 EX V1，不新增经济写入口，不开放真实抽卡写接口；Gacha 继续只做视觉预览和本地 mock。
+
+## 2026-06-02 Stage 4BN Spine Resources Dynamic URL Conflict Cleanup
+
+- 根据 Cocos 控制台日志修复 `assets/resources/spine` 动态加载 URL 冲突：
+  - `huangfengjiaozong.json` 与旧 `huangfengjiaozong.skel` 同名冲突；
+  - `.atlas` 与 `.spine` 源文件同名冲突；
+  - `npc_1001.atlas` 与 `npc_1001.spine` 同名冲突。
+- 运行时资源目录现在只保留可动态加载的入口：
+  - Gacha 目标：`assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.json|atlas|png|huangfengjiaozong2.png`；
+  - 英雄详情样例：`assets/resources/spine/hero/npc_1001/npc_1001.skel|atlas|png`；
+  - Gacha fallback：`assets/resources/spine/gacha/Lord of the Dark Abyss/1605.json|atlas|png`。
+- 旧 `.spine` 源文件和旧同名 `.skel` 已移动到 `docs/spine-source-archive/resources-conflict-backup/`，不再进入 Cocos `resources` 动态加载链路。
+- `scripts/check-layout.mjs` 已增加守卫：
+  - 禁止 `.spine` / `.spine.meta` 留在 `assets/resources/spine/**`；
+  - 禁止已知冲突文件回到运行时资源目录。
+- 验证：
+  - `npm.cmd run check:layout` 通过；
+  - focused Cocos Creator TypeScript no-emit 通过；
+  - 手动扫描 `assets/resources/spine` 未再发现 `.spine` 源文件或同 basename `.json/.skel` 冲突。
+- 复验要求：Cocos Creator 需要重新导入 `assets/resources/spine` 或重开 Preview；旧资源库缓存未刷新前仍可能继续显示旧警告。
+- 边界不变：本次只调整 Cocos 资源目录结构和检查脚本，不改后端、SQL、抽卡概率、卡池权重、保底、消耗、奖励或任何经济写入口。
+## 2026-06-02 Stage 4BO Hero Detail Spine Runtime Fallback Diagnosis
+
+- Rechecked the company preview issue where hero detail still showed the static placeholder and no `[HeroDetail]` logs.
+- `npm.cmd run check:preview` still reports stale Cocos Preview chunks. The served `LobbyHeroDetailPanelRenderer.ts` chunk is missing the current `spine/hero/${asset}/${asset}` load path, centered art position, secondary-animation logic, and full-scene back button tokens.
+- The currently running backend `GET /api/player/lobby/heroes` response also lacks `portraitAsset` / `spineAsset`, which indicates the local backend process may not have been restarted after the VO/resource-field changes.
+- Cocos readonly API fallback is now stronger:
+  - it still prefers backend `spineAsset`;
+  - then derives `npc_*` from backend `portraitAsset=act_*`;
+  - if both fields are missing, the known current sample `R_PATROL_01` falls back to `act_1001 / npc_1001`.
+- Hero detail logging now prints `[HeroDetail] hero spine asset missing` when no resource can be resolved and `[HeroDetail] hero spine load start` before dynamic loading.
+- Verification:
+  - `npm.cmd run check:layout` passed;
+  - focused Cocos Creator TypeScript no-emit passed;
+  - `git diff --check` passed with only existing LF/CRLF warnings;
+  - `npm.cmd run check:preview` still fails because the running Preview serves stale chunks missing the new hero-detail logging tokens.
+- Boundary unchanged: this is display-only fallback and diagnostics. It does not open real gacha, does not grant heroes, does not deduct resources, does not write gacha records, and does not change economy rules.
+
+## 2026-06-02 Stage 4BP Hero Detail Spine Audio Events
+
+- Hero detail now listens to Spine frame events through `sp.Skeleton.setEventListener()`.
+- The renderer reads `event.data.audioPath`, resolves audio clips next to the current hero Spine resource, and plays loaded clips with `AudioSource.playOneShot()`.
+- Current `npc_1001.skel` references `1001_skill1_1.mp3`, `1001_skill2_1.mp3`, and `1001_skill4_3.mp3`.
+- Those audio files are not currently present under `assets`, so runtime will log `[HeroDetail] hero spine audio missing` until the clips are added and imported.
+- Supported placement:
+  - `assets/resources/spine/hero/npc_1001/1001_skill1_1.mp3`
+  - `assets/resources/spine/hero/npc_1001/1001_skill2_1.mp3`
+  - `assets/resources/spine/hero/npc_1001/1001_skill4_3.mp3`
+  - or the same names under `assets/resources/spine/hero/npc_1001/audio/`.
+- Verification: focused Cocos Creator TypeScript no-emit passed; `npm.cmd run check:layout` passed; `git diff --check` passed with only existing LF/CRLF warnings. `npm.cmd run check:preview` still fails because the running Preview serves stale chunks missing the new audio-event tokens.
+- Boundary unchanged: this is Cocos display/audio wiring only. No backend, SQL, gacha, reward, resource, pity, EX V1, or economy write behavior was opened.
+
+## 2026-06-02 Stage 4BQ Gacha Reveal Preview Scene
+
+- Gacha next-stage frontend preview now has a separate `gachaReveal` full-screen logical scene between the summon page and the mock result page.
+- Clicking `召唤1次` / `召唤10次` enters `GachaRevealSceneRoot` first; `GachaRevealContinueButton` then opens the existing local mock result scene.
+- The reveal scene adds a red-gold ritual pulse, card-back reveal array, three static local steps (`聚魂 / 裂隙 / 显影`), and a no-write boundary strip.
+- `scripts/check-layout.mjs` and `scripts/check-preview-freshness.mjs` now guard the reveal scene, its config tokens, and the no-economy boundary.
+- Verification: `npm.cmd run check:layout`, focused Cocos Creator TypeScript no-emit, and `git diff --check` passed. `npm.cmd run check:preview` still fails because the running Preview serves stale chunks missing `GACHA_REVEAL_STEPS` and `GachaRevealSceneRoot`; refresh/restart Cocos Creator Preview before visual acceptance.
+- Boundary unchanged: Gacha is still visual/local mock only. No real draw API, drawNo, resource deduction, hero grant, gacha record write, pity update, exchange, reissue, economy rule change, or EX V1 opening was added.
+
+## 2026-06-02 Cocos Real Gacha Draw Integration
+
+- The current Gacha stage now uses backend-driven summon pool display data and the existing player draw endpoint after explicit user approval for real draw integration.
+- Cocos now loads `GET /api/player/gacha/pools` when entering the summon page, maps pool display config into the left rail, and switches the center Spine, right-side action notes, button labels, and pity text by selected `poolCode`.
+- `再召唤 N 次必得...` has moved to the top of the Gacha page, and the `召唤1次` / `召唤10次` buttons now use an explicit wider gap.
+- `GachaApi.draw()` now calls the existing `POST /api/player/gacha/draw`; successful responses show the real `drawNo` and returned result items in the result scene.
+- Locked or preview-only pools remain non-drawable on the client, with backend display config driving the disabled reason.
+- Backend display config is provided by `sql/17_gacha_pool_display_config.sql`; it has been imported locally with utf8mb4 client encoding:
+
+```powershell
+cd D:\project\LootChain
+mysql -uroot -p lootchain < .\sql\17_gacha_pool_display_config.sql
+```
+
+- Local verification: `gacha_pool_display_config` exists with 4 rows for limited, hero, normal, and light-dark display entries.
+
+- Verification completed: `npm.cmd run check:layout` passed, focused Cocos Creator 3.8.8 TypeScript no-emit passed, and `git diff --check` passed with existing LF/CRLF warnings only.
+- `npm.cmd run check:preview` still reports stale running Cocos Preview chunks; restart or refresh Cocos Creator Preview before visual acceptance.
+- Boundary: this stage only connects the already existing draw write endpoint. It does not add exchange, reissue, bag use/sell, hero growth, EX V1, or any new economy write endpoint, and it does not modify `gacha_pool_rate_config`, `gacha_pool_item`, `gacha_pity_config`, costs, weights, rewards, or pity rules.
+
+## 2026-06-02 Gacha Spine Async Callback Error Fix
+
+- Fixed the summon-page Preview error `Cannot read properties of null (reading 'isValid')`.
+- Cause: stale async Spine load callbacks could return after the Gacha page had been redrawn or destroyed, and old code accessed `skeleton.node.isValid` directly.
+- `GachaSceneRenderer.ts` now guards Gacha Spine callbacks through `isSkeletonNodeAlive()` / `isNodeAlive()` and safely skips failed async callbacks after load.
+- Fallback cleanup now checks node liveness before `destroy()`.
+- `scripts/check-layout.mjs` now blocks direct `skeleton.node.isValid` / `fallback.isValid` access in the Gacha renderer to prevent this regression.
+- Acceptance role result: the `isValid` crash fix passed. The role also noted that the current worktree contains the previously approved real draw integration from Stage 4BR; that integration was not added by this bug fix.
+- Verification: `npm.cmd run check:layout`, focused Cocos Creator TypeScript no-emit, targeted `rg` check, and `git diff --check` passed. Browser opened `http://localhost:7456/` and did not currently show the null `isValid` error or console warnings/errors.
+- `npm.cmd run check:preview` still reports stale running Preview chunks, including an old `GachaSceneRenderer.ts` bundle. Restart or refresh Cocos Creator Preview before final visual acceptance.
+- Boundary unchanged for this fix: no backend, SQL, probability, weight, pity, cost, reward, pool, EX V1, or new economy write-entry change was made.
+
+## 2026-06-02 Real Gacha Draw Redis Runtime Note
+
+- The summon-page `召唤失败：系统异常` was reproduced against `POST /api/player/gacha/draw`.
+- With a dev-login `satoken`, `GET /api/player/gacha/pools` and `GET /api/player/gacha/pity/NORMAL_HERO` returned normally, while draw returned `code=500` when Redis `127.0.0.1:6379` was unavailable.
+- Root cause: the real draw transaction depends on Redis/Redisson for request idempotency and player locking. This is a backend runtime dependency, not a Cocos rendering issue or pool-data issue.
+- Docker Desktop was started and the existing `redis:7-alpine` container `usdt-monitor-redis` is now mapped to `0.0.0.0:6379->6379/tcp`.
+- After Redis became reachable, a real single draw on `NORMAL_HERO` returned `code=0`, generated a `drawNo`, and returned one R hero result.
+- DB verification: drawNo `GACHA6c7808f3dd2143679f662e74bd43a11b` wrote one `gacha_draw_log` row with `draw_count=1`, `DIAMOND 280` cost, and one `gacha_draw_result` row for `HERO/R_ACOLY_02/R`.
+- User 1 now has `DIAMOND=720` after that real single draw; ten draw cost is still `2800`, so ten draw should remain a business failure until currency is topped up.
+- Boundary unchanged: no Cocos or backend code was changed for this runtime fix, no SQL was changed, and no probability, weight, pity, cost, reward, pool, EX V1, exchange/reissue, or new economy write entry was modified.
+
+## 2026-06-02 Lobby Bag Readonly Scene
+
+- The lobby backpack is now connected as a Cocos-only full-screen logical scene instead of a placeholder.
+- Entrances:
+  - bottom nav `背包`;
+  - compact/small-screen `背包` action.
+- Data contract:
+  - `GET /api/player/bag`;
+  - `GET /api/player/bag/items/{itemCode}/source`.
+- The scene shows grouped items, selected item details, read-only source text, refresh, and source reload.
+- `使用/出售关闭` is disabled visual UI only. The client still does not call bag use, batch-use, sell, exchange, claim, reward, EX V1, or any new economy write endpoint.
+- Guards updated:
+  - `check:layout` now allows readonly bag GETs and still blocks `/api/player/bag/use`, `/api/player/bag/batch-use`, and `/api/player/bag/sell`;
+  - `check:layout` and `check:preview` guard the new bag scene, loader, state, and API tokens.
+- Verification:
+  - `npm.cmd run check:layout` passed;
+  - focused Cocos Creator 3.8.8 TypeScript no-emit passed;
+  - `git diff --check` passed with existing LF/CRLF warnings only;
+  - Browser at `http://localhost:7456/` currently has no warning/error logs;
+  - `npm.cmd run check:preview` still fails because the running Preview is serving stale chunks and does not yet include the new bag modules. Restart or refresh Cocos Creator Preview before visual acceptance.
+- Boundary unchanged: no economy rule, gacha rule, reward, resource mutation, bag use/sell, hero growth, EX V1, or new economy write entry was changed.
+
+## 2026-06-02 Gacha Side Pages, Assets, And Hero Fragments
+
+- Top resource display now uses real read-only player profile data:
+  - lobby HUD reads `PlayerLobbyProfileVO.gold` / `diamond`;
+  - Gacha top bar uses the same current profile instead of hardcoded fake values.
+- Backpack now also shows duplicate-hero fragments:
+  - `LobbyBagLoader` loads `GET /api/player/bag` and `GET /api/player/heroes/fragments/list` in parallel;
+  - hero fragments are merged into a read-only `英雄碎片` group as `HERO_FRAGMENT:{heroCode}`;
+  - fragment source text is local read-only copy explaining duplicate hero conversion, so it does not call bag item source for non-bag assets.
+- Gacha right-side actions now open full-screen logical scenes:
+  - `概率保底` -> `gachaInfo`, using current pool detail plus player pity;
+  - `记录` -> `gachaRecord`, using `GET /api/player/gacha/logs`;
+  - `兑换` -> `gachaExchange`, read-only explanation only, disabled button;
+  - `奖池内容` -> `gachaPoolContent`, listing current pool heroes/items from pool detail.
+- New readonly backend contract consumed by Cocos:
+  - `GET /api/player/gacha/pools/{poolCode}/detail`.
+- After a successful real draw, the frontend reloads the lobby profile so Gacha top assets can reflect updated gold/diamond.
+- Guards updated:
+  - `check:layout` now allows read-only gold/diamond and hero-fragment bag merge;
+  - fake resource values and exchange/reissue/bag use/sell remain blocked;
+  - `check:preview` checks the new Gacha side pages and fragment merge tokens.
+- Verification: `npm.cmd run check:layout`, focused Cocos TypeScript no-emit, backend focused tests, and both repo `git diff --check` passed. `npm.cmd run check:preview` still fails because the running Cocos Preview is serving stale chunks missing `renderGachaActionScene`, `this.heroApi.fragments()`, and `GachaActionScenePanel_`; restart/refresh Cocos Creator Preview before visual acceptance.
+- Boundary unchanged: no probability, weight, pity, cost, reward, duplicate-conversion, `gacha_pool_item`, EX V1, exchange/reissue, bag use/sell, hero growth, or new economy write-entry change.
+
+## 2026-06-02 Gacha Result Back Button Fix
+
+- Fixed the top-left back arrow on the Gacha result scene.
+- The main Gacha page now uses the normal `GachaBackButton -> closeGachaScene()` path again.
+- The result scene now renders result content first and then renders `GachaResultBackButton -> closeGachaMockResultScene()` last, so the full-screen result panel cannot intercept the button.
+- `check:layout` now guards both contracts: the main Gacha page must not use result-scene back logic, and the result-scene top bar must render above result content.
+- `check:preview` freshness tokens now include the result-scene back button logic to catch stale Preview chunks.
+- Boundary unchanged: Cocos frontend only; no backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, pool, EX V1, exchange/reissue, bag use/sell, hero growth, or new economy write-entry change.
+
+## 2026-06-03 Unified Scene Back Header
+
+- Added a high-resolution Cocos UI asset for the full-screen scene back button: `assets/resources/ui/common/scene_back_button.png`.
+- `renderSceneBackButton()` now renders the shared dark-gold back button and a page title on the right side, including `召唤`, `召唤结果`, `英雄`, `背包`, `图鉴`, `冒险`, `编队`, `公告`, `资料`, and `战斗`.
+- `UiSpriteFrameCache` preloads the new button spriteFrame, and local guard scripts now verify the asset, size, metadata, title node, and Preview freshness tokens.
+- Boundary unchanged: Cocos frontend UI only. No backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, pool rule, EX V1, or new economy write entry changed.
+## 2026-06-03 Lobby Hidden Chat/Right Rail And Compact Gacha Action Panels
+
+- Lobby world chat is hidden for the current phase. The bottom `LobbyChatPreview` and compact chat entry no longer render.
+- Lobby right-side challenge cards are hidden through `SHOW_LOBBY_RIGHT_CHALLENGE_RAIL=false`; the HUD no longer reserves layout space for that hidden right rail.
+- Gacha right-side action pages now use adaptive centered panels instead of near-fullscreen panels. Sparse pages such as probability/pity and exchange use a smaller modal-like panel.
+- Guards updated in `check:layout` and `check:preview` for the hidden lobby entries and compact Gacha action panel frame.
+- Boundary unchanged: Cocos frontend display only. No backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, pool rule, EX V1, or new economy write entry changed.
+
+## 2026-06-03 Backend Hero Template Text Repair
+
+- 后端 `hero_template` 中上次新增的主角模板与四个 UR 英雄中文文案被落库为 `????`，已通过后端 SQL 修复。
+- 修复脚本：`D:\project\LootChain\sql\18_hero_template_text_encoding_fix.sql`。
+- 本地执行使用 `mysql --default-character-set=utf8mb4`，修复后受影响 6 条 `????` 计数为 `0`。
+- Cocos 侧本轮不改 UI/接口/资源加载；英雄列表、图鉴、详情页会继续读取后端修复后的 `hero_template` 展示字段。
+- 边界不变：没有改 Cocos 经济入口，没有改抽卡概率、权重、保底、消耗、奖励、重复转碎片、`gacha_pool_item`、EX V1 或任何新增经济写入口。
+
+## 2026-06-03 Gacha Action Modal And Dynamic Pool Display
+
+- 召唤页右侧功能按钮现在打开页内弹框，不再切换到 `gachaInfo/gachaRecord/gachaExchange/gachaPoolContent` 全屏逻辑页。
+- 弹框支持点击空白遮罩关闭，并在右上角显示高清关闭按钮 `assets/resources/ui/common/modal_close_button.png`。
+- 左侧卡池仍通过 `GET /api/player/gacha/pools` 拉取，后端展示配置来自 `gacha_pool_display_config`。
+- 前端已使用配置字段：
+  - `logoAsset`：左侧卡池 logo；
+  - `themeColor`：左侧卡池色系；
+  - `centerSpineResource/Uuid/Skin/Intro/Idle`：中央 Spine；
+  - `rateNote/recordNote/exchangeNote/guaranteeNote/noticeText`：右侧弹框说明；
+  - `buttonSingleText/buttonTenText/buttonDisabledReason`：召唤按钮与锁定状态。
+- 新增默认 logo 资源：`assets/resources/ui/gacha/logo_limited.png`、`logo_hero.png`、`logo_normal.png`、`logo_locked.png`。
+- 召唤页停留时会定时刷新卡池展示配置，后台更换 logo 或中央 Spine 路径后，前端会在下一轮刷新中同步。
+- Verification: `npm.cmd run check:layout` passed; focused Cocos Creator TypeScript no-emit passed.
+- Boundary unchanged: no probability, weight, pity, cost, reward, duplicate conversion, `gacha_pool_item`, EX V1, exchange/reissue, bag use/sell, hero growth, or new economy write entry changed.
+
+## 2026-06-03 Spine Resource Conflict Cleanup And Hero UUID Binding
+
+- Read `D:\project\lootchain-cocos\temp\logs\project.log`; the latest relevant warning was the Cocos dynamic URL collision where same-basename `.atlas` and `.spine` files under `assets/resources/spine/hero/**` produced identical runtime load URLs.
+- Runtime `assets/resources/spine` was cleaned so it now keeps only playable `.skel` or `.json` plus `.atlas`/texture assets; source `.spine` files and the old duplicate `hunka_nima.skel` were moved into `docs/spine-source-archive/`.
+- Resource validation now reports `fileCount=94`, `conflictCount=0` for `.atlas/.json/.skel/.spine` dynamic-load groups.
+- Cocos hero/codex types and APIs now receive backend `spineUuid`; hero detail uses `assetManager.loadAny({ uuid })` first and falls back to `resources.load('spine/hero/{spineAsset}/{spineAsset}', sp.SkeletonData)`.
+- Local DB was synchronized through backend `D:\project\LootChain\sql\21_hero_spine_uuid.sql`; 22 enabled heroes have matching Cocos `.skel.meta` uuid values, while disabled heroes remain without `spine_uuid`.
+- Verification passed: `npm.cmd run check:layout`; focused Cocos Creator TypeScript no-emit; resource conflict scan; DB-to-meta UUID comparison `checked=22 errors=0`; `git diff --check` with only existing LF/CRLF warnings.
+- `npm.cmd run check:preview` still reports stale running Cocos Preview chunks, including old `LobbyHeroDetailPanelRenderer.ts`; restart/refresh Cocos Creator Preview and wait for asset reimport before visual acceptance.
+- Boundary unchanged: this is resource metadata and read-only hero display loading only; no probability, weight, pity, cost, reward, duplicate conversion, `gacha_pool_item`, EX V1, exchange/reissue, bag use/sell, hero growth, or new economy write entry changed.
+
+## 2026-06-03 Preview Start Scene Fix
+
+- Fixed the Cocos Preview error `无法查到当前场景 JSON 数据(start_scene) = current_scene`.
+- Root cause: `profiles/v2/packages/preview.json` used `general.start_scene=current_scene`; when Creator had no active current-scene context, Preview could not resolve the scene JSON.
+- `profiles/v2/packages/preview.json` now pins the main scene uuid `623f777a-eb33-4d74-ae88-eb79e749fcfe`.
+- `scripts/check-layout.mjs` now guards `assets/main.scene.meta` and Preview `start_scene`, requiring them to stay aligned.
+- The newly added `act_1012` / `npc_1012` and `act_1046` / `npc_1046` `.spine` source files were moved to `docs/spine-source-archive/preview-start-scene-fix-20260603/`; runtime `assets/resources/spine` keeps only dynamically loadable Spine assets and now scans with `conflictCount=0`.
+- Verification passed: `http://localhost:7456/settings.js?scene=current_scene` returns 200, `npm.cmd run check:layout` passes, and resource conflict scan reports `fileCount=102`, `conflictCount=0`.
+- Boundary unchanged: Cocos Preview/config and resource-archive cleanup only; no backend, SQL, probability, pool item, pity, reward, EX V1, or economy write-entry change.

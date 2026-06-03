@@ -31,7 +31,8 @@ import {
   trimText as trimUiText,
 } from './UiTextFormatter';
 import { UiSpriteFrameCache, type UiSpriteFrameCacheHost, type UiSpriteFrameOverrides } from './UiSpriteFrameCache';
-import { GachaSceneRenderer, type GachaPreviewResultMode, type GachaSceneHost } from './gacha/GachaSceneRenderer';
+import { GachaSceneRenderer, type GachaPreviewResultMode, type GachaSceneHost, type GachaSceneState } from './gacha/GachaSceneRenderer';
+import { GACHA_PREVIEW_POOLS, type GachaActionKey, type GachaPreviewPool, type GachaRarity } from './gacha/GachaSceneConfig';
 import { LoginFlow, type LoginFlowHost } from './login/LoginFlow';
 import {
   LoginRenderer,
@@ -46,6 +47,8 @@ import {
 import { LobbyAdventureLoader, type LobbyAdventureLoaderHost } from './lobby/LobbyAdventureLoader';
 import { LobbyAdventurePanelRenderer, type LobbyAdventurePanelHost } from './lobby/LobbyAdventurePanelRenderer';
 import { LobbyAvatarRenderer, type LobbyAvatarHost } from './lobby/LobbyAvatarRenderer';
+import { LobbyBagLoader, type LobbyBagLoaderHost } from './lobby/LobbyBagLoader';
+import { LobbyBagPanelRenderer, type LobbyBagPanelHost } from './lobby/LobbyBagPanelRenderer';
 import { LobbyBattleFlow, type LobbyBattleFlowHost } from './lobby/LobbyBattleFlow';
 import { LobbyBattlePreviewPanelRenderer, type LobbyBattlePreviewPanelHost } from './lobby/LobbyBattlePreviewPanelRenderer';
 import { LobbyCodexLoader, type LobbyCodexLoaderHost } from './lobby/LobbyCodexLoader';
@@ -63,10 +66,12 @@ import { LobbyNoticePanelRenderer, type LobbyNoticePanelHost } from './lobby/Lob
 import { LobbyProfileDialogRenderer, type LobbyProfileDialogHost } from './lobby/LobbyProfileDialogRenderer';
 import { LobbyProfileLoader, type LobbyProfileLoaderHost } from './lobby/LobbyProfileLoader';
 import type { LobbyAdventurePanelState, LobbyAdventureStageVO } from '../types/LobbyAdventureTypes';
+import type { LobbyBagPanelState } from '../types/BagTypes';
 import type { LobbyBattlePanelState } from './lobby/LobbyBattleState';
 import type { LobbyCodexPanelState } from '../types/LobbyCodexTypes';
 import type { LobbyHeroItemVO, LobbyHeroRosterPanelState } from '../types/LobbyHeroTypes';
 import type { LobbyNoticePanelState } from '../types/LobbyNoticeTypes';
+import type { GachaPoolVO } from '../types/GachaTypes';
 import type { ProtagonistCreateFormState, ProtagonistForm, ProtagonistGender } from '../types/ProtagonistTypes';
 import { LoginVideoBackground } from '../../resources/login-bg/scripts/login/LoginVideoBackground';
 
@@ -82,6 +87,7 @@ type ViewName =
   | 'lobby'
   | 'profile'
   | 'adventure'
+  | 'bag'
   | 'battle'
   | 'codex'
   | 'formation'
@@ -89,6 +95,11 @@ type ViewName =
   | 'heroDetail'
   | 'notice'
   | 'gacha'
+  | 'gachaInfo'
+  | 'gachaRecord'
+  | 'gachaExchange'
+  | 'gachaPoolContent'
+  | 'gachaReveal'
   | 'gachaResult'
   | 'placeholder';
 type LobbyPlaceholderDialogState = {
@@ -164,6 +175,8 @@ export class LootChainGameRoot extends Component {
   private readonly lobbyAdventureLoader = new LobbyAdventureLoader(this.api.lobbyAdventure, this as unknown as LobbyAdventureLoaderHost);
   private readonly lobbyAdventurePanelRenderer = new LobbyAdventurePanelRenderer(this as unknown as LobbyAdventurePanelHost);
   private readonly lobbyAvatarRenderer = new LobbyAvatarRenderer(this as unknown as LobbyAvatarHost);
+  private readonly lobbyBagLoader = new LobbyBagLoader(this.api.bag, this.api.hero, this as unknown as LobbyBagLoaderHost);
+  private readonly lobbyBagPanelRenderer = new LobbyBagPanelRenderer(this as unknown as LobbyBagPanelHost);
   private readonly lobbyBattleFlow = new LobbyBattleFlow(this.api.battle, this as unknown as LobbyBattleFlowHost);
   private readonly lobbyBattlePreviewPanelRenderer = new LobbyBattlePreviewPanelRenderer(this as unknown as LobbyBattlePreviewPanelHost);
   private readonly lobbyHudRenderer = new LobbyHudRenderer(this as unknown as LobbyHudHost);
@@ -183,6 +196,7 @@ export class LootChainGameRoot extends Component {
   private layoutKey = '';
   private lobbyProfileOpen = false;
   private lobbyAdventurePanelOpen = false;
+  private lobbyBagPanelOpen = false;
   private lobbyBattlePreviewPanelOpen = false;
   private lobbyCodexPanelOpen = false;
   private lobbyFormationPanelOpen = false;
@@ -191,6 +205,23 @@ export class LootChainGameRoot extends Component {
   private lobbyNoticePanelOpen = false;
   private lobbyPlaceholderDialog: LobbyPlaceholderDialogState | null = null;
   private gachaResultMode: GachaPreviewResultMode | null = null;
+  private gachaConfigRefreshElapsed = 0;
+  private gachaSceneState: GachaSceneState = {
+    loading: false,
+    drawing: false,
+    error: null,
+    pools: GACHA_PREVIEW_POOLS,
+    selectedPoolCode: GACHA_PREVIEW_POOLS[0]?.id ?? null,
+    pity: [],
+    poolDetail: null,
+    poolDetailLoading: false,
+    poolDetailError: '',
+    logs: [],
+    logsLoading: false,
+    logsError: '',
+    lastDrawResult: null,
+    activeAction: null,
+  };
   private selectedLobbyStageCode: string | null = null;
   private selectedLobbyFormationHeroIds: number[] = [];
 
@@ -209,6 +240,7 @@ export class LootChainGameRoot extends Component {
     if (this.layoutKey && this.layoutKey !== nextKey) {
       this.renderCurrentView();
     }
+    this.updateGachaConfigRefresh(deltaTime);
     this.updateLobbyPosterFade(deltaTime);
   }
 
@@ -219,6 +251,7 @@ export class LootChainGameRoot extends Component {
     this.protagonistCreateFlow.cancel();
     this.lobbyLoadingFlow.cancel();
     this.lobbyAdventureLoader.cancel();
+    this.lobbyBagLoader.cancel();
     this.lobbyBattleFlow.cancel();
     this.lobbyCodexLoader.cancel();
     this.lobbyHeroRosterLoader.cancel();
@@ -245,8 +278,16 @@ export class LootChainGameRoot extends Component {
       this.renderGachaScene();
       return;
     }
+    if (this.currentView === 'gachaReveal') {
+      this.renderGachaRevealScene();
+      return;
+    }
     if (this.currentView === 'gachaResult') {
       this.renderGachaResultScene();
+      return;
+    }
+    if (this.isGachaActionSceneView(this.currentView)) {
+      this.renderGachaActionScene();
       return;
     }
     if (this.isLobbyScenePageView(this.currentView)) {
@@ -313,14 +354,32 @@ export class LootChainGameRoot extends Component {
   private renderGachaScene(): void {
     this.currentView = 'gacha';
     const layout = this.renderBase();
-    // 抽奖页当前只做独立场景预览，不能从这里接入扣费、发奖、保底或兑换写入。
-    this.gachaSceneRenderer.render(layout);
+    // 抽奖页读取后端卡池展示配置；真实抽卡只通过已有 gacha draw 接口触发。
+    this.gachaSceneRenderer.render(layout, this.gachaSceneState);
+  }
+
+  private renderGachaRevealScene(): void {
+    this.currentView = 'gachaReveal';
+    const layout = this.renderBase();
+    // 召唤演出同样只消费本地 mock 数据，不生成 drawNo、不扣资源、不发奖。
+    this.gachaSceneRenderer.renderRevealScene(layout, this.gachaResultMode ?? 'once');
   }
 
   private renderGachaResultScene(): void {
     this.currentView = 'gachaResult';
     const layout = this.renderBase();
-    this.gachaSceneRenderer.renderResultScene(layout, this.gachaResultMode ?? 'once');
+    this.gachaSceneRenderer.renderResultScene(layout, this.gachaResultMode ?? 'once', this.gachaSceneState);
+  }
+
+  private renderGachaActionScene(): void {
+    const action = this.gachaActionForView(this.currentView);
+    if (!action) {
+      this.currentView = 'gacha';
+      this.renderGachaScene();
+      return;
+    }
+    const layout = this.renderBase();
+    this.gachaSceneRenderer.renderActionScene(layout, this.gachaSceneState, action);
   }
 
   private renderLobbyScenePage(): void {
@@ -333,6 +392,10 @@ export class LootChainGameRoot extends Component {
     }
     if (this.currentView === 'adventure') {
       this.renderLobbyAdventurePanel(layout);
+      return;
+    }
+    if (this.currentView === 'bag') {
+      this.renderLobbyBagPanel(layout);
       return;
     }
     if (this.currentView === 'codex') {
@@ -407,6 +470,7 @@ export class LootChainGameRoot extends Component {
     this.removeNodeFromContent('LobbyCompactActionEntrances');
     this.removeNodeFromContent('LobbyCompactSceneEntrances');
     this.removeLobbyAdventurePanel();
+    this.removeLobbyBagPanel();
     this.removeLobbyBattlePreviewPanel();
     this.removeLobbyCodexPanel();
     this.removeLobbyFormationPanel();
@@ -425,6 +489,10 @@ export class LootChainGameRoot extends Component {
 
   private renderLobbyAdventurePanel(layout: UiLayout): void {
     this.lobbyAdventurePanelRenderer.render(layout);
+  }
+
+  private renderLobbyBagPanel(layout: UiLayout): void {
+    this.lobbyBagPanelRenderer.render(layout);
   }
 
   private renderLobbyBattlePreviewPanel(layout: UiLayout): void {
@@ -539,6 +607,7 @@ export class LootChainGameRoot extends Component {
       'LobbyPlaceholderBackButton',
       () => this.closeLobbyPlaceholderDialog(),
       scale,
+      dialog.title,
     );
   }
 
@@ -568,6 +637,7 @@ export class LootChainGameRoot extends Component {
   private isLobbyScenePageView(view: ViewName): boolean {
     return view === 'profile'
       || view === 'adventure'
+      || view === 'bag'
       || view === 'codex'
       || view === 'formation'
       || view === 'heroes'
@@ -579,6 +649,7 @@ export class LootChainGameRoot extends Component {
   private returnToLobbyFromScenePage(): void {
     this.lobbyProfileOpen = false;
     this.lobbyAdventurePanelOpen = false;
+    this.lobbyBagPanelOpen = false;
     this.lobbyCodexPanelOpen = false;
     this.lobbyFormationPanelOpen = false;
     this.lobbyHeroDetailHeroId = null;
@@ -630,6 +701,7 @@ export class LootChainGameRoot extends Component {
     }
     this.lobbyProfileOpen = true;
     this.lobbyAdventurePanelOpen = false;
+    this.lobbyBagPanelOpen = false;
     this.lobbyBattlePreviewPanelOpen = false;
     this.lobbyCodexPanelOpen = false;
     this.lobbyFormationPanelOpen = false;
@@ -657,6 +729,7 @@ export class LootChainGameRoot extends Component {
 
   private openLobbyAdventurePanel(): void {
     this.lobbyAdventurePanelOpen = true;
+    this.lobbyBagPanelOpen = false;
     this.lobbyBattlePreviewPanelOpen = false;
     this.lobbyCodexPanelOpen = false;
     this.lobbyFormationPanelOpen = false;
@@ -691,6 +764,55 @@ export class LootChainGameRoot extends Component {
 
   private currentLobbyAdventureState(): LobbyAdventurePanelState {
     return this.lobbyAdventureLoader.currentState();
+  }
+
+  private openLobbyBagPanel(): void {
+    this.lobbyBagPanelOpen = true;
+    this.lobbyAdventurePanelOpen = false;
+    this.lobbyBattlePreviewPanelOpen = false;
+    this.lobbyCodexPanelOpen = false;
+    this.lobbyFormationPanelOpen = false;
+    this.lobbyHeroDetailHeroId = null;
+    this.lobbyHeroRosterPanelOpen = false;
+    this.lobbyNoticePanelOpen = false;
+    this.lobbyProfileOpen = false;
+    this.lobbyPlaceholderDialog = null;
+    this.currentView = 'bag';
+    this.renderCurrentView();
+    void this.loadLobbyBag();
+  }
+
+  private closeLobbyBagPanel(): void {
+    if (!this.lobbyBagPanelOpen) {
+      return;
+    }
+    this.returnToLobbyFromScenePage();
+  }
+
+  private removeLobbyBagPanel(): void {
+    this.removeNodeFromContent('LobbyBagDim');
+    this.removeNodeFromContent('LobbyBagSceneContent');
+    this.removeNodeFromContent('LobbyBagSceneFrame');
+  }
+
+  private reloadLobbyBag(): void {
+    void this.loadLobbyBag(true);
+  }
+
+  private currentLobbyBagState(): LobbyBagPanelState {
+    return this.lobbyBagLoader.currentState();
+  }
+
+  private selectLobbyBagItem(itemCode: string): void {
+    if (!this.lobbyBagLoader.selectItem(itemCode)) {
+      this.setStatus('该道具不在当前背包列表中。');
+      return;
+    }
+    void this.loadLobbyBagItemSource(itemCode);
+  }
+
+  private reloadLobbyBagItemSource(itemCode: string): void {
+    void this.loadLobbyBagItemSource(itemCode, true);
   }
 
   private selectLobbyAdventureStage(stageCode: string): void {
@@ -759,6 +881,7 @@ export class LootChainGameRoot extends Component {
     }
     this.lobbyBattlePreviewPanelOpen = true;
     this.lobbyAdventurePanelOpen = false;
+    this.lobbyBagPanelOpen = false;
     this.lobbyCodexPanelOpen = false;
     this.lobbyFormationPanelOpen = false;
     this.lobbyHeroDetailHeroId = null;
@@ -768,6 +891,7 @@ export class LootChainGameRoot extends Component {
     this.lobbyPlaceholderDialog = null;
     this.removePlayerProfileDialog();
     this.removeLobbyAdventurePanel();
+    this.removeLobbyBagPanel();
     this.removeLobbyCodexPanel();
     this.removeLobbyFormationPanel();
     this.removeLobbyHeroDetailPanel();
@@ -857,6 +981,7 @@ export class LootChainGameRoot extends Component {
 
   private openLobbyCodexPanel(): void {
     this.lobbyAdventurePanelOpen = false;
+    this.lobbyBagPanelOpen = false;
     this.lobbyBattlePreviewPanelOpen = false;
     this.lobbyCodexPanelOpen = true;
     this.lobbyFormationPanelOpen = false;
@@ -891,6 +1016,7 @@ export class LootChainGameRoot extends Component {
     this.selectedLobbyStageCode = resolvedStageCode;
     this.lobbyFormationPanelOpen = true;
     this.lobbyAdventurePanelOpen = false;
+    this.lobbyBagPanelOpen = false;
     this.lobbyBattlePreviewPanelOpen = false;
     this.lobbyCodexPanelOpen = false;
     this.lobbyHeroDetailHeroId = null;
@@ -941,6 +1067,7 @@ export class LootChainGameRoot extends Component {
     this.lobbyHeroRosterPanelOpen = true;
     this.lobbyHeroDetailHeroId = null;
     this.lobbyAdventurePanelOpen = false;
+    this.lobbyBagPanelOpen = false;
     this.lobbyBattlePreviewPanelOpen = false;
     this.lobbyCodexPanelOpen = false;
     this.lobbyFormationPanelOpen = false;
@@ -1054,6 +1181,7 @@ export class LootChainGameRoot extends Component {
   private openLobbyNoticePanel(): void {
     this.lobbyNoticePanelOpen = true;
     this.lobbyAdventurePanelOpen = false;
+    this.lobbyBagPanelOpen = false;
     this.lobbyBattlePreviewPanelOpen = false;
     this.lobbyCodexPanelOpen = false;
     this.lobbyFormationPanelOpen = false;
@@ -1069,6 +1197,7 @@ export class LootChainGameRoot extends Component {
   private openLobbyGachaScene(): void {
     this.lobbyProfileOpen = false;
     this.lobbyAdventurePanelOpen = false;
+    this.lobbyBagPanelOpen = false;
     this.lobbyBattlePreviewPanelOpen = false;
     this.lobbyCodexPanelOpen = false;
     this.lobbyFormationPanelOpen = false;
@@ -1077,9 +1206,302 @@ export class LootChainGameRoot extends Component {
     this.lobbyNoticePanelOpen = false;
     this.lobbyPlaceholderDialog = null;
     this.gachaResultMode = null;
+    this.gachaConfigRefreshElapsed = 0;
+    this.gachaSceneState = { ...this.gachaSceneState, activeAction: null };
     this.currentView = 'gacha';
     this.renderCurrentView();
-    this.setStatus('已进入召唤预览页，当前不会扣资源或发放英雄。');
+    this.setStatus('正在读取召唤卡池配置。');
+    void this.loadGachaPools(true);
+  }
+
+  private selectGachaPool(poolCode: string): void {
+    const pool = this.gachaSceneState.pools.find((item) => item.poolCode === poolCode || item.id === poolCode);
+    if (!pool) {
+      this.setStatus('该卡池配置不存在，请刷新召唤页。');
+      return;
+    }
+    this.gachaSceneState = {
+      ...this.gachaSceneState,
+      selectedPoolCode: pool.poolCode ?? pool.id,
+      lastDrawResult: null,
+      poolDetail: null,
+      poolDetailError: '',
+      logs: [],
+      logsError: '',
+      error: null,
+      activeAction: null,
+    };
+    this.renderCurrentView();
+    this.setStatus(pool.noticeText ?? `${pool.title} 已选中。`);
+    if (!pool.locked && !pool.previewOnly && pool.drawEnabled !== false) {
+      void this.loadGachaPity(pool.poolCode ?? pool.id);
+    }
+  }
+
+  private openGachaActionScene(action: GachaActionKey): void {
+    const pool = this.gachaSceneState.pools.find((item) => item.poolCode === this.gachaSceneState.selectedPoolCode || item.id === this.gachaSceneState.selectedPoolCode);
+    const poolCode = pool?.poolCode ?? pool?.id ?? this.gachaSceneState.selectedPoolCode;
+    if (!poolCode) {
+      this.setStatus('当前没有可读取的召唤卡池。');
+      return;
+    }
+    this.currentView = 'gacha';
+    this.gachaSceneState = { ...this.gachaSceneState, activeAction: action };
+    this.renderCurrentView();
+    if (action === 'record') {
+      void this.loadGachaLogs(true);
+      return;
+    }
+    void this.loadGachaPoolDetail(poolCode, true);
+    if (action === 'info' && !pool?.locked && !pool?.previewOnly && pool?.drawEnabled !== false) {
+      void this.loadGachaPity(poolCode);
+    }
+  }
+
+  private closeGachaActionScene(): void {
+    if (!this.gachaSceneState.activeAction && !this.isGachaActionSceneView(this.currentView)) {
+      return;
+    }
+    this.gachaSceneState = { ...this.gachaSceneState, activeAction: null };
+    this.currentView = 'gacha';
+    this.renderCurrentView();
+  }
+
+  private async loadGachaPools(force = false): Promise<void> {
+    if (this.gachaSceneState.loading && !force) {
+      return;
+    }
+    this.gachaSceneState = { ...this.gachaSceneState, loading: true, error: null };
+    if (this.currentView === 'gacha') {
+      this.renderCurrentView();
+    }
+    try {
+      const pools = (await this.api.gacha.pools()).map((pool) => this.toGachaPreviewPool(pool));
+      const selectedPoolCode = pools.find((pool) => pool.poolCode === this.gachaSceneState.selectedPoolCode || pool.id === this.gachaSceneState.selectedPoolCode)?.poolCode
+        ?? pools.find((pool) => !pool.locked && !pool.previewOnly && pool.drawEnabled !== false)?.poolCode
+        ?? pools[0]?.poolCode
+        ?? pools[0]?.id
+        ?? null;
+      this.gachaSceneState = {
+        ...this.gachaSceneState,
+        loading: false,
+        pools: pools.length > 0 ? pools : GACHA_PREVIEW_POOLS,
+        selectedPoolCode,
+      };
+      if (this.currentView === 'gacha' || this.isGachaActionSceneView(this.currentView)) {
+        this.renderCurrentView();
+      }
+      const selectedPool = this.gachaSceneState.pools.find((pool) => pool.poolCode === selectedPoolCode || pool.id === selectedPoolCode);
+      if (selectedPoolCode && selectedPool && !selectedPool.locked && !selectedPool.previewOnly && selectedPool.drawEnabled !== false) {
+        void this.loadGachaPity(selectedPoolCode);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.gachaSceneState = {
+        ...this.gachaSceneState,
+        loading: false,
+        error: message,
+        pools: GACHA_PREVIEW_POOLS,
+      };
+      if (this.currentView === 'gacha' || this.isGachaActionSceneView(this.currentView)) {
+        this.renderCurrentView();
+      }
+      this.setStatus(`召唤卡池读取失败，已使用本地展示兜底：${message}`);
+    }
+  }
+
+  private async loadGachaPity(poolCode: string): Promise<void> {
+    try {
+      const pity = await this.api.gacha.pity(poolCode);
+      if (this.gachaSceneState.selectedPoolCode !== poolCode) {
+        return;
+      }
+      this.gachaSceneState = { ...this.gachaSceneState, pity };
+      if (this.currentView === 'gacha') {
+        this.renderCurrentView();
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.gachaSceneState = { ...this.gachaSceneState, pity: [], error: message };
+      this.setStatus(`保底信息读取失败：${message}`);
+    }
+  }
+
+  private async loadGachaPoolDetail(poolCode: string, force = false): Promise<void> {
+    if (this.gachaSceneState.poolDetailLoading && !force) {
+      return;
+    }
+    this.gachaSceneState = {
+      ...this.gachaSceneState,
+      poolDetailLoading: true,
+      poolDetailError: '',
+    };
+    if (this.isGachaActionSceneView(this.currentView)) {
+      this.renderCurrentView();
+    }
+    try {
+      const detail = await this.api.gacha.poolDetail(poolCode);
+      if (this.gachaSceneState.selectedPoolCode !== poolCode) {
+        return;
+      }
+      this.gachaSceneState = {
+        ...this.gachaSceneState,
+        poolDetail: detail,
+        poolDetailLoading: false,
+        poolDetailError: '',
+      };
+      if (this.currentView === 'gacha' || this.isGachaActionSceneView(this.currentView)) {
+        this.renderCurrentView();
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.gachaSceneState = {
+        ...this.gachaSceneState,
+        poolDetailLoading: false,
+        poolDetailError: message,
+      };
+      if (this.currentView === 'gacha' || this.isGachaActionSceneView(this.currentView)) {
+        this.renderCurrentView();
+      }
+      this.setStatus(`卡池详情读取失败：${message}`);
+    }
+  }
+
+  private async loadGachaLogs(force = false): Promise<void> {
+    if (this.gachaSceneState.logsLoading && !force) {
+      return;
+    }
+    const poolCode = this.gachaSceneState.selectedPoolCode ?? undefined;
+    this.gachaSceneState = {
+      ...this.gachaSceneState,
+      logsLoading: true,
+      logsError: '',
+    };
+    if (this.currentView === 'gacha' || this.currentView === 'gachaRecord') {
+      this.renderCurrentView();
+    }
+    try {
+      const page = await this.api.gacha.logs(1, 30, poolCode);
+      this.gachaSceneState = {
+        ...this.gachaSceneState,
+        logs: page.records ?? [],
+        logsLoading: false,
+        logsError: '',
+      };
+      if (this.currentView === 'gacha' || this.currentView === 'gachaRecord') {
+        this.renderCurrentView();
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.gachaSceneState = {
+        ...this.gachaSceneState,
+        logsLoading: false,
+        logsError: message,
+      };
+      if (this.currentView === 'gacha' || this.currentView === 'gachaRecord') {
+        this.renderCurrentView();
+      }
+      this.setStatus(`召唤记录读取失败：${message}`);
+    }
+  }
+
+  private toGachaPreviewPool(pool: GachaPoolVO): GachaPreviewPool {
+    const theme = (pool.themeColor ?? '').toLowerCase();
+    const displayType = (pool.displayType ?? pool.poolType ?? '').toUpperCase();
+    const rarity: GachaRarity = theme === 'red' || displayType === 'LIMITED'
+      ? 'SSR'
+      : theme === 'blue' || displayType === 'NORMAL'
+        ? 'R'
+        : displayType === 'LOCKED'
+          ? 'UR'
+          : 'SR';
+    const title = this.trimText(pool.tabTitle || pool.poolName || pool.poolCode).slice(0, 24);
+    return {
+      id: pool.poolCode,
+      poolCode: pool.poolCode,
+      title,
+      subline: this.trimText(pool.tabSubtitle || pool.poolType || '召唤卡池').slice(0, 40),
+      rarity,
+      active: pool.poolCode === this.gachaSceneState.selectedPoolCode,
+      locked: Boolean(pool.locked) || pool.status !== 1,
+      drawEnabled: pool.drawEnabled !== false && !pool.previewOnly && pool.status === 1,
+      previewOnly: Boolean(pool.previewOnly),
+      logoAsset: pool.logoAsset ?? null,
+      tabLogoAsset: pool.tabLogoAsset ?? null,
+      logoText: pool.badgeText ?? (displayType === 'LIMITED' ? 'UP' : displayType === 'HERO' ? 'H' : displayType === 'NORMAL' ? 'N' : '锁'),
+      themeColor: pool.themeColor ?? null,
+      badgeText: pool.badgeText ?? null,
+      centerSpineResource: pool.centerSpineResource ?? null,
+      centerSpineUuid: pool.centerSpineUuid ?? null,
+      centerSpineSkin: pool.centerSpineSkin ?? null,
+      centerIntroAnimation: pool.centerIntroAnimation ?? null,
+      centerIdleAnimation: pool.centerIdleAnimation ?? null,
+      rateNote: pool.rateNote ?? null,
+      recordNote: pool.recordNote ?? null,
+      exchangeNote: pool.exchangeNote ?? null,
+      guaranteeNote: pool.guaranteeNote ?? null,
+      buttonSingleText: pool.buttonSingleText ?? null,
+      buttonTenText: pool.buttonTenText ?? null,
+      buttonDisabledReason: pool.buttonDisabledReason ?? null,
+      noticeText: pool.noticeText ?? null,
+      singleCost: pool.singleCost ?? null,
+      tenCost: pool.tenCost ?? null,
+      costCode: pool.costCode ?? null,
+    };
+  }
+
+  private createGachaRequestId(poolCode: string, drawCount: 1 | 10): string {
+    const random = Math.floor(Math.random() * 1_000_000).toString().padStart(6, '0');
+    return `cocos-${poolCode}-${drawCount}-${Date.now()}-${random}`;
+  }
+
+  private startGachaDraw(mode: GachaPreviewResultMode): void {
+    const pool = this.gachaSceneState.pools.find((item) => item.poolCode === this.gachaSceneState.selectedPoolCode || item.id === this.gachaSceneState.selectedPoolCode);
+    if (!pool || !pool.poolCode) {
+      this.setStatus('当前卡池缺少真实 poolCode，无法召唤。');
+      return;
+    }
+    if (pool.locked || pool.previewOnly || pool.drawEnabled === false) {
+      this.setStatus(pool.buttonDisabledReason ?? '该卡池暂未开放真实抽卡。');
+      return;
+    }
+    this.gachaSceneState = { ...this.gachaSceneState, drawing: true, lastDrawResult: null, error: null };
+    this.renderCurrentView();
+    const drawCount: 1 | 10 = mode === 'ten' ? 10 : 1;
+    const requestId = this.createGachaRequestId(pool.poolCode, drawCount);
+    void this.api.gacha.draw({ poolCode: pool.poolCode, drawCount, requestId })
+      .then((result) => {
+        this.gachaSceneState = { ...this.gachaSceneState, drawing: false, lastDrawResult: result };
+        this.gachaResultMode = mode;
+        this.currentView = 'gachaResult';
+        this.renderCurrentView();
+        this.setStatus(`召唤完成：${result.drawNo}`);
+        void this.loadGachaPity(pool.poolCode ?? '');
+        void this.refreshReadonlyAssetsAfterGacha();
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        this.gachaSceneState = { ...this.gachaSceneState, drawing: false, error: message };
+        this.currentView = 'gacha';
+        this.renderCurrentView();
+        this.setStatus(`召唤失败：${message}`);
+      });
+  }
+
+  private openGachaMockRevealScene(mode: GachaPreviewResultMode): void {
+    this.gachaResultMode = mode;
+    this.currentView = 'gachaReveal';
+    this.renderCurrentView();
+    this.setStatus('召唤演出为本地 mock：不生成 drawNo、不扣资源、不发英雄。');
+  }
+
+  private closeGachaMockRevealScene(): void {
+    if (this.currentView !== 'gachaReveal') {
+      return;
+    }
+    this.gachaResultMode = null;
+    this.currentView = 'gacha';
+    this.renderCurrentView();
   }
 
   private openGachaMockResultScene(mode: GachaPreviewResultMode): void {
@@ -1099,7 +1521,7 @@ export class LootChainGameRoot extends Component {
   }
 
   private closeGachaScene(): void {
-    if (this.currentView !== 'gacha' && this.currentView !== 'gachaResult') {
+    if (this.currentView !== 'gacha' && this.currentView !== 'gachaReveal' && this.currentView !== 'gachaResult' && !this.isGachaActionSceneView(this.currentView)) {
       return;
     }
     this.gachaResultMode = null;
@@ -1137,6 +1559,7 @@ export class LootChainGameRoot extends Component {
     };
     this.lobbyProfileOpen = false;
     this.lobbyAdventurePanelOpen = false;
+    this.lobbyBagPanelOpen = false;
     this.lobbyBattlePreviewPanelOpen = false;
     this.lobbyCodexPanelOpen = false;
     this.lobbyFormationPanelOpen = false;
@@ -1172,6 +1595,14 @@ export class LootChainGameRoot extends Component {
     await this.lobbyCodexLoader.load(force);
   }
 
+  private async loadLobbyBag(force = false): Promise<void> {
+    await this.lobbyBagLoader.load(force);
+  }
+
+  private async loadLobbyBagItemSource(itemCode: string, force = false): Promise<void> {
+    await this.lobbyBagLoader.loadSource(itemCode, force);
+  }
+
   private async loadLobbyHeroRoster(force = false): Promise<void> {
     await this.lobbyHeroRosterLoader.load(force);
     if (this.reconcileLobbyFormationSelection()) {
@@ -1197,6 +1628,14 @@ export class LootChainGameRoot extends Component {
     void this.loadLobbyAdventure(true);
     void this.loadLobbyHeroRoster(true);
     void this.loadLobbyBattleRecent(true);
+  }
+
+  private async refreshReadonlyAssetsAfterGacha(): Promise<void> {
+    const userId = this.currentLobbyProfile().userId;
+    await this.loadLobbyProfile(userId);
+    if (this.currentView === 'gacha' || this.currentView === 'gachaResult' || this.isGachaActionSceneView(this.currentView)) {
+      this.renderCurrentView();
+    }
   }
 
   private currentLobbyProfile(): PlayerLobbyProfileVO {
@@ -1275,8 +1714,57 @@ export class LootChainGameRoot extends Component {
     this.lobbyBackgroundController.release();
   }
 
+  private updateGachaConfigRefresh(deltaTime: number): void {
+    if (this.currentView !== 'gacha') {
+      this.gachaConfigRefreshElapsed = 0;
+      return;
+    }
+    if (this.gachaSceneState.loading || this.gachaSceneState.drawing) {
+      return;
+    }
+    this.gachaConfigRefreshElapsed += deltaTime;
+    if (this.gachaConfigRefreshElapsed < 15) {
+      return;
+    }
+    this.gachaConfigRefreshElapsed = 0;
+    void this.loadGachaPools(true);
+  }
+
   private isLobbyViewActive(): boolean {
     return this.currentView === 'lobby' || this.isLobbyScenePageView(this.currentView);
+  }
+
+  private isGachaActionSceneView(view: ViewName): boolean {
+    return this.gachaActionForView(view) !== null;
+  }
+
+  private gachaActionForView(view: ViewName): GachaActionKey | null {
+    if (view === 'gachaInfo') {
+      return 'info';
+    }
+    if (view === 'gachaRecord') {
+      return 'record';
+    }
+    if (view === 'gachaExchange') {
+      return 'exchange';
+    }
+    if (view === 'gachaPoolContent') {
+      return 'pool';
+    }
+    return null;
+  }
+
+  private viewForGachaAction(action: GachaActionKey): ViewName {
+    if (action === 'info') {
+      return 'gachaInfo';
+    }
+    if (action === 'record') {
+      return 'gachaRecord';
+    }
+    if (action === 'exchange') {
+      return 'gachaExchange';
+    }
+    return 'gachaPoolContent';
   }
 
   private isLoginSceneView(view: ViewName): boolean {
@@ -1411,6 +1899,7 @@ export class LootChainGameRoot extends Component {
     // 切换登录用户时必须清空上一位玩家资料，防止大厅左上角短暂显示旧数据。
     this.lobbyProfileLoader.resetForLogin(userId);
     this.lobbyAdventureLoader.resetForLogin();
+    this.lobbyBagLoader.resetForLogin();
     this.lobbyBattleFlow.resetForLogin();
     this.lobbyCodexLoader.resetForLogin();
     this.lobbyHeroRosterLoader.resetForLogin();
@@ -1419,6 +1908,7 @@ export class LootChainGameRoot extends Component {
     this.selectedLobbyFormationHeroIds = [];
     this.lobbyProfileOpen = false;
     this.lobbyAdventurePanelOpen = false;
+    this.lobbyBagPanelOpen = false;
     this.lobbyBattlePreviewPanelOpen = false;
     this.lobbyCodexPanelOpen = false;
     this.lobbyFormationPanelOpen = false;
@@ -1452,7 +1942,7 @@ export class LootChainGameRoot extends Component {
   }
 
   private setStatus(text: string): void {
-    if (this.currentView === 'gacha' || this.currentView === 'gachaResult') {
+    if (this.currentView === 'gacha' || this.currentView === 'gachaReveal' || this.currentView === 'gachaResult' || this.isGachaActionSceneView(this.currentView)) {
       const layout = this.resolveLayout();
       const gachaStatusY = layout.stageBottom + 210 * layout.uiScale;
       this.statusPresenter.set(text, layout, gachaStatusY);
@@ -1619,7 +2109,8 @@ export class LootChainGameRoot extends Component {
     const stageKey = `${Math.round(layout.stageLeft)},${Math.round(layout.stageBottom)},${Math.round(layout.stageWidth)}x${Math.round(layout.stageHeight)}`;
     // Cocos Preview 在固定设计分辨率下可能只改变浏览器物理视口，必须纳入 key 才会重排 HUD。
     const viewportKey = `${Math.round(layout.viewportWidth)}x${Math.round(layout.viewportHeight)}`;
-    return `${this.currentView}:${layout.width}x${layout.height}:${viewportKey}:${stageKey}:${this.loginFlow.agreementAccepted ? 'agree' : 'deny'}:${this.protagonistCreateFlow.version}:${this.lobbyProfileOpen ? 'profile-open' : 'profile-closed'}:${this.lobbyAdventurePanelOpen ? 'adventure-open' : 'adventure-closed'}:${this.lobbyAdventureLoader.version}:${this.selectedLobbyStageCode}:${this.lobbyBattlePreviewPanelOpen ? 'battle-open' : 'battle-closed'}:${this.lobbyBattleFlow.currentState().version}:${this.lobbyCodexPanelOpen ? 'codex-open' : 'codex-closed'}:${this.lobbyCodexLoader.version}:${this.lobbyFormationPanelOpen ? 'formation-open' : 'formation-closed'}:${this.selectedLobbyFormationHeroIds.join(',')}:${this.lobbyHeroRosterPanelOpen ? 'heroes-open' : 'heroes-closed'}:${this.lobbyHeroDetailHeroId ?? 'detail-closed'}:${this.lobbyHeroRosterLoader.version}:${this.lobbyNoticePanelOpen ? 'notice-open' : 'notice-closed'}:${this.lobbyNoticeLoader.version}:${this.currentView === 'gacha' ? 'gacha-open' : 'gacha-closed'}:${this.gachaResultMode ?? 'gacha-result-closed'}:${this.lobbyPlaceholderDialog ? 'placeholder-open' : 'placeholder-closed'}`;
+    const gachaOpen = this.currentView === 'gacha' || this.currentView === 'gachaReveal' || this.currentView === 'gachaResult' || this.isGachaActionSceneView(this.currentView);
+    return `${this.currentView}:${layout.width}x${layout.height}:${viewportKey}:${stageKey}:${this.loginFlow.agreementAccepted ? 'agree' : 'deny'}:${this.protagonistCreateFlow.version}:${this.lobbyProfileOpen ? 'profile-open' : 'profile-closed'}:${this.lobbyAdventurePanelOpen ? 'adventure-open' : 'adventure-closed'}:${this.lobbyAdventureLoader.version}:${this.lobbyBagPanelOpen ? 'bag-open' : 'bag-closed'}:${this.lobbyBagLoader.version}:${this.selectedLobbyStageCode}:${this.lobbyBattlePreviewPanelOpen ? 'battle-open' : 'battle-closed'}:${this.lobbyBattleFlow.currentState().version}:${this.lobbyCodexPanelOpen ? 'codex-open' : 'codex-closed'}:${this.lobbyCodexLoader.version}:${this.lobbyFormationPanelOpen ? 'formation-open' : 'formation-closed'}:${this.selectedLobbyFormationHeroIds.join(',')}:${this.lobbyHeroRosterPanelOpen ? 'heroes-open' : 'heroes-closed'}:${this.lobbyHeroDetailHeroId ?? 'detail-closed'}:${this.lobbyHeroRosterLoader.version}:${this.lobbyNoticePanelOpen ? 'notice-open' : 'notice-closed'}:${this.lobbyNoticeLoader.version}:${gachaOpen ? 'gacha-open' : 'gacha-closed'}:${this.gachaSceneState.activeAction ?? 'gacha-action-closed'}:${this.gachaSceneState.selectedPoolCode ?? 'gacha-pool-none'}:${this.gachaSceneState.poolDetailLoading ? 'gacha-detail-loading' : 'gacha-detail-idle'}:${this.gachaSceneState.logsLoading ? 'gacha-logs-loading' : 'gacha-logs-idle'}:${this.gachaSceneState.poolDetail?.items.length ?? 0}:${this.gachaSceneState.logs.length}:${this.gachaResultMode ?? 'gacha-result-closed'}:${this.lobbyPlaceholderDialog ? 'placeholder-open' : 'placeholder-closed'}`;
   }
 
   private resolveLobbyStageCode(stageCode?: string | null): string | null {

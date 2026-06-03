@@ -1,0 +1,14 @@
+{
+  "ver": "1.2.7",
+  "importer": "spine-data",
+  "imported": true,
+  "uuid": "3460824a-cf7b-4476-a7cb-e30a440492cb",
+  "files": [
+    ".bin",
+    ".json"
+  ],
+  "subMetas": {},
+  "userData": {
+    "atlasUuid": "aff8b2c4-6a68-4bd9-97f8-968eb51636a8"
+  }
+}

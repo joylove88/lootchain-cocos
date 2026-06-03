@@ -133,7 +133,7 @@ export class LobbyBattlePreviewPanelRenderer {
         return;
       }
       this.host.closeLobbyBattlePreviewPanel();
-    }, scale);
+    }, scale, '战斗');
   }
 
   private createUiNode(name: string): Node {

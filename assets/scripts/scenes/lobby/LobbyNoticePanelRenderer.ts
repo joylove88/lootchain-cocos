@@ -78,7 +78,7 @@ export class LobbyNoticePanelRenderer {
     this.renderHeader(panel, panelWidth, panelHeight, scale, state);
     this.renderNoticeBody(panel, panelWidth, panelHeight, scale, state);
     this.renderFooter(panel, panelWidth, panelHeight, scale);
-    renderSceneBackButton(this.host, panelGroup, layout, 'LobbyNoticeBackButton', () => this.host.closeLobbyNoticePanel(), scale);
+    renderSceneBackButton(this.host, panelGroup, layout, 'LobbyNoticeBackButton', () => this.host.closeLobbyNoticePanel(), scale, '公告');
   }
 
   private createUiNode(name: string): Node {

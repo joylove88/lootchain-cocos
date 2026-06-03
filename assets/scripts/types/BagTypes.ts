@@ -1,6 +1,6 @@
 import type { DateTimeString, DecimalValue } from './CommonTypes';
 
-/** 背包条目展示模型；当前大厅阶段不主动打开背包功能。 */
+/** 背包条目展示模型；当前只做只读展示，不开放使用/出售。 */
 export interface BagItemEntryVO {
   bagId: number;
   itemCode: string;
@@ -27,4 +27,17 @@ export interface PlayerBagGroupedVO {
 export interface ItemSourceVO {
   itemCode: string;
   sourceDesc: string;
+}
+
+/** 大厅背包全屏场景状态；所有字段仅用于前端只读展示。 */
+export interface LobbyBagPanelState {
+  loading: boolean;
+  loaded: boolean;
+  error: string;
+  groups: ItemTypeBagGroupVO[];
+  selectedItemCode: string | null;
+  sourceItemCode: string | null;
+  sourceLoading: boolean;
+  sourceDesc: string;
+  sourceError: string;
 }

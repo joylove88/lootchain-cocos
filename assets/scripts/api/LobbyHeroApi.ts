@@ -5,6 +5,10 @@ type UnknownRecord = Record<string, unknown>;
 
 const MAX_HERO_COUNT = 80;
 const MAX_TEXT_LENGTH = 96;
+const HERO_ASSET_FALLBACKS: Record<string, { portraitAsset: string; spineAsset: string }> = {
+  // 只读展示兜底：当前公司/家里本地服务未重启时，英雄列表可能暂时不带资源字段。
+  R_PATROL_01: { portraitAsset: 'act_1001', spineAsset: 'npc_1001' },
+};
 
 /** 大厅英雄只读 API；只读取大厅门面，不调用带养成写入口的英雄 Controller。 */
 export class LobbyHeroApi {
@@ -44,6 +48,10 @@ function normalizeHeroItem(item: unknown, index: number): LobbyHeroItemVO | null
     // 英雄队列只展示可用于编队/战斗的已拥有英雄，避免 UI 显示 id=0 但开战时被过滤。
     return null;
   }
+  const fallbackAssets = resolveHeroAssetFallback(heroCode);
+  const portraitAsset = readOptionalText(item, 'portraitAsset', 64) ?? fallbackAssets?.portraitAsset ?? null;
+  const spineAsset = readOptionalText(item, 'spineAsset', 128) ?? deriveSpineAssetFromPortrait(portraitAsset) ?? fallbackAssets?.spineAsset ?? null;
+  const spineUuid = readOptionalText(item, 'spineUuid', 64);
   return {
     id,
     heroCode,
@@ -54,8 +62,9 @@ function normalizeHeroItem(item: unknown, index: number): LobbyHeroItemVO | null
     power: readInteger(item.power, 0, Number.MAX_SAFE_INTEGER),
     protagonist: item.protagonist === true,
     sourceType: readText(item, 'sourceType', 32, ''),
-    portraitAsset: readOptionalText(item, 'portraitAsset', 64),
-    spineAsset: readOptionalText(item, 'spineAsset', 128),
+    portraitAsset,
+    spineAsset,
+    spineUuid,
     currentForm: readOptionalText(item, 'currentForm', 32),
     formLabel: readOptionalText(item, 'formLabel', 32),
   };
@@ -81,6 +90,18 @@ function readOptionalText(record: UnknownRecord, key: string, maxLength: number)
   }
   const trimmed = value.trim();
   return trimmed ? trimmed.slice(0, maxLength) : null;
+}
+
+function deriveSpineAssetFromPortrait(portraitAsset: string | null): string | null {
+  const normalized = (portraitAsset ?? '').replace(/\.(png|jpg|jpeg|webp)$/i, '').trim();
+  if (!/^act_[A-Za-z0-9_-]+$/i.test(normalized)) {
+    return null;
+  }
+  return normalized.replace(/^act/i, 'npc').slice(0, 128);
+}
+
+function resolveHeroAssetFallback(heroCode: string): { portraitAsset: string; spineAsset: string } | null {
+  return HERO_ASSET_FALLBACKS[heroCode.trim().toUpperCase()] ?? null;
 }
 
 function readInteger(value: unknown, min: number, max: number): number {

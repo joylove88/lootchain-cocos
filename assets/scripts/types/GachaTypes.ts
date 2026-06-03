@@ -2,18 +2,93 @@ import type { DateTimeString, DecimalValue } from './CommonTypes';
 
 /** 抽卡池展示模型；当前 Cocos-only 阶段入口仍未开放。 */
 export interface GachaPoolVO {
-  id: number;
+  id: number | null;
   poolCode: string;
   poolName: string;
   poolType: string;
-  configVersion: number;
-  pityGroupCode: string;
-  costType: string;
-  costCode: string;
-  singleCost: DecimalValue;
-  tenCost: DecimalValue;
+  configVersion: number | null;
+  pityGroupCode?: string | null;
+  costType?: string | null;
+  costCode?: string | null;
+  singleCost?: DecimalValue | null;
+  tenCost?: DecimalValue | null;
   startTime?: DateTimeString | null;
   endTime?: DateTimeString | null;
+  status: number;
+  displayType?: string | null;
+  sortOrder?: number | null;
+  tabTitle?: string | null;
+  tabSubtitle?: string | null;
+  logoAsset?: string | null;
+  tabLogoAsset?: string | null;
+  themeColor?: string | null;
+  badgeText?: string | null;
+  locked?: boolean | null;
+  drawEnabled?: boolean | null;
+  previewOnly?: boolean | null;
+  centerSpineResource?: string | null;
+  centerSpineUuid?: string | null;
+  centerSpineSkin?: string | null;
+  centerIntroAnimation?: string | null;
+  centerIdleAnimation?: string | null;
+  backgroundAsset?: string | null;
+  rateNote?: string | null;
+  recordNote?: string | null;
+  exchangeNote?: string | null;
+  guaranteeNote?: string | null;
+  buttonSingleText?: string | null;
+  buttonTenText?: string | null;
+  buttonDisabledReason?: string | null;
+  noticeText?: string | null;
+}
+
+export interface GachaPoolDetailVO {
+  pool: GachaPoolVO;
+  rates: GachaPoolRateVO[];
+  items: GachaPoolItemVO[];
+  pityConfigs: GachaPoolPityConfigVO[];
+  duplicateConfigs: GachaPoolDuplicateConfigVO[];
+  ticketConfigs: GachaPoolTicketConfigVO[];
+}
+
+export interface GachaPoolRateVO {
+  id: number;
+  rarity: string;
+  rate: DecimalValue;
+  status: number;
+}
+
+export interface GachaPoolItemVO {
+  id: number;
+  rewardType: string;
+  rewardCode: string;
+  rarity: string;
+  weight: number;
+  upFlag: number;
+  limitedFlag: number;
+  status: number;
+}
+
+export interface GachaPoolPityConfigVO {
+  id: number;
+  rarity: string;
+  pityCount: number;
+  resetRarity?: string | null;
+  status: number;
+}
+
+export interface GachaPoolDuplicateConfigVO {
+  id: number;
+  rarity: string;
+  fragmentCount: number;
+  status: number;
+}
+
+export interface GachaPoolTicketConfigVO {
+  id: number;
+  ticketItemCode: string;
+  singleTicketCount: number;
+  tenTicketCount: number;
   status: number;
 }
 

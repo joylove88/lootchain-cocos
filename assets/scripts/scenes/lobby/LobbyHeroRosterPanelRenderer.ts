@@ -80,7 +80,7 @@ export class LobbyHeroRosterPanelRenderer {
     this.renderHeader(panel, panelWidth, panelHeight, scale, state);
     this.renderHeroBody(panel, panelWidth, panelHeight, scale, state);
     this.renderFooter(panel, panelWidth, panelHeight, scale);
-    renderSceneBackButton(this.host, panelGroup, layout, 'LobbyHeroRosterBackButton', () => this.host.closeLobbyHeroRosterPanel(), scale);
+    renderSceneBackButton(this.host, panelGroup, layout, 'LobbyHeroRosterBackButton', () => this.host.closeLobbyHeroRosterPanel(), scale, '英雄');
   }
 
   private createUiNode(name: string): Node {

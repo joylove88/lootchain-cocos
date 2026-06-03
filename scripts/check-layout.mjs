@@ -3,6 +3,9 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 // Cocos 前端阶段守卫脚本。
 // 这里集中检查必需文件、模块边界、只读接口约束、多分辨率布局公式和关键资源元数据。
 const required = [
+  'assets/main.scene',
+  'assets/main.scene.meta',
+  'profiles/v2/packages/preview.json',
   'assets/scripts/app/AppConfig.ts',
   'assets/scripts/net/HttpClient.ts',
   'assets/scripts/api/PlayerAuthApi.ts',
@@ -22,6 +25,7 @@ const required = [
   'assets/scripts/api/GachaApi.ts',
   'assets/scripts/api/HeroApi.ts',
   'assets/scripts/api/BagApi.ts',
+  'assets/scripts/api/BagApi.ts.meta',
   'assets/scripts/types/PlayerTypes.ts',
   'assets/scripts/types/BattleTypes.ts',
   'assets/scripts/types/BattleTypes.ts.meta',
@@ -33,6 +37,8 @@ const required = [
   'assets/scripts/types/LobbyHeroTypes.ts.meta',
   'assets/scripts/types/LobbyNoticeTypes.ts',
   'assets/scripts/types/LobbyNoticeTypes.ts.meta',
+  'assets/scripts/types/BagTypes.ts',
+  'assets/scripts/types/BagTypes.ts.meta',
   'assets/scripts/scenes/AdaptiveStageLayoutResolver.ts',
   'assets/scripts/scenes/AdaptiveStageLayoutResolver.ts.meta',
   'assets/scripts/scenes/LootChainGameRoot.ts',
@@ -78,6 +84,12 @@ const required = [
   'assets/scripts/scenes/lobby/LobbyAdventurePanelRenderer.ts.meta',
   'assets/scripts/scenes/lobby/LobbyAdventureState.ts',
   'assets/scripts/scenes/lobby/LobbyAdventureState.ts.meta',
+  'assets/scripts/scenes/lobby/LobbyBagLoader.ts',
+  'assets/scripts/scenes/lobby/LobbyBagLoader.ts.meta',
+  'assets/scripts/scenes/lobby/LobbyBagPanelRenderer.ts',
+  'assets/scripts/scenes/lobby/LobbyBagPanelRenderer.ts.meta',
+  'assets/scripts/scenes/lobby/LobbyBagState.ts',
+  'assets/scripts/scenes/lobby/LobbyBagState.ts.meta',
   'assets/scripts/scenes/lobby/LobbyHudConfig.ts',
   'assets/scripts/scenes/lobby/LobbyHudConfig.ts.meta',
   'assets/scripts/scenes/lobby/LobbyHudLayout.ts',
@@ -143,11 +155,24 @@ const required = [
   'assets/resources/ui/hero-detail/hero_detail_backdrop.png.meta',
   'assets/resources/ui/hero-detail/hero_detail_protagonist.png',
   'assets/resources/ui/hero-detail/hero_detail_protagonist.png.meta',
+  'assets/resources/ui/common.meta',
+  'assets/resources/ui/common/scene_back_button.png',
+  'assets/resources/ui/common/scene_back_button.png.meta',
+  'assets/resources/ui/common/modal_close_button.png',
+  'assets/resources/ui/common/modal_close_button.png.meta',
   'assets/resources/ui/gacha.meta',
   'assets/resources/ui/gacha/gacha_bg_cathedral.png',
   'assets/resources/ui/gacha/gacha_bg_cathedral.png.meta',
   'assets/resources/ui/gacha/gacha_bg_abyss_ring.png',
   'assets/resources/ui/gacha/gacha_bg_abyss_ring.png.meta',
+  'assets/resources/ui/gacha/logo_limited.png',
+  'assets/resources/ui/gacha/logo_limited.png.meta',
+  'assets/resources/ui/gacha/logo_hero.png',
+  'assets/resources/ui/gacha/logo_hero.png.meta',
+  'assets/resources/ui/gacha/logo_normal.png',
+  'assets/resources/ui/gacha/logo_normal.png.meta',
+  'assets/resources/ui/gacha/logo_locked.png',
+  'assets/resources/ui/gacha/logo_locked.png.meta',
   'assets/resources/spine.meta',
   'assets/resources/spine/gacha.meta',
   'assets/resources/spine/gacha/huangfengjiaozong.meta',
@@ -192,11 +217,38 @@ for (const file of required) {
   }
 }
 
+const forbiddenResourceSpineFiles = [
+  'assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.skel',
+  'assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.skel.meta',
+  'assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.spine',
+  'assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.spine.meta',
+  'assets/resources/spine/hero/npc_1001/npc_1001.spine',
+  'assets/resources/spine/hero/npc_1001/npc_1001.spine.meta',
+  'assets/resources/spine/hero/act_1001/act_1001.spine',
+  'assets/resources/spine/hero/act_1001/act_1001.spine.meta',
+];
+
+for (const file of forbiddenResourceSpineFiles) {
+  if (existsSync(file)) {
+    console.error(`spine dynamic load conflict file must stay outside assets/resources: ${file}`);
+    ok = false;
+  }
+}
+
+for (const file of collectFiles('assets/resources/spine')) {
+  if (file.endsWith('.spine') || file.endsWith('.spine.meta')) {
+    console.error(`spine source file must stay outside assets/resources: ${file}`);
+    ok = false;
+  }
+}
+
 if (!ok) {
   process.exit(1);
 }
 
 const scenePath = 'assets/main.scene';
+const sceneMetaPath = 'assets/main.scene.meta';
+const previewProfilePath = 'profiles/v2/packages/preview.json';
 const adaptiveLayoutPath = 'assets/scripts/scenes/AdaptiveStageLayoutResolver.ts';
 const gameRootPath = 'assets/scripts/scenes/LootChainGameRoot.ts';
 const statusPresenterPath = 'assets/scripts/scenes/StatusPresenter.ts';
@@ -220,6 +272,11 @@ const lobbyAdventureTypesPath = 'assets/scripts/types/LobbyAdventureTypes.ts';
 const lobbyAdventureLoaderPath = 'assets/scripts/scenes/lobby/LobbyAdventureLoader.ts';
 const lobbyAdventurePanelPath = 'assets/scripts/scenes/lobby/LobbyAdventurePanelRenderer.ts';
 const lobbyAdventureStatePath = 'assets/scripts/scenes/lobby/LobbyAdventureState.ts';
+const bagApiPath = 'assets/scripts/api/BagApi.ts';
+const bagTypesPath = 'assets/scripts/types/BagTypes.ts';
+const lobbyBagLoaderPath = 'assets/scripts/scenes/lobby/LobbyBagLoader.ts';
+const lobbyBagPanelPath = 'assets/scripts/scenes/lobby/LobbyBagPanelRenderer.ts';
+const lobbyBagStatePath = 'assets/scripts/scenes/lobby/LobbyBagState.ts';
 const lobbyHudConfigPath = 'assets/scripts/scenes/lobby/LobbyHudConfig.ts';
 const lobbyHudLayoutPath = 'assets/scripts/scenes/lobby/LobbyHudLayout.ts';
 const lobbyHudPath = 'assets/scripts/scenes/lobby/LobbyHudRenderer.ts';
@@ -263,6 +320,10 @@ const lobbyPosterAssetPath = 'assets/resources/lobby/lobby_bg_poster.jpg';
 const lobbyPosterMetaPath = 'assets/resources/lobby/lobby_bg_poster.jpg.meta';
 const lobbyPanelAssetPath = 'assets/resources/ui/lobby/lobby_player_info_panel.png';
 const lobbyPanelMetaPath = 'assets/resources/ui/lobby/lobby_player_info_panel.png.meta';
+const sceneBackButtonAssetPath = 'assets/resources/ui/common/scene_back_button.png';
+const sceneBackButtonMetaPath = 'assets/resources/ui/common/scene_back_button.png.meta';
+const modalCloseButtonAssetPath = 'assets/resources/ui/common/modal_close_button.png';
+const modalCloseButtonMetaPath = 'assets/resources/ui/common/modal_close_button.png.meta';
 const adaptiveLayout = readFileSync(adaptiveLayoutPath, 'utf8');
 const gameRoot = readFileSync(gameRootPath, 'utf8');
 const statusPresenter = readFileSync(statusPresenterPath, 'utf8');
@@ -286,6 +347,11 @@ const lobbyAdventureTypes = readFileSync(lobbyAdventureTypesPath, 'utf8');
 const lobbyAdventureLoader = readFileSync(lobbyAdventureLoaderPath, 'utf8');
 const lobbyAdventurePanel = readFileSync(lobbyAdventurePanelPath, 'utf8');
 const lobbyAdventureState = readFileSync(lobbyAdventureStatePath, 'utf8');
+const bagApi = readFileSync(bagApiPath, 'utf8');
+const bagTypes = readFileSync(bagTypesPath, 'utf8');
+const lobbyBagLoader = readFileSync(lobbyBagLoaderPath, 'utf8');
+const lobbyBagPanel = readFileSync(lobbyBagPanelPath, 'utf8');
+const lobbyBagState = readFileSync(lobbyBagStatePath, 'utf8');
 const lobbyHudConfig = readFileSync(lobbyHudConfigPath, 'utf8');
 const lobbyHudLayout = readFileSync(lobbyHudLayoutPath, 'utf8');
 const lobbyHud = readFileSync(lobbyHudPath, 'utf8');
@@ -326,7 +392,11 @@ const profileApi = readFileSync(profileApiPath, 'utf8');
 const protagonistApi = readFileSync(protagonistApiPath, 'utf8');
 const gachaApi = readFileSync(gachaApiPath, 'utf8');
 const sceneText = readFileSync(scenePath, 'utf8');
+const sceneMetaText = readFileSync(sceneMetaPath, 'utf8');
+const previewProfileText = readFileSync(previewProfilePath, 'utf8');
 let scene = null;
+let sceneMeta = null;
+let previewProfile = null;
 
 function collectTsFiles(dir) {
   if (!existsSync(dir)) {
@@ -339,6 +409,23 @@ function collectTsFiles(dir) {
     if (stat.isDirectory()) {
       files.push(...collectTsFiles(path));
     } else if (entry.endsWith('.ts')) {
+      files.push(path);
+    }
+  }
+  return files;
+}
+
+function collectFiles(dir) {
+  if (!existsSync(dir)) {
+    return [];
+  }
+  const files = [];
+  for (const entry of readdirSync(dir)) {
+    const path = `${dir}/${entry}`;
+    const stat = statSync(path);
+    if (stat.isDirectory()) {
+      files.push(...collectFiles(path));
+    } else {
       files.push(path);
     }
   }
@@ -387,6 +474,11 @@ const checkedClientSources = uniqueSources([
   { path: lobbyAdventureLoaderPath, text: lobbyAdventureLoader },
   { path: lobbyAdventurePanelPath, text: lobbyAdventurePanel },
   { path: lobbyAdventureStatePath, text: lobbyAdventureState },
+  { path: bagApiPath, text: bagApi },
+  { path: bagTypesPath, text: bagTypes },
+  { path: lobbyBagLoaderPath, text: lobbyBagLoader },
+  { path: lobbyBagPanelPath, text: lobbyBagPanel },
+  { path: lobbyBagStatePath, text: lobbyBagState },
   { path: lobbyHudConfigPath, text: lobbyHudConfig },
   { path: lobbyHudLayoutPath, text: lobbyHudLayout },
   { path: lobbyHudPath, text: lobbyHud },
@@ -436,12 +528,9 @@ try {
 }
 
 const forbiddenLoginRootTokens = [
-  'this.api.gacha',
-  'this.api.hero',
-  'this.api.bag',
-  '/api/player/gacha/draw',
   '/api/player/heroes/',
   '/api/player/bag/use',
+  '/api/player/bag/batch-use',
   '/api/player/bag/sell',
   '/claim',
   '/purchase',
@@ -453,12 +542,8 @@ const forbiddenLoginRootTokens = [
   'fund-pool',
   'fundPool',
       'USDT',
-      'lootChainApi.gacha',
       'lootChainApi.hero',
-      'lootChainApi.bag',
-      'new GachaApi',
       'new HeroApi',
-      'new BagApi',
       'this.api.http',
       "request('POST'",
       'request("POST"',
@@ -492,6 +577,8 @@ const requiredLoginRootTokens = [
   "import { LobbyAdventureLoader, type LobbyAdventureLoaderHost } from './lobby/LobbyAdventureLoader';",
   "import { LobbyAdventurePanelRenderer, type LobbyAdventurePanelHost } from './lobby/LobbyAdventurePanelRenderer';",
   "import { LobbyAvatarRenderer, type LobbyAvatarHost } from './lobby/LobbyAvatarRenderer';",
+  "import { LobbyBagLoader, type LobbyBagLoaderHost } from './lobby/LobbyBagLoader';",
+  "import { LobbyBagPanelRenderer, type LobbyBagPanelHost } from './lobby/LobbyBagPanelRenderer';",
   "import { LobbyBattleFlow, type LobbyBattleFlowHost } from './lobby/LobbyBattleFlow';",
   "import { LobbyBattlePreviewPanelRenderer, type LobbyBattlePreviewPanelHost } from './lobby/LobbyBattlePreviewPanelRenderer';",
   "import { LobbyCodexLoader, type LobbyCodexLoaderHost } from './lobby/LobbyCodexLoader';",
@@ -508,11 +595,34 @@ const requiredLoginRootTokens = [
   "import { LobbyProfileDialogRenderer, type LobbyProfileDialogHost } from './lobby/LobbyProfileDialogRenderer';",
   "import { LobbyProfileLoader, type LobbyProfileLoaderHost } from './lobby/LobbyProfileLoader';",
   "import type { LobbyAdventurePanelState, LobbyAdventureStageVO } from '../types/LobbyAdventureTypes';",
+  "import type { LobbyBagPanelState } from '../types/BagTypes';",
   "import type { LobbyCodexPanelState } from '../types/LobbyCodexTypes';",
     "import type { LobbyHeroItemVO, LobbyHeroRosterPanelState } from '../types/LobbyHeroTypes';",
   "import type { ProtagonistCreateFormState, ProtagonistForm, ProtagonistGender } from '../types/ProtagonistTypes';",
   'private applyPasswordMask(editBox: EditBox, textLabel: Label): void',
   'type ViewName =',
+  "| 'bag'",
+  'private gachaConfigRefreshElapsed = 0;',
+  'activeAction: null',
+  'private updateGachaConfigRefresh(deltaTime: number): void',
+  "this.currentView = 'gacha';",
+  'activeAction: action',
+  'private readonly lobbyBagLoader = new LobbyBagLoader(this.api.bag, this.api.hero',
+  'private readonly lobbyBagPanelRenderer = new LobbyBagPanelRenderer',
+  'this.lobbyBagLoader.cancel();',
+  'private renderLobbyBagPanel(layout: UiLayout): void',
+  "this.currentView = 'bag';",
+  'private currentLobbyBagState(): LobbyBagPanelState',
+  'private reloadLobbyBagItemSource(itemCode: string): void',
+  'private async loadLobbyBag(force = false): Promise<void>',
+  'private async loadLobbyBagItemSource(itemCode: string, force = false): Promise<void>',
+  'private renderGachaActionScene(): void',
+  'private openGachaActionScene(action: GachaActionKey): void',
+  'private closeGachaActionScene(): void',
+  'private async loadGachaPoolDetail(poolCode: string, force = false): Promise<void>',
+  'private async loadGachaLogs(force = false): Promise<void>',
+  'private async refreshReadonlyAssetsAfterGacha(): Promise<void>',
+  'bag-open',
   'const LOGIN_SCENE_BACKGROUND_NODE_NAMES = [',
   'const LOGIN_SCENE_LEGACY_NODE_NAMES = [',
   'const LOGIN_SCENE_STAGE_NODE_NAMES = [...LOGIN_SCENE_BACKGROUND_NODE_NAMES, ...LOGIN_SCENE_LEGACY_NODE_NAMES] as const;',
@@ -665,7 +775,10 @@ const requiredLoginRootTokens = [
   'private loadLobbyProfileAfterLogin(userId: number): void',
   'private retryLobbyLoading(): void',
   'private renderLobby(): void',
+  'private renderGachaRevealScene(): void',
   'private renderGachaResultScene(): void',
+  'private startGachaDraw(mode: GachaPreviewResultMode): void',
+  'private closeGachaMockRevealScene(): void',
   'private openGachaMockResultScene(mode: GachaPreviewResultMode): void',
   'private closeGachaMockResultScene(): void',
   'private renderLobbyScenePage(): void',
@@ -684,7 +797,7 @@ const requiredLoginRootTokens = [
   'private compactResourceValue(value: number | null | undefined): string',
   'this.statusPresenter.reset();',
   'this.statusPresenter.add(text, layout, y);',
-  "this.currentView === 'gacha' || this.currentView === 'gachaResult'",
+  "this.currentView === 'gacha' || this.currentView === 'gachaReveal' || this.currentView === 'gachaResult'",
   'const gachaStatusY = layout.stageBottom + 210 * layout.uiScale;',
   'this.statusPresenter.set(text, layout, gachaStatusY);',
   'this.statusPresenter.set(text);',
@@ -783,6 +896,7 @@ const requiredLoginRootTokens = [
   "this.currentView = 'heroes';",
   "this.currentView = 'heroDetail';",
   "this.currentView = 'notice';",
+  "this.currentView = 'gachaReveal';",
   "this.currentView = 'gachaResult';",
   "this.currentView = 'placeholder';",
   'profile-open',
@@ -1090,8 +1204,13 @@ for (const token of [
   'export class LobbyCodexApi',
   "this.http.get<unknown>('/api/player/lobby/codex')",
   'function validateLobbyCodex(data: unknown): LobbyCodexItemVO[]',
-  "portraitAsset: readOptionalText(item, 'portraitAsset', 64)",
-  "spineAsset: readOptionalText(item, 'spineAsset', 128)",
+  'const HERO_ASSET_FALLBACKS',
+  'R_PATROL_01',
+  'resolveHeroAssetFallback(heroCode)',
+  "const portraitAsset = readOptionalText(item, 'portraitAsset', 64) ?? fallbackAssets?.portraitAsset ?? null;",
+  "const spineAsset = readOptionalText(item, 'spineAsset', 128) ?? deriveSpineAssetFromPortrait(portraitAsset) ?? fallbackAssets?.spineAsset ?? null;",
+  'function deriveSpineAssetFromPortrait(portraitAsset: string | null): string | null',
+  'function resolveHeroAssetFallback(heroCode: string): { portraitAsset: string; spineAsset: string } | null',
   "rarity.toUpperCase() === 'EX'",
   "heroCode.toUpperCase().startsWith('EX_')",
 ]) {
@@ -1105,8 +1224,13 @@ for (const token of [
   'export class LobbyHeroApi',
   "this.http.get<unknown>('/api/player/lobby/heroes')",
   'function validateLobbyHeroes(data: unknown): LobbyHeroItemVO[]',
-  "portraitAsset: readOptionalText(item, 'portraitAsset', 64)",
-  "spineAsset: readOptionalText(item, 'spineAsset', 128)",
+  'const HERO_ASSET_FALLBACKS',
+  'R_PATROL_01',
+  'resolveHeroAssetFallback(heroCode)',
+  "const portraitAsset = readOptionalText(item, 'portraitAsset', 64) ?? fallbackAssets?.portraitAsset ?? null;",
+  "const spineAsset = readOptionalText(item, 'spineAsset', 128) ?? deriveSpineAssetFromPortrait(portraitAsset) ?? fallbackAssets?.spineAsset ?? null;",
+  'function deriveSpineAssetFromPortrait(portraitAsset: string | null): string | null',
+  'function resolveHeroAssetFallback(heroCode: string): { portraitAsset: string; spineAsset: string } | null',
   "rarity.toUpperCase() === 'EX'",
   "heroCode.toUpperCase().startsWith('EX_')",
   'if (id <= 0)',
@@ -1152,6 +1276,67 @@ for (const token of [
 }
 
 for (const token of [
+  'export class LobbyBagState',
+  'reset(): void',
+  'startLoading(): void',
+  'applyLoaded(groups: ItemTypeBagGroupVO[]): void',
+  'selectItem(itemCode: string): boolean',
+  'startSourceLoading(itemCode: string): void',
+  'applySourceLoaded(itemCode: string, sourceDesc: string): void',
+  'snapshot(): LobbyBagPanelState',
+]) {
+  if (!lobbyBagState.includes(token)) {
+    console.error(`missing lobby bag state guard in ${lobbyBagStatePath}: ${token}`);
+    ok = false;
+  }
+}
+
+for (const token of [
+  'export class LobbyBagLoader',
+  'private loadTicket = 0;',
+  'private sourceTicket = 0;',
+  'this.bagApi.myBag()',
+  'this.heroApi.fragments()',
+  'this.bagApi.source(safeCode)',
+  'mergeBagGroupsWithFragments(bag.groups ?? [], fragments)',
+  'itemType: \'HERO_FRAGMENT\'',
+  'heroFragmentSourceDesc(fragmentItem)',
+  'void this.loadSource(selectedItemCode, true)',
+  'this.host.refreshLobbyOverlay();',
+]) {
+  if (!lobbyBagLoader.includes(token)) {
+    console.error(`missing lobby bag loader guard in ${lobbyBagLoaderPath}: ${token}`);
+    ok = false;
+  }
+}
+
+for (const token of [
+  'export class LobbyBagPanelRenderer',
+  'LobbyBagSceneContent',
+  'LobbyBagSceneFrame',
+  'layout.stageWidth',
+  'layout.stageHeight',
+  'dim.addComponent(BlockInputEvents);',
+  'panelGroup.addComponent(BlockInputEvents);',
+  'LobbyBagBackButton',
+  'renderSceneBackButton(this.host, panelGroup, layout',
+  'LobbyBagGroupRail',
+  'LobbyBagItemGrid',
+  'LobbyBagItemDetail',
+  'LobbyBagSourceButton',
+  'reloadLobbyBagItemSource',
+  'LobbyBagDisabledAction',
+  '使用/出售关闭',
+  'LobbyBagBoundaryNote',
+  '不提供使用、出售、兑换、领取或资源变更入口',
+]) {
+  if (!lobbyBagPanel.includes(token)) {
+    console.error(`missing lobby bag panel guard in ${lobbyBagPanelPath}: ${token}`);
+    ok = false;
+  }
+}
+
+for (const token of [
   'export class LobbyHeroRosterLoader',
   'private loadTicket = 0;',
   'this.heroApi.lobbyHeroes()',
@@ -1183,8 +1368,17 @@ for (const token of [
   'resolveHeroSpineResource(hero)',
   'spine/hero/${asset}/${asset}',
   'resources.load(path, sp.SkeletonData',
+  'AudioSource',
+  'AudioClip',
   'applyHeroSpineData',
   'getRuntimeData(true)',
+  'hero spine asset missing',
+  'hero spine load start',
+  'bindHeroSpineAudioEvents',
+  'playHeroSpineAudioEvent',
+  'event.data?.audioPath',
+  'resources.load(path, AudioClip',
+  'hero spine audio missing',
   'resolveHeroSpineAnimationNames',
   'startHeroSpineSecondaryCycle',
   'const secondaryAnimation = animationNames.secondary',
@@ -1593,16 +1787,26 @@ for (const token of requiredUiPrimitiveFactoryTokens) {
 
 const requiredUiSceneBackButtonTokens = [
   'export interface SceneBackButtonHost',
+  'export const SCENE_BACK_BUTTON_ASSET',
+  'ui/common/scene_back_button/spriteFrame',
+  'addSprite?',
+  'addChildLabel?',
   'export function renderSceneBackButton(',
-  'layout.stageLeft + 46 * buttonScale',
+  "titleText = ''",
+  'layout.stageLeft + 58 * buttonScale',
   'layout.stageTop - 42 * buttonScale',
-  '60 * buttonScale',
-  '44 * buttonScale',
+  '96 * buttonScale',
+  '46 * buttonScale',
   'Button.EventType.CLICK',
   'host.applyImageButtonFeedback(button, 1.04, 0.96)',
-  'rgba(218, 170, 84, 220)',
-  'graphics.moveTo(14 * buttonScale, 15 * buttonScale)',
-  'graphics.lineTo(-13 * buttonScale, 0)',
+  'SceneBackButtonArt',
+  'SceneBackTitle',
+  'renderBackTitle(host, parent, layout, buttonScale, titleText)',
+  'drawFallbackBackButton(button, buttonWidth, buttonHeight, buttonScale)',
+  'HorizontalTextAlignment.LEFT',
+  'rgba(250, 222, 158)',
+  'graphics.fillColor = rgba(18, 9, 7, 214)',
+  'graphics.lineTo(-16 * scale, 0)',
 ];
 
 for (const token of requiredUiSceneBackButtonTokens) {
@@ -2025,9 +2229,77 @@ for (const token of ['heroCode', 'rarity', 'power', 'attrs', 'star', 'level']) {
 }
 
 const gachaDrawBody = extractMethodBody(gachaApi, 'draw(dto: GachaDrawDTO): Promise<GachaDrawResultVO>');
-if (!gachaDrawBody || !gachaDrawBody.includes('当前 Cocos 阶段未开放抽卡') || gachaDrawBody.includes('/api/player/gacha/draw')) {
-  console.error(`gacha draw must stay client-blocked during current Cocos phase in ${gachaApiPath}`);
+if (!gachaDrawBody || !gachaDrawBody.includes("this.http.post<GachaDrawResultVO>('/api/player/gacha/draw', dto)")) {
+  console.error(`gacha draw must use the existing real player draw endpoint only in ${gachaApiPath}`);
   ok = false;
+}
+
+try {
+  sceneMeta = JSON.parse(sceneMetaText);
+} catch (error) {
+  console.error(`invalid json: ${sceneMetaPath}`);
+  console.error(error instanceof Error ? error.message : String(error));
+  ok = false;
+}
+
+try {
+  previewProfile = JSON.parse(previewProfileText);
+} catch (error) {
+  console.error(`invalid json: ${previewProfilePath}`);
+  console.error(error instanceof Error ? error.message : String(error));
+  ok = false;
+}
+
+const mainSceneUuid = sceneMeta?.uuid ?? null;
+if (mainSceneUuid !== '623f777a-eb33-4d74-ae88-eb79e749fcfe') {
+  console.error(`main scene uuid changed unexpectedly: ${mainSceneUuid}`);
+  ok = false;
+}
+
+const previewStartScene = previewProfile?.general?.start_scene ?? null;
+if (previewStartScene !== mainSceneUuid) {
+  console.error(`preview start_scene must pin the main scene uuid instead of current_scene: ${previewStartScene}`);
+  ok = false;
+}
+for (const token of ['/api/player/gacha/exchange', '/api/player/gacha/reissue']) {
+  if (gachaApi.includes(token)) {
+    console.error(`gacha api must not add exchange/reissue write endpoint in ${gachaApiPath}: ${token}`);
+    ok = false;
+  }
+}
+
+const requiredBagApiTokens = [
+  'export class BagApi',
+  "this.http.get<PlayerBagGroupedVO>('/api/player/bag')",
+  'this.http.get<ItemSourceVO>(`/api/player/bag/items/${encodeURIComponent(itemCode)}/source`)',
+];
+
+for (const token of requiredBagApiTokens) {
+  if (!bagApi.includes(token)) {
+    console.error(`missing readonly bag API token in ${bagApiPath}: ${token}`);
+    ok = false;
+  }
+}
+
+for (const token of ['.post<', '.put<', '.patch<', '.delete<', '/api/player/bag/use', '/api/player/bag/batch-use', '/api/player/bag/sell']) {
+  if (bagApi.includes(token)) {
+    console.error(`bag API must stay readonly in ${bagApiPath}: ${token}`);
+    ok = false;
+  }
+}
+
+for (const token of [
+  'export interface BagItemEntryVO',
+  'export interface PlayerBagGroupedVO',
+  'export interface ItemSourceVO',
+  'export interface LobbyBagPanelState',
+  'selectedItemCode: string | null;',
+  'sourceItemCode: string | null;',
+]) {
+  if (!bagTypes.includes(token)) {
+    console.error(`missing bag type token in ${bagTypesPath}: ${token}`);
+    ok = false;
+  }
 }
 
 const requiredGachaConfigTokens = [
@@ -2048,8 +2320,11 @@ const requiredGachaConfigTokens = [
   'GACHA_ABYSS_FALLBACK_SPINE_INTRO_ANIMATION',
   'GACHA_ABYSS_FALLBACK_SPINE_IDLE_ANIMATION',
   'export interface GachaMockResultItem',
+  'export interface GachaRevealStep',
   'GACHA_MOCK_RESULT_ONCE',
   'GACHA_MOCK_RESULT_TEN',
+  'GACHA_REVEAL_STEPS',
+  '召唤演出只驱动本地预览页',
   '本地 mock 结果只用于前端验收动效',
   "kind: 'hero'",
   "kind: 'shard'",
@@ -2158,9 +2433,38 @@ const requiredGachaRendererTokens = [
   "export type GachaPreviewResultMode = 'once' | 'ten';",
   'GACHA_MOCK_RESULT_ONCE',
   'GACHA_MOCK_RESULT_TEN',
-  'renderResultScene(layout: UiLayout, mode: GachaPreviewResultMode): void',
+  'GACHA_REVEAL_STEPS',
+  'renderRevealScene(layout: UiLayout, mode: GachaPreviewResultMode): void',
+  'renderResultScene(layout: UiLayout, mode: GachaPreviewResultMode, state: GachaSceneState): void',
+  'private renderActionModal(parent: Node, layout: UiLayout, scale: number, state: GachaSceneState): void',
+  'GachaActionModalOverlay_',
+  'overlay.on(Button.EventType.CLICK, () => this.host.closeGachaActionScene(), this)',
+  'GachaActionScenePanel_',
+  'GachaActionModalCloseArt',
+  'GACHA_MODAL_CLOSE_BUTTON_ASSET',
+  'private normalizeSpriteFramePath(path: string | null | undefined): string | null',
+  'GachaPoolLogoImage',
+  'GachaPoolTabLogoBackdrop',
+  'tabLogoAsset || pool.logoAsset',
+  'resolveActionPanelFrame(layout, scale, action, rows.length)',
+  'private resolveActionPanelFrame(layout: UiLayout, scale: number, action: GachaActionKey, rowCount: number): { width: number; height: number; y: number }',
+  'const bodyOuterHeight = Math.max(96 * scale, height - 138 * scale - footerReserve)',
+  '-bodyOuterHeight / 2 + 18 * scale',
+  'openGachaActionScene(key)',
+  'currentLobbyProfile(): PlayerLobbyProfileVO',
+  '概率保底',
+  '奖池内容',
+  '兑换未开放',
   'renderSceneBackButton(this.host, parent, layout',
   'GachaBackButton',
+  'GachaRevealBackButton',
+  'GachaRevealSceneRoot',
+  'GachaRevealSceneContent',
+  'GachaRevealCardBack',
+  'GachaRevealContinueButton',
+  'GachaRevealNoWriteStrip',
+  'startGachaDraw(mode)',
+  'closeGachaMockRevealScene()',
   'GachaAbyssSpineStage',
   'GachaAbyssSpineNode',
   'const spineGroundY = -stageHeight * 0.55',
@@ -2193,15 +2497,21 @@ const requiredGachaRendererTokens = [
   'skeleton.addAnimation(0, idleAnimation, true, 0)',
   'skeleton.setAnimation(0, idleAnimation, true)',
   'logAbyssSpineResolved(data, skinName, idleAnimation, assetLabel)',
+  'runSpineLoadCallbacks(callbacks, data',
+  'isSkeletonNodeAlive(skeleton)',
+  'isNodeAlive(fallback)',
   'openGachaMockResultScene(mode)',
   'GachaResultSceneRoot',
+  'GachaResultBackButton',
   'GachaResultScenePanel',
   'GachaResultSceneNoWriteNote',
   'GachaResultSceneConfirmButton',
-  '本地结果预览：不扣资源、不发英雄、不写入抽卡记录或保底。',
-  '真实单抽、十连、兑换、补发全部关闭',
+  "this.renderTopBar(root, layout, scale, 'GachaResultBackButton', () => this.host.closeGachaMockResultScene(), '召唤结果');",
+  '真实 drawNo：${drawResult.drawNo}',
+  '视觉演出阶段：不扣资源、不生成 drawNo、不写记录、不更新保底。',
+  '兑换和补发入口仍未开放',
   'root.addComponent(BlockInputEvents);',
-  '未扣资源、未写入抽卡记录、未发放英雄、未更新保底',
+  '本结果为本地 mock：未扣资源、未写入抽卡记录、未发放英雄、未更新保底',
 ];
 
 for (const token of requiredGachaRendererTokens) {
@@ -2230,6 +2540,8 @@ const forbiddenGachaRendererTokens = [
   '/api/player/gacha/reissue',
   "request('POST'",
   'request("POST"',
+  'skeleton.node.isValid',
+  'fallback.isValid',
 ];
 
 for (const token of forbiddenGachaRendererTokens) {
@@ -2371,7 +2683,12 @@ const requiredLobbyHudTokens = [
   "import { LobbyTopHudRenderer } from './LobbyTopHudRenderer';",
   'private readonly topHudRenderer: LobbyTopHudRenderer;',
   'this.topHudRenderer = new LobbyTopHudRenderer(host);',
+  'const SHOW_LOBBY_WORLD_CHAT = false;',
+  'const SHOW_LOBBY_RIGHT_CHALLENGE_RAIL = false;',
   'this.topHudRenderer.render(layout);',
+  'if (SHOW_LOBBY_RIGHT_CHALLENGE_RAIL) {',
+  'if (SHOW_LOBBY_WORLD_CHAT) {',
+  'entries.filter((_, index) => index !== 4)',
   'private renderLobbyAtmosphere(layout: UiLayout): void',
   'private renderLobbyActivityRail(layout: UiLayout): void',
   'private renderLobbySceneHotspots(layout: UiLayout): void',
@@ -2423,7 +2740,7 @@ const requiredLobbyHudTokens = [
   'LobbyCompactActionEntrances',
   'LobbyCompactAction_${label}',
   'private renderCompactActionEntrances(layout: UiLayout): void',
-  'private compactActionEntries(): Array<{ label: string; detail: string; notice?: boolean; codex?: boolean; heroRoster?: boolean; adventure?: boolean; gacha?: boolean }>',
+  'private compactActionEntries(): Array<{ label: string; detail: string; notice?: boolean; codex?: boolean; heroRoster?: boolean; bag?: boolean; adventure?: boolean; gacha?: boolean }>',
   'private filterCompactActionEntries(',
   'private drawCompactActionPanel(graphics: Graphics',
   'private addCompactActionEntrance(parent: Node, label: string',
@@ -2576,7 +2893,7 @@ function assertClickContract(sourcePath, sourceText, allowedExceptions) {
   }
 }
 
-assertClickContract(lobbyHudPath, lobbyHud, ['activateLobbyHotspot', 'activateLobbyNextGoal', 'openLobbyNoticePanel', 'openLobbyCodexPanel', 'openLobbyHeroRosterPanel', 'openLobbyAdventurePanel', 'openLobbyGachaScene', 'openPlayerProfileDialog']);
+assertClickContract(lobbyHudPath, lobbyHud, ['activateLobbyHotspot', 'activateLobbyNextGoal', 'openLobbyNoticePanel', 'openLobbyCodexPanel', 'openLobbyHeroRosterPanel', 'openLobbyBagPanel', 'openLobbyAdventurePanel', 'openLobbyGachaScene', 'openPlayerProfileDialog']);
 assertClickContract(lobbyTopHudPath, lobbyTopHud, ['openPlayerProfileDialog']);
 
 function assertMethodExcludes(sourcePath, sourceText, signature, forbiddenTokens, reason) {
@@ -2641,6 +2958,26 @@ function extractMethodBody(sourceText, signature) {
   }
   return '';
 }
+
+assertMethodExcludes(
+  gachaSceneRendererPath,
+  gachaSceneRenderer,
+  'render(layout: UiLayout, state: GachaSceneState): void',
+  ['GachaResultBackButton', 'closeGachaMockResultScene()'],
+  'main summon page must keep the normal Gacha back action',
+);
+
+assertContainsOrder(
+  gachaSceneRendererPath,
+  gachaSceneRenderer,
+  'renderResultScene(layout: UiLayout, mode: GachaPreviewResultMode, state: GachaSceneState): void',
+  [
+    'this.renderBackground(root, layout);',
+    'this.renderMockResultSceneContent(root, layout, scale, mode, state.lastDrawResult);',
+    "this.renderTopBar(root, layout, scale, 'GachaResultBackButton', () => this.host.closeGachaMockResultScene(), '召唤结果');",
+  ],
+  'gacha result back button must render above the full-screen result content',
+);
 
 assertMethodExcludes(
   lobbyHudPath,
@@ -2713,8 +3050,8 @@ if (!authApi.includes('saveToken(token: PlayerTokenVO): void')) {
 }
 
 const resourceItemsBody = extractMethodBody(lobbyTopHud, 'private resourceItems(profile: PlayerLobbyProfileVO): LobbyResourceItem[]');
-if (!resourceItemsBody.includes('profile.stamina') || !resourceItemsBody.includes('profile.maxStamina')) {
-  console.error('resourceItems must keep stamina/maxStamina as the only profile-backed top resource');
+if (!resourceItemsBody.includes('profile.stamina') || !resourceItemsBody.includes('profile.maxStamina') || !resourceItemsBody.includes('profile.gold') || !resourceItemsBody.includes('profile.diamond')) {
+  console.error('resourceItems must keep stamina/maxStamina plus read-only gold/diamond as the only profile-backed top resources');
   ok = false;
 }
 let resourceKeyCursor = -1;
@@ -2728,13 +3065,13 @@ for (const token of ["key: 'stamina'", "key: 'coin'", "key: 'ruby'", "key: 'crys
   resourceKeyCursor = index;
 }
 const unopenedResourceValues = Array.from(resourceItemsBody.matchAll(/value:\s*'未开放'/g)).length;
-if (unopenedResourceValues !== 3) {
-  console.error(`coin/ruby/crystal must remain unopened placeholders, got ${unopenedResourceValues} unopened resource values`);
+if (unopenedResourceValues !== 1) {
+  console.error(`only crystal must remain unopened placeholder after gold/diamond become read-only assets, got ${unopenedResourceValues} unopened resource values`);
   ok = false;
 }
-for (const token of ['profile.coin', 'profile.gold', 'profile.ruby', 'profile.crystal', 'profile.usdt', '3,456', '8,888', '2,450']) {
+for (const token of ['profile.coin', 'profile.ruby', 'profile.crystal', 'profile.usdt', '3,456', '8,888', '2,450']) {
   if (resourceItemsBody.includes(token)) {
-    console.error(`non-stamina top resources must stay unopened placeholders: ${token}`);
+    console.error(`top resources must not use fake or unsupported economy fields: ${token}`);
     ok = false;
   }
 }
@@ -2842,6 +3179,7 @@ const requiredLobbyHudModuleTokens = [
   'openLobbyNoticePanel(): void;',
   'openLobbyCodexPanel(): void;',
   'openLobbyHeroRosterPanel(): void;',
+  'openLobbyBagPanel(): void;',
   'openLobbyAdventurePanel(): void;',
   'openLobbyPlaceholderDialog(title: string, detail?: string): void;',
   'export class LobbyTopHudRenderer',
@@ -2854,6 +3192,9 @@ const requiredLobbyHudModuleTokens = [
   '未开放',
   '图鉴',
   'codex?: boolean',
+  'bag?: boolean',
+  '背包只读展示道具和来源',
+  'this.openLobbyBagPanel();',
   'adventure?: boolean',
 ];
 
@@ -3141,6 +3482,51 @@ function assertLobbyPlayerPanelAsset() {
 }
 
 assertLobbyPlayerPanelAsset();
+
+function assertSceneBackButtonAsset() {
+  const dimensions = readPngDimensions(sceneBackButtonAssetPath);
+  if (dimensions.width !== 512 || dimensions.height !== 224) {
+    console.error(`scene back button must be the 512x224 high-resolution UI asset, got ${dimensions.width}x${dimensions.height}`);
+    ok = false;
+  }
+
+  let meta = null;
+  try {
+    meta = JSON.parse(readFileSync(sceneBackButtonMetaPath, 'utf8'));
+  } catch (error) {
+    console.error(`invalid json: ${sceneBackButtonMetaPath}`);
+    console.error(error instanceof Error ? error.message : String(error));
+    ok = false;
+    return;
+  }
+
+  const spriteMeta = meta?.subMetas?.f9941?.userData;
+  if (!spriteMeta) {
+    console.error(`missing scene back button spriteFrame metadata: ${sceneBackButtonMetaPath}`);
+    ok = false;
+    return;
+  }
+
+  const expected = {
+    width: 511,
+    height: 224,
+    rawWidth: 512,
+    rawHeight: 224,
+    trimX: 1,
+    trimY: 0,
+    offsetX: 0.5,
+    offsetY: 0,
+  };
+
+  for (const [key, value] of Object.entries(expected)) {
+    if (spriteMeta[key] !== value) {
+      console.error(`scene back button meta ${key} expected ${value}, got ${spriteMeta[key]}`);
+      ok = false;
+    }
+  }
+}
+
+assertSceneBackButtonAsset();
 
 function assertLobbyPosterSpriteFrameAsset() {
   const dimensions = readJpgDimensions(lobbyPosterAssetPath);
@@ -3909,6 +4295,20 @@ function assertLobbyOverlayBounds(layout, name) {
     codexX + codexWidth / 2,
     codexY + codexHeight / 2,
     codexY - codexHeight / 2,
+    stage,
+  );
+
+  const bagScale = clamp(layout.uiScale, 0.64, 1);
+  const bagWidth = Math.max(320 * bagScale, layout.stageWidth);
+  const bagHeight = Math.max(280 * bagScale, layout.stageHeight);
+  const bagX = (layout.stageLeft + layout.stageRight) / 2;
+  const bagY = (layout.stageTop + layout.stageBottom) / 2;
+  assertInsideStage(
+    `${name}:LobbyBagSceneContent`,
+    bagX - bagWidth / 2,
+    bagX + bagWidth / 2,
+    bagY + bagHeight / 2,
+    bagY - bagHeight / 2,
     stage,
   );
 

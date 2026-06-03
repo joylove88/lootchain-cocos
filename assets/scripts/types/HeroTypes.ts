@@ -9,6 +9,7 @@ export interface UserHeroListItemVO {
   power: number;
   portraitAsset?: string | null;
   spineAsset?: string | null;
+  spineUuid?: string | null;
   tokenNo?: string | null;
 }
 
@@ -38,6 +39,7 @@ export interface UserHeroDetailVO {
   heroClass: string;
   portraitAsset?: string | null;
   spineAsset?: string | null;
+  spineUuid?: string | null;
   skills?: string | null;
   ultimateSkillCode?: string | null;
   story?: string | null;
@@ -60,6 +62,7 @@ export interface HeroCodexItemVO {
   roleDesc?: string | null;
   portraitAsset?: string | null;
   spineAsset?: string | null;
+  spineUuid?: string | null;
   owned: boolean;
   ownedCount: number;
   exLocked: boolean;

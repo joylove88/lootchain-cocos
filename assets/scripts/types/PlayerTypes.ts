@@ -1,4 +1,6 @@
 /** 大厅左上角玩家资料与资料弹窗使用的只读展示模型。 */
+import type { DecimalValue } from './CommonTypes';
+
 export interface PlayerLobbyProfileVO {
   userId: number;
   displayName: string;
@@ -10,6 +12,8 @@ export interface PlayerLobbyProfileVO {
   exp: number;
   stamina: number;
   maxStamina: number;
+  gold?: DecimalValue | null;
+  diamond?: DecimalValue | null;
   combatPower: number;
   status?: number | null;
   accountStatus: string;

@@ -12,7 +12,8 @@ import {
 import { LOBBY_PLAYER_INFO_PANEL_ASSET } from './lobby/LobbyHudTypes';
 import { LOBBY_BATTLE_SCENE_BG_ASSET } from './lobby/LobbyBattlePreviewPanelRenderer';
 import { LOBBY_HERO_DETAIL_BACKDROP_ASSET, LOBBY_HERO_DETAIL_PROTAGONIST_ASSET } from './lobby/LobbyHeroDetailPanelRenderer';
-import { GACHA_BACKGROUND_ASSET } from './gacha/GachaSceneConfig';
+import { GACHA_BACKGROUND_ASSET, GACHA_MODAL_CLOSE_BUTTON_ASSET, GACHA_POOL_LOGO_ASSETS } from './gacha/GachaSceneConfig';
+import { SCENE_BACK_BUTTON_ASSET } from './UiSceneBackButton';
 
 export interface UiSpriteFrameCacheHost {
   node: Node;
@@ -53,6 +54,9 @@ export class UiSpriteFrameCache {
     this.request(LOBBY_HERO_DETAIL_BACKDROP_ASSET);
     this.request(LOBBY_HERO_DETAIL_PROTAGONIST_ASSET);
     this.request(GACHA_BACKGROUND_ASSET);
+    this.request(GACHA_MODAL_CLOSE_BUTTON_ASSET);
+    GACHA_POOL_LOGO_ASSETS.forEach((asset) => this.request(asset));
+    this.request(SCENE_BACK_BUTTON_ASSET);
   }
 
   request(path: string): void {
