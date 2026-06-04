@@ -2342,3 +2342,238 @@ mysql -uroot -p lootchain < .\sql\17_gacha_pool_display_config.sql
 - Verification passed: `npm.cmd run check:layout`; Cocos Creator 3.8.8 bundled TypeScript no-emit; `git diff --check` with only Git line-ending warnings; `.spine/.spine.meta` resource scan returned `0`.
 - Preview note: `npm.cmd run check:preview` still fails because the running Cocos Preview service is serving stale chunks. Its old `LobbyHeroRosterPanelRenderer.ts` bundle is missing the latest rarity-to-border-animation mapping tokens; restart/refresh Cocos Creator Preview before visual acceptance.
 - Boundary unchanged: Cocos frontend visual effect mapping only. No backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, `gacha_pool_item`, EX V1, exchange/reissue, bag write, hero growth, or new economy write entry changed.
+
+## 2026-06-04 Hero Roster Rarity Border Guard Recheck
+
+- Re-read the current Cocos handoff docs and reran the active Stage 4CU guard checks.
+- Verification passed:
+  - `npm.cmd run check:layout` -> `layout ok`;
+  - `profiles/v2/packages/preview.json` still pins `general.start_scene` to `623f777a-eb33-4d74-ae88-eb79e749fcfe`;
+  - Cocos Creator 3.8.8 bundled TypeScript no-emit passed for project `tsconfig.json`;
+  - `assets/resources/spine` contains `0` `.spine/.spine.meta` source files;
+  - `assets/resources/spine/ui/hero-roster/goods_1_border/` contains only `goods_1.skel|atlas|png` and meta runtime files;
+  - old UR-only border effect names are absent from the active hero roster renderer;
+  - `git diff --check` passed with only Git line-ending warnings.
+- Preview note: `npm.cmd run check:preview` still fails because the running Cocos Preview service is serving stale chunks, including an old `LobbyHeroRosterPanelRenderer.ts` bundle missing the latest larger-card and rarity-border tokens. Restart/refresh Cocos Creator Preview before visual acceptance.
+- Local note: port `7456` is owned by a `CocosCreator` process, so this pass did not force-kill Creator or clear generated caches from the shell.
+- Boundary unchanged: Cocos frontend verification/documentation only. No backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, `gacha_pool_item`, EX V1, exchange/reissue, bag write, hero growth, or new economy write entry changed.
+
+## 2026-06-04 Hero Roster UR Sequence Border Frames
+
+- Added the provided UR card-border sequence frames under `assets/resources/ui/hero-roster/UR-card-border/`.
+- Resource metadata:
+  - added `UR-card-border.meta`;
+  - added image/spriteFrame meta for `01.png` through `12.png`;
+  - `check:layout` now verifies all 12 frames and their `464x628` spriteFrame metadata.
+- Cocos update:
+  - UR cards now prefer `LobbyHeroRosterUrSequenceBorderSprite`;
+  - the sequence loads `ui/hero-roster/UR-card-border/01..12/spriteFrame` and loops at `0.07s` per frame;
+  - the sequence sits below portrait/text/chrome, so it should not cover rarity, name, stars, level plate, or corner badge;
+  - if the sequence frames fail to load, UR falls back to the existing `goods_1` `K7` Spine border, while R/SR/SSR keep `K3/K4/K5`.
+- Guards updated: `check:layout` and `check-preview-freshness` now require the UR sequence-frame constants, loader, sprite node, and animation loop tokens.
+- Verification passed: `npm.cmd run check:layout`; Cocos Creator 3.8.8 bundled TypeScript no-emit; `.spine/.spine.meta` resource scan returned `0`; `git diff --check` passed with only Git line-ending warnings.
+- Preview note: `npm.cmd run check:preview` still fails because the running Cocos Preview service is serving stale chunks. Restart/refresh Cocos Creator Preview before visual acceptance.
+- Boundary unchanged: Cocos frontend visual sequence-frame effect only. No backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, `gacha_pool_item`, EX V1, exchange/reissue, bag write, hero growth, or new economy write entry changed.
+
+## 2026-06-04 Hero Roster UR Sequence Border Outer Alignment
+
+- User feedback: the UR sequence effect was visually wrapping the inner card frame instead of the whole card frame.
+- Cocos update:
+  - measured the source sequence frame as `464x628`, with its main bright frame around `x=50..413`, `y=37..542`;
+  - added outer-alignment ratios:
+    - `HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_WIDTH_RATIO = 1.28`;
+    - `HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_HEIGHT_RATIO = 1.245`;
+    - `HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_Y_RATIO = -0.049`;
+  - `LobbyHeroRosterUrSequenceBorderSprite` now renders larger and slightly lower so the sequence frame wraps the card's outer frame.
+- Guards updated: `check:layout` and `check-preview-freshness` now require the outer-alignment ratio tokens.
+- Verification passed: `npm.cmd run check:layout`; Cocos Creator 3.8.8 bundled TypeScript no-emit; `git diff --check` passed with only Git line-ending warnings.
+- Boundary unchanged: Cocos frontend visual alignment only. No backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, `gacha_pool_item`, EX V1, exchange/reissue, bag write, hero growth, or new economy write entry changed.
+
+## 2026-06-04 Hero Roster UR Sequence Border Outside Frame
+
+- User feedback: the previous outer alignment still read as inside the card frame; the sequence bright frame needs to sit outside the whole card frame.
+- Cocos update:
+  - `HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_WIDTH_RATIO = 1.56`;
+  - `HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_HEIGHT_RATIO = 1.44`;
+  - `HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_Y_RATIO = -0.045`;
+  - these values intentionally overscale the source sequence so its internal bright border moves outside the card edge.
+- Guards updated: `check:layout` and `check-preview-freshness` now require the new outside-frame ratios.
+- Verification passed: `npm.cmd run check:layout`; Cocos Creator 3.8.8 bundled TypeScript no-emit; `git diff --check` passed with only Git line-ending warnings.
+- Boundary unchanged: Cocos frontend visual alignment only. No backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, `gacha_pool_item`, EX V1, exchange/reissue, bag write, hero growth, or new economy write entry changed.
+
+## 2026-06-04 Hero Roster Unified Card Frame
+
+- User request: replace the hero roster card base with `assets/resources/ui/hero-roster/hero_card_frame.png`.
+- Resource metadata:
+  - added `hero_card_frame.png.meta`;
+  - the source image is `937x1676`;
+  - `check:layout` validates the spriteFrame metadata dimensions.
+- Cocos update:
+  - added `LOBBY_HERO_ROSTER_CARD_FRAME_ASSET = 'ui/hero-roster/hero_card_frame/spriteFrame'`;
+  - `LOBBY_HERO_ROSTER_CARD_ASSETS` now preloads only the unified frame;
+  - `resolveHeroRosterCardAsset()` returns the same frame for all rarities;
+  - card aspect constants now use `937 / 1676`;
+  - rarity identity remains in the label/nameplate, `goods_1` R/SR/SSR borders, and UR sequence border.
+- Guards updated: `check:layout` and `check-preview-freshness` require the unified card-frame tokens, and `check:layout` forbids the old active `card_r/card_sr/card_ssr/card_ur` renderer paths.
+- Verification passed: `npm.cmd run check:layout`; Cocos Creator 3.8.8 bundled TypeScript no-emit; `.spine/.spine.meta` resource scan returned `0`.
+- Boundary unchanged: Cocos frontend card-frame asset swap only. No backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, `gacha_pool_item`, EX V1, exchange/reissue, bag write, hero growth, or new economy write entry changed.
+
+## 2026-06-04 Hero Roster Card Interior Cleanup
+
+- User feedback: card interior UI should use the new frame's built-in slots instead of drawn backgrounds.
+- Cocos update:
+  - removed the bottom `LobbyHeroRosterInfoPlate` drawn text background;
+  - removed the `LobbyHeroRosterLevelPlate` level backing plate;
+  - changed the top-right badge from diamond to circular `drawCircleBadge`;
+  - positioned level and badge by card-frame ratios so they sit inside the top-left/top-right circles;
+  - simplified the center `LobbyHeroRosterHeroRelief` to a single triangle mark;
+  - reduced rarity/name/stars font sizes and placed them in the built-in bottom grid.
+- Guards updated: `check:layout` / `check-preview-freshness` require the new ratios, circle badge, and triangle token; `check:layout` forbids the removed info plate, level plate, diamond badge, and protagonist dot tokens.
+- Verification passed: `npm.cmd run check:layout`; Cocos Creator 3.8.8 bundled TypeScript no-emit.
+- Boundary unchanged: Cocos frontend card interior layout only. No backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, `gacha_pool_item`, EX V1, exchange/reissue, bag write, hero growth, or new economy write entry changed.
+
+## 2026-06-04 Hero Roster Wider Five Card Layout
+
+- User feedback: roster cards are still too narrow; the rarity label should sit above the bottom text grid instead of inside it; one row should show at most five cards.
+- Cocos update:
+  - added `HERO_ROSTER_CARD_DISPLAY_WIDTH_SCALE = 1.2` so the unified `937/1676` card frame renders wider;
+  - added `HERO_ROSTER_CARD_MAX_COLUMNS = 5` and row-width limiting through `maxCardsInRow` / `maxCardWidthForRow`;
+  - tightened card gaps to give the wider cards enough room;
+  - moved `SSR/UR/SR/R` to `HERO_ROSTER_CARD_RARITY_Y_RATIO = 0.278`, above the built-in lower grid;
+  - kept the hero name and stars inside the lower grid with `HERO_ROSTER_CARD_NAME_Y_RATIO = 0.151` and `HERO_ROSTER_CARD_STARS_Y_RATIO = 0.087`.
+- Guards updated: `check:layout` and `check-preview-freshness` now require the wider-card, five-column, and updated bottom-text placement tokens.
+- Verification passed: `npm.cmd run check:layout`; Cocos Creator 3.8.8 bundled TypeScript no-emit; `.spine/.spine.meta` resource scan returned `0`; `git diff --check` passed with only Git line-ending warnings.
+- Preview note: `npm.cmd run check:preview` still fails because the running Cocos Preview service is serving stale chunks. Restart/refresh Cocos Creator Preview before visual acceptance.
+- Boundary unchanged: Cocos frontend visual layout only. No backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, `gacha_pool_item`, EX V1, exchange/reissue, bag write, hero growth, or new economy write entry changed.
+
+## 2026-06-04 Hero Roster Longer Cards And Rarity Order
+
+- User request: make roster cards slightly longer and show heroes in `UR -> SSR -> SR -> R` order.
+- Cocos update:
+  - card target/max heights are now `468/492` on desktop and `310/340` in compact layout;
+  - added `HERO_ROSTER_RARITY_DISPLAY_ORDER` with `UR:0 / SSR:1 / SR:2 / R:3`;
+  - added local render sorting through `sortHeroesForRosterDisplay()` and `resolveRarityDisplayRank()`;
+  - same-rarity heroes keep their original backend order, so this is only a rarity-group display sort;
+  - visible card count and overflow copy now use sorted `displayHeroes`, so the first row prioritizes high rarity heroes.
+- Guards updated: `check:layout` and `check-preview-freshness` now require the new height constants, rarity order mapping, and render-sort tokens.
+- Verification passed: `npm.cmd run check:layout`; Cocos Creator 3.8.8 bundled TypeScript no-emit; `.spine/.spine.meta` resource scan returned `0`; `git diff --check` passed with only Git line-ending warnings.
+- Preview note: `npm.cmd run check:preview` still fails because the running Cocos Preview service is serving stale chunks. Restart/refresh Cocos Creator Preview before visual acceptance.
+- Boundary unchanged: Cocos frontend visual layout and local display sorting only. No backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, `gacha_pool_item`, EX V1, exchange/reissue, bag write, hero growth, or new economy write entry changed.
+
+## 2026-06-05 Hero Roster Border Brightness And Star Placement
+
+- User feedback: border effects look too dark; rarity should move further upward; the bottom grid should only show the hero name because stars overlap the baked gem; the UR sequence border is too large and should wrap the card frame.
+- Product/UI decision:
+  - keep the bottom grid for the hero name only;
+  - place stars as a smaller secondary strip between rarity and the name grid;
+  - keep UR sequence frames snug to the visible card frame instead of using the previous oversized aura.
+- Cocos update:
+  - restored `HERO_ROSTER_UR_SEQUENCE_BORDER_ALPHA = 255`;
+  - tuned UR sequence-frame alignment to `1.18 / 1.16 / -0.048`;
+  - moved rarity to `HERO_ROSTER_CARD_RARITY_Y_RATIO = 0.318`;
+  - moved stars to `HERO_ROSTER_CARD_STARS_Y_RATIO = 0.235`;
+  - moved the name-only lower grid label to `HERO_ROSTER_CARD_NAME_Y_RATIO = 0.132`.
+- Guards updated: `check:layout` and `check-preview-freshness` now require the restored sequence alpha, snug UR ratios, and new rarity/name/star placement tokens.
+- Verification passed: `npm.cmd run check:layout`; Cocos Creator 3.8.8 bundled TypeScript no-emit; `.spine/.spine.meta` resource scan returned `0`; `git diff --check` passed with only Git line-ending warnings.
+- Preview note: `npm.cmd run check:preview` still fails because the running Cocos Preview service is serving stale chunks. Restart/refresh Cocos Creator Preview before visual acceptance.
+- Boundary unchanged: Cocos frontend visual layout/effect display only. No backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, `gacha_pool_item`, EX V1, exchange/reissue, bag write, hero growth, or new economy write entry changed.
+
+## 2026-06-05 Hero Roster Larger Star Text
+
+- User feedback: roster card stars are too small.
+- Cocos update:
+  - enlarged `LobbyHeroRosterStars` from `Math.min(11 * scale, height * 0.032)` to `Math.min(15 * scale, height * 0.046)`;
+  - enlarged the stars label box to `new Size(width - 68 * scale, height * 0.056)`;
+  - kept stars between rarity and the name-only lower grid.
+- Guard update: `check:layout` and `check-preview-freshness` now require the larger star font/label tokens and the current renderer ratios, including rarity/name/stars `0.324 / 0.132 / 0.168`.
+- Verification passed: `npm.cmd run check:layout`; Cocos Creator 3.8.8 bundled TypeScript no-emit; `.spine/.spine.meta` resource scan returned `0`; `git diff --check` passed with only Git line-ending warnings.
+- Preview note: `npm.cmd run check:preview` still fails because the running Cocos Preview service is serving stale chunks. Restart/refresh Cocos Creator Preview before visual acceptance.
+- Boundary unchanged: Cocos frontend visual text-size only. No backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, `gacha_pool_item`, EX V1, exchange/reissue, bag write, hero growth, or new economy write entry changed.
+
+## 2026-06-05 Hero Roster SSR Sequence Border And Level Fit
+
+- User request: use the `SSR-card-border` sequence frames for SSR cards, align borders to card edges, move stars above the center triangle, remove card-name text, and make the top-left level fit two/three digits.
+- Resource metadata:
+  - added `assets/resources/ui/hero-roster/SSR-card-border.meta`;
+  - added Cocos image/spriteFrame meta for 125 SSR frames, `合成 1_00000.png` through `合成 1_00124.png`;
+  - SSR frame metadata is guarded as `1080x1920` and written without UTF-8 BOM.
+- Cocos update:
+  - SSR now prefers `LobbyHeroRosterSsrSequenceBorderSprite` and loads `ui/hero-roster/SSR-card-border/合成 1_00000..00124/spriteFrame`;
+  - SSR uses alignment ratios `1.22 / 1.14 / -0.01`, while UR remains `1.25 / 1.25 / -0.01`;
+  - UR/SSR share the generic `startSequenceBorderAnimation()` loop;
+  - R/SR `goods_1` Spine borders now use edge padding constants `30 / 54 / -0.01`;
+  - stars moved to `HERO_ROSTER_CARD_STARS_Y_RATIO = 0.815`, above the center triangle;
+  - card-internal hero-name text is restored in the bottom grid;
+  - top-left level uses a wider `0.29` text area and `formatHeroCardLevel()`, so three-digit values render as `Lv100`.
+- Guards updated: `check:layout` validates SSR frame metadata and requires the restored card-name text; `check-preview-freshness` requires the new SSR sequence and level-fit tokens.
+- Verification passed: `npm.cmd run check:layout`; Cocos Creator 3.8.8 bundled TypeScript no-emit; `.spine/.spine.meta` resource scan returned `0`; `git diff --check` passed with only Git line-ending warnings.
+- Preview note: `npm.cmd run check:preview` still fails because the running Cocos Preview service is serving stale chunks. Restart/refresh Cocos Creator Preview before visual acceptance.
+- Boundary unchanged: Cocos frontend visual resources/layout only. No backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, `gacha_pool_item`, EX V1, exchange/reissue, bag write, hero growth, or new economy write entry changed.
+
+## 2026-06-05 Hero Roster SSR Melt Sequence Source
+
+- SSR card borders now use the provided sequence frames under `assets/resources/ui/hero-roster/熔化/`.
+- Resource metadata was added for `熔化.meta` and all 125 `合成 1_00000.png` through `合成 1_00124.png` frames, with guarded `1080x1920` spriteFrame metadata and no UTF-8 BOM.
+- `HERO_ROSTER_SSR_SEQUENCE_BORDER_PATH_PREFIX` now points to `ui/hero-roster/熔化`; the older `SSR-card-border` directory may remain on disk but is no longer the active renderer/check path.
+- SSR keeps the existing 125-frame loop, `0.04s` frame duration, and `1.22 / 1.14 / -0.01` alignment ratios for this source swap.
+- Verification passed: `npm.cmd run check:layout`; Cocos Creator 3.8.8 bundled TypeScript no-emit; `.spine/.spine.meta` resource scan returned `0`; `git diff --check` passed with only Git line-ending warnings.
+- Preview note: `npm.cmd run check:preview` still fails because the running Cocos Preview service is serving stale chunks. Restart/refresh Cocos Creator Preview and wait for resource import before visual acceptance.
+- Boundary unchanged: Cocos frontend visual resource source only. No backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, `gacha_pool_item`, EX V1, exchange/reissue, bag write, hero growth, or new economy write entry changed.
+
+## 2026-06-05 Hero Roster SSR Goods Border Restore
+
+- Removed the heavy SSR sequence-frame resources:
+  - `assets/resources/ui/hero-roster/熔化/`
+  - `assets/resources/ui/hero-roster/熔化.meta`
+  - `assets/resources/ui/hero-roster/SSR-card-border/`
+  - `assets/resources/ui/hero-roster/SSR-card-border.meta`
+- SSR cards now use the shared `goods_1` Spine border again through `HERO_ROSTER_BORDER_ANIMATION_BY_RARITY` with `SSR: 'K5'`.
+- Only UR keeps the `UR-card-border` 12-frame sequence border; R/SR/SSR use the shared `goods_1` Spine path.
+- `check:layout` now forbids reintroducing SSR sequence-frame renderer tokens or the deleted SSR sequence resource paths into the active renderer.
+- Boundary unchanged: Cocos frontend resource cleanup and visual-path restore only. No backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, `gacha_pool_item`, EX V1, exchange/reissue, bag write, hero growth, or new economy write entry changed.
+
+## 2026-06-05 Hero Roster SSR 04 Sequence Trial
+
+- SSR card borders now trial the lightweight `assets/resources/ui/hero-roster/04/` sequence source.
+- The `04` folder currently contains 7 frames, `00118.PNG` through `00124.PNG`; Cocos metadata was added for the folder and all frames with guarded `270x396` spriteFrame dimensions.
+- SSR uses `ui/hero-roster/04/00118..00124/spriteFrame`, loops at `0.07s` per frame, and initially shares UR's `1.25 / 1.25 / -0.01` outer alignment ratios.
+- If the 7-frame sequence fails to load before Creator imports resources, SSR falls back to the shared `goods_1` K5 border instead of rendering blank.
+- `check:layout` guards the new `04` resource metadata and still forbids active renderer references to the deleted `熔化` and `SSR-card-border` paths.
+- Verification passed: `npm.cmd run check:layout`; Cocos Creator 3.8.8 bundled TypeScript no-emit; `.spine/.spine.meta` resource scan returned `0`; `git diff --check` passed with only Git line-ending warnings.
+- Preview note: `npm.cmd run check:preview` still fails because the running Cocos Preview service is serving stale chunks. Restart/refresh Cocos Creator Preview and wait for the new `04` import before visual acceptance.
+- Boundary unchanged: Cocos frontend visual resource trial only. No backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, `gacha_pool_item`, EX V1, exchange/reissue, bag write, hero growth, or new economy write entry changed.
+
+## 2026-06-05 Hero Roster SSR 03 Sequence Trial
+
+- SSR card borders now trial the `assets/resources/ui/hero-roster/03/` sequence source.
+- The `03` folder contains 25 frames, `00093.PNG` through `00117.PNG`; Cocos metadata was updated for all frames with guarded `374x515` spriteFrame dimensions.
+- SSR uses `ui/hero-roster/03/00093..00117/spriteFrame`.
+- These user-locked parameters are now guarded and should not be adjusted during this trial:
+  - `HERO_ROSTER_SSR_SEQUENCE_BORDER_FRAME_DURATION_SECONDS = 0.15`
+  - `HERO_ROSTER_SSR_SEQUENCE_BORDER_ALPHA = 255`
+  - `HERO_ROSTER_SSR_SEQUENCE_BORDER_OUTER_WIDTH_RATIO = HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_WIDTH_RATIO`
+  - `HERO_ROSTER_SSR_SEQUENCE_BORDER_OUTER_HEIGHT_RATIO = 1.14`
+  - `HERO_ROSTER_SSR_SEQUENCE_BORDER_OUTER_Y_RATIO = -0.035`
+- Verification passed: `npm.cmd run check:layout`; Cocos Creator 3.8.8 bundled TypeScript no-emit; `.spine/.spine.meta` resource scan returned `0`; `git diff --check` passed with only Git line-ending warnings.
+- Preview note: `npm.cmd run check:preview` still fails because the running Cocos Preview service is serving stale chunks. Restart/refresh Cocos Creator Preview and wait for the new `03` import before visual acceptance.
+- Boundary unchanged: Cocos frontend visual resource trial only. No backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, `gacha_pool_item`, EX V1, exchange/reissue, bag write, hero growth, or new economy write entry changed.
+
+## 2026-06-05 Hero Roster Sequence Cleanup And SSR Goods Restore
+
+- Removed the experimental hero-roster sequence folders and metas:
+  - `assets/resources/ui/hero-roster/01/`
+  - `assets/resources/ui/hero-roster/02/`
+  - `assets/resources/ui/hero-roster/03/`
+  - `assets/resources/ui/hero-roster/04/`
+- Removed the legacy card base images and metas:
+  - `card_r.png`
+  - `card_sr.png`
+  - `card_ssr.png`
+  - `card_ur.png`
+- SSR cards now use the shared `goods_1` Spine border again through `HERO_ROSTER_BORDER_ANIMATION_BY_RARITY` with `SSR: 'K5'`.
+- Only UR keeps the `UR-card-border` 12-frame sequence border; R/SR/SSR use the shared `goods_1` Spine path.
+- The active card base remains `assets/resources/ui/hero-roster/hero_card_frame.png`.
+- `check:layout` now forbids active renderer references to `01..04`, legacy `card_*` card-frame paths, or SSR sequence-frame renderer tokens.
+- Verification passed: `npm.cmd run check:layout`; Cocos Creator 3.8.8 bundled TypeScript no-emit; `.spine/.spine.meta` resource scan returned `0`; `git diff --check` passed with only Git line-ending warnings.
+- Preview note: `npm.cmd run check:preview` failed because `http://localhost:7456/scripting/x/import-map.json` refused the connection, so Cocos Preview is not currently serving. Restart/refresh Preview before visual acceptance.
+- Boundary unchanged: Cocos frontend resource cleanup and visual-path restore only. No backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, `gacha_pool_item`, EX V1, exchange/reissue, bag write, hero growth, or new economy write entry changed.

@@ -10,6 +10,8 @@ import {
   Size,
   sp,
   Sprite,
+  SpriteFrame,
+  tween,
   UITransform,
   Vec3,
 } from 'cc';
@@ -19,26 +21,28 @@ import { renderSceneBackButton } from '../UiSceneBackButton';
 import { clamp, rgba, type UiLayout } from './LobbyHudTypes';
 
 export const LOBBY_HERO_ROSTER_BACKDROP_ASSET = 'ui/hero-detail/hero_detail_backdrop/spriteFrame';
+export const LOBBY_HERO_ROSTER_CARD_FRAME_ASSET = 'ui/hero-roster/hero_card_frame/spriteFrame';
 export const LOBBY_HERO_ROSTER_CARD_ASSETS = [
-  'ui/hero-roster/card_r/spriteFrame',
-  'ui/hero-roster/card_sr/spriteFrame',
-  'ui/hero-roster/card_ssr/spriteFrame',
-  'ui/hero-roster/card_ur/spriteFrame',
+  LOBBY_HERO_ROSTER_CARD_FRAME_ASSET,
 ];
 
 const HERO_FILTER_TABS = ['全部', '坦克', '近战', '远程', '物理', '法术'];
-const HERO_ROSTER_CARD_ASPECT_WIDTH = 224;
-const HERO_ROSTER_CARD_ASPECT_HEIGHT = 406;
-const HERO_ROSTER_CARD_DESKTOP_TARGET_HEIGHT = 452;
-const HERO_ROSTER_CARD_DESKTOP_MAX_HEIGHT = 474;
-const HERO_ROSTER_CARD_COMPACT_TARGET_HEIGHT = 298;
-const HERO_ROSTER_CARD_COMPACT_MAX_HEIGHT = 328;
+const HERO_ROSTER_CARD_ASPECT_WIDTH = 937;
+const HERO_ROSTER_CARD_ASPECT_HEIGHT = 1676;
+const HERO_ROSTER_CARD_DISPLAY_WIDTH_SCALE = 1.2;
+const HERO_ROSTER_CARD_MAX_COLUMNS = 5;
+const HERO_ROSTER_CARD_DESKTOP_TARGET_HEIGHT = 468;
+const HERO_ROSTER_CARD_DESKTOP_MAX_HEIGHT = 492;
+const HERO_ROSTER_CARD_COMPACT_TARGET_HEIGHT = 310;
+const HERO_ROSTER_CARD_COMPACT_MAX_HEIGHT = 340;
 const HERO_ROSTER_CARD_LEFT_INSET = 12;
 const HERO_ROSTER_CARD_TOP_INSET = 14;
-const HERO_ROSTER_CARD_LEVEL_INSET_X = 19;
-const HERO_ROSTER_CARD_LEVEL_INSET_Y = 36;
-const HERO_ROSTER_CARD_BADGE_INSET_X = 22;
-const HERO_ROSTER_CARD_BADGE_INSET_Y = 33;
+const HERO_ROSTER_CARD_LEVEL_X_RATIO = -0.38;
+const HERO_ROSTER_CARD_LEVEL_Y_RATIO = 0.38;
+const HERO_ROSTER_CARD_LEVEL_TEXT_WIDTH_RATIO = 0.29;
+const HERO_ROSTER_CARD_BADGE_X_RATIO = 0.37;
+const HERO_ROSTER_CARD_BADGE_Y_RATIO = 0.38;
+const HERO_ROSTER_CARD_BADGE_SIZE_RATIO = 0.17;
 const HERO_ROSTER_BORDER_EFFECT_RESOURCE = 'spine/ui/hero-roster/goods_1_border/goods_1';
 const HERO_ROSTER_BORDER_ANIMATION_BY_RARITY: Record<string, string> = {
   R: 'K3',
@@ -46,15 +50,28 @@ const HERO_ROSTER_BORDER_ANIMATION_BY_RARITY: Record<string, string> = {
   SSR: 'K5',
   UR: 'K7',
 };
-const HERO_ROSTER_CARD_RARITY_Y_RATIO = 0.218;
-const HERO_ROSTER_CARD_INFO_PLATE_BASE_ALPHA = 255;
-const HERO_ROSTER_CARD_INFO_PLATE_TINT_ALPHA = 46;
-
-const HERO_CARD_ASSET_BY_RARITY: Record<string, string> = {
-  R: 'ui/hero-roster/card_r/spriteFrame',
-  SR: 'ui/hero-roster/card_sr/spriteFrame',
-  SSR: 'ui/hero-roster/card_ssr/spriteFrame',
-  UR: 'ui/hero-roster/card_ur/spriteFrame',
+const HERO_ROSTER_UR_SEQUENCE_BORDER_PATH_PREFIX = 'ui/hero-roster/UR-card-border';
+const HERO_ROSTER_UR_SEQUENCE_BORDER_FRAME_COUNT = 12;
+const HERO_ROSTER_UR_SEQUENCE_BORDER_FRAME_DURATION_SECONDS = 0.07;
+const HERO_ROSTER_UR_SEQUENCE_BORDER_ALPHA = 255;
+const HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_WIDTH_RATIO = 1.25;
+const HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_HEIGHT_RATIO = 1.25;
+const HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_Y_RATIO = -0.01;
+const HERO_ROSTER_UR_SEQUENCE_BORDER_FRAME_PATHS = Array.from(
+  { length: HERO_ROSTER_UR_SEQUENCE_BORDER_FRAME_COUNT },
+  (_, index) => `${HERO_ROSTER_UR_SEQUENCE_BORDER_PATH_PREFIX}/${String(index + 1).padStart(2, '0')}/spriteFrame`,
+);
+const HERO_ROSTER_GOODS_BORDER_WIDTH_PADDING = 30;
+const HERO_ROSTER_GOODS_BORDER_HEIGHT_PADDING = 54;
+const HERO_ROSTER_GOODS_BORDER_Y_RATIO = -0.01;
+const HERO_ROSTER_CARD_RARITY_Y_RATIO = 0.324;
+const HERO_ROSTER_CARD_NAME_Y_RATIO = 0.132;
+const HERO_ROSTER_CARD_STARS_Y_RATIO = 0.815;
+const HERO_ROSTER_RARITY_DISPLAY_ORDER: Record<string, number> = {
+  UR: 0,
+  SSR: 1,
+  SR: 2,
+  R: 3,
 };
 
 const USE_HERO_ROSTER_EXTERNAL_PORTRAITS = false;
@@ -88,6 +105,10 @@ export class LobbyHeroRosterPanelRenderer {
   private borderEffectData: sp.SkeletonData | null = null;
   private borderEffectLoading = false;
   private readonly borderEffectCallbacks: Array<(data: sp.SkeletonData | null) => void> = [];
+  private urSequenceBorderFrames: SpriteFrame[] | null = null;
+  private urSequenceBorderLoading = false;
+  private urSequenceBorderLoadFailed = false;
+  private readonly urSequenceBorderCallbacks: Array<(frames: SpriteFrame[] | null) => void> = [];
 
   constructor(private readonly host: LobbyHeroRosterPanelHost) {}
 
@@ -299,28 +320,31 @@ export class LobbyHeroRosterPanelRenderer {
       return;
     }
 
-    const gap = (filterMetrics.horizontal ? 12 : 22) * scale;
+    const displayHeroes = this.sortHeroesForRosterDisplay(state.heroes);
+    const gap = (filterMetrics.horizontal ? 10 : 16) * scale;
     const preferredCardHeight = filterMetrics.horizontal
       ? Math.min(HERO_ROSTER_CARD_COMPACT_TARGET_HEIGHT * scale, bodyHeight * 0.98)
       : Math.min(HERO_ROSTER_CARD_DESKTOP_TARGET_HEIGHT * scale, bodyHeight * 0.99);
     const cardHeight = clamp(preferredCardHeight, 168 * scale, (filterMetrics.horizontal ? HERO_ROSTER_CARD_COMPACT_MAX_HEIGHT : HERO_ROSTER_CARD_DESKTOP_MAX_HEIGHT) * scale);
-    const cardWidth = cardHeight * HERO_ROSTER_CARD_ASPECT_WIDTH / HERO_ROSTER_CARD_ASPECT_HEIGHT;
-    const columns = Math.max(1, Math.min(state.heroes.length, Math.floor((bodyWidth + gap) / (cardWidth + gap))));
+    const maxCardsInRow = Math.max(1, Math.min(displayHeroes.length, HERO_ROSTER_CARD_MAX_COLUMNS));
+    const maxCardWidthForRow = Math.max(96 * scale, (bodyWidth - HERO_ROSTER_CARD_LEFT_INSET * scale * 2 - gap * Math.max(0, maxCardsInRow - 1)) / maxCardsInRow);
+    const cardWidth = Math.min(cardHeight * HERO_ROSTER_CARD_ASPECT_WIDTH / HERO_ROSTER_CARD_ASPECT_HEIGHT * HERO_ROSTER_CARD_DISPLAY_WIDTH_SCALE, maxCardWidthForRow);
+    const columns = Math.max(1, Math.min(maxCardsInRow, Math.floor((bodyWidth + gap) / (cardWidth + gap))));
     const visibleCount = Math.max(1, columns);
     const cardInsetX = HERO_ROSTER_CARD_LEFT_INSET * scale;
     const cardInsetY = HERO_ROSTER_CARD_TOP_INSET * scale;
     const startX = bodyLeft + cardInsetX + cardWidth / 2;
     const cardY = bodyTop - cardInsetY - cardHeight / 2;
 
-    state.heroes.slice(0, visibleCount).forEach((hero, index) => {
+    displayHeroes.slice(0, visibleCount).forEach((hero, index) => {
       this.renderHeroCard(parent, hero, index, startX + index * (cardWidth + gap), cardY, cardWidth, cardHeight, scale);
     });
 
-    if (state.heroes.length > visibleCount) {
+    if (displayHeroes.length > visibleCount) {
       const more = this.host.addChildLabel(
         parent,
         'LobbyHeroRosterOverflowHint',
-        `已展示前 ${visibleCount} / ${state.heroes.length}，后续接滚动列表。`,
+        `已展示前 ${visibleCount} / ${displayHeroes.length}，后续接滚动列表。`,
         bodyCenterX,
         bodyBottom + 18 * scale,
         14 * scale,
@@ -329,6 +353,24 @@ export class LobbyHeroRosterPanelRenderer {
       );
       more.overflow = Label.Overflow.SHRINK;
     }
+  }
+
+  private sortHeroesForRosterDisplay(heroes: LobbyHeroItemVO[]): LobbyHeroItemVO[] {
+    return heroes
+      .map((hero, index) => ({ hero, index }))
+      .sort((left, right) => {
+        const rarityDelta = this.resolveRarityDisplayRank(left.hero.rarity) - this.resolveRarityDisplayRank(right.hero.rarity);
+        if (rarityDelta !== 0) {
+          return rarityDelta;
+        }
+        return left.index - right.index;
+      })
+      .map(({ hero }) => hero);
+  }
+
+  private resolveRarityDisplayRank(rarity: string): number {
+    const normalized = safeText(rarity || 'R').toUpperCase();
+    return HERO_ROSTER_RARITY_DISPLAY_ORDER[normalized] ?? 99;
   }
 
   private drawCardStage(parent: Node, x: number, y: number, width: number, height: number, scale: number): void {
@@ -387,7 +429,7 @@ export class LobbyHeroRosterPanelRenderer {
     this.host.applyImageButtonFeedback(card, 1.024, 0.982);
 
     this.drawHeroCardShadow(card, width, height, scale);
-    const cardAsset = this.resolveHeroRosterCardAsset(hero);
+    const cardAsset = this.resolveHeroRosterCardAsset();
     if (!this.host.addSprite('LobbyHeroRosterCardSkin', cardAsset, 0, 0, width, height, card)) {
       this.drawHeroCardFallback(card, width, height, scale, hero);
     }
@@ -423,12 +465,61 @@ export class LobbyHeroRosterPanelRenderer {
     if (!HERO_ROSTER_BORDER_ANIMATION_BY_RARITY[rarity]) {
       return;
     }
+    if (rarity === 'UR') {
+      this.renderUrCardSequenceBorder(card, width, height);
+      return;
+    }
     this.renderRarityGoodsBorderSpine(card, rarity, width, height);
   }
 
-  private renderRarityGoodsBorderSpine(card: Node, rarity: string, width: number, height: number): void {
-    const effectNode = this.host.addChildPlainNode(card, `LobbyHeroRosterRarityGoodsBorderSpine_${rarity}`, 0, 0, width, height);
-    effectNode.setScale(new Vec3(clamp((width + 12) / 120, 1.05, 2.3), clamp((height + 30) / 120, 1.6, 3.85), 1));
+  private renderUrCardSequenceBorder(card: Node, width: number, height: number): void {
+    const effectWidth = width * HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_WIDTH_RATIO;
+    const effectHeight = height * HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_HEIGHT_RATIO;
+    const effectNode = this.host.addChildPlainNode(card, 'LobbyHeroRosterUrSequenceBorderSprite', 0, height * HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_Y_RATIO, effectWidth, effectHeight);
+    const sprite = effectNode.addComponent(Sprite);
+    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    sprite.color = rgba(255, 255, 255, HERO_ROSTER_UR_SEQUENCE_BORDER_ALPHA);
+    this.loadUrSequenceBorderFrames((frames) => {
+      if (!effectNode.isValid) {
+        return;
+      }
+      if (!frames || frames.length === 0) {
+        effectNode.removeFromParent();
+        this.renderRarityGoodsBorderSpine(card, 'UR', width, height, 2);
+        return;
+      }
+      this.startSequenceBorderAnimation(effectNode, sprite, frames, HERO_ROSTER_UR_SEQUENCE_BORDER_FRAME_DURATION_SECONDS);
+    });
+  }
+
+  private startSequenceBorderAnimation(effectNode: Node, sprite: Sprite, frames: SpriteFrame[], frameDurationSeconds: number): void {
+    let frameIndex = 0;
+    sprite.spriteFrame = frames[frameIndex];
+    tween(effectNode)
+      .repeatForever(
+        tween()
+          .delay(frameDurationSeconds)
+          .call(() => {
+            if (!effectNode.isValid) {
+              return;
+            }
+            frameIndex = (frameIndex + 1) % frames.length;
+            sprite.spriteFrame = frames[frameIndex];
+          }),
+      )
+      .start();
+  }
+
+  private renderRarityGoodsBorderSpine(card: Node, rarity: string, width: number, height: number, siblingIndex = -1): void {
+    const effectNode = this.host.addChildPlainNode(card, `LobbyHeroRosterRarityGoodsBorderSpine_${rarity}`, 0, height * HERO_ROSTER_GOODS_BORDER_Y_RATIO, width, height);
+    if (siblingIndex >= 0) {
+      effectNode.setSiblingIndex(siblingIndex);
+    }
+    effectNode.setScale(new Vec3(
+      clamp((width + HERO_ROSTER_GOODS_BORDER_WIDTH_PADDING) / 120, 1.12, 2.55),
+      clamp((height + HERO_ROSTER_GOODS_BORDER_HEIGHT_PADDING) / 120, 1.75, 4.2),
+      1,
+    ));
     const skeleton = effectNode.addComponent(sp.Skeleton);
     skeleton.premultipliedAlpha = false;
     this.loadBorderEffectData((data) => {
@@ -440,6 +531,43 @@ export class LobbyHeroRosterPanelRenderer {
       if (animationName) {
         skeleton.setAnimation(0, animationName, true);
       }
+    });
+  }
+
+  private loadUrSequenceBorderFrames(callback: (frames: SpriteFrame[] | null) => void): void {
+    if (this.urSequenceBorderFrames) {
+      callback(this.urSequenceBorderFrames);
+      return;
+    }
+    if (this.urSequenceBorderLoadFailed) {
+      callback(null);
+      return;
+    }
+    this.urSequenceBorderCallbacks.push(callback);
+    if (this.urSequenceBorderLoading) {
+      return;
+    }
+    this.urSequenceBorderLoading = true;
+    const frames: Array<SpriteFrame | null> = new Array(HERO_ROSTER_UR_SEQUENCE_BORDER_FRAME_PATHS.length).fill(null);
+    let pending = HERO_ROSTER_UR_SEQUENCE_BORDER_FRAME_PATHS.length;
+    let failed = false;
+    HERO_ROSTER_UR_SEQUENCE_BORDER_FRAME_PATHS.forEach((path, index) => {
+      resources.load(path, SpriteFrame, (error, frame) => {
+        if (error || !frame) {
+          failed = true;
+        } else {
+          frames[index] = frame;
+        }
+        pending -= 1;
+        if (pending > 0) {
+          return;
+        }
+        this.urSequenceBorderLoading = false;
+        this.urSequenceBorderFrames = failed ? null : frames.filter((item): item is SpriteFrame => !!item);
+        this.urSequenceBorderLoadFailed = failed;
+        const callbacks = this.urSequenceBorderCallbacks.splice(0);
+        callbacks.forEach((queued) => queued(this.urSequenceBorderFrames));
+      });
     });
   }
 
@@ -488,77 +616,31 @@ export class LobbyHeroRosterPanelRenderer {
     this.drawHeroReliefPortrait(card, hero, 0, portraitY, portraitWidth, portraitHeight, scale);
   }
 
-  private drawHeroCardInfoPlate(card: Node, hero: LobbyHeroItemVO, width: number, height: number, scale: number): void {
-    const plateWidth = width * 0.83;
-    const plateHeight = height * 0.275;
-    const plateY = -height / 2 + height * 0.15;
-    const plate = this.host.addChildPlainNode(card, 'LobbyHeroRosterInfoPlate', 0, plateY, plateWidth, plateHeight);
-    const graphics = plate.addComponent(Graphics);
-    const stroke = this.rarityStroke(hero.rarity);
-    graphics.fillColor = rgba(2, 3, 6, HERO_ROSTER_CARD_INFO_PLATE_BASE_ALPHA);
-    this.traceSlantRect(graphics, plateWidth, plateHeight, 8 * scale);
-    graphics.fill();
-    graphics.fillColor = new Color(stroke.r, stroke.g, stroke.b, HERO_ROSTER_CARD_INFO_PLATE_TINT_ALPHA);
-    this.traceSlantRect(graphics, plateWidth, plateHeight, 8 * scale);
-    graphics.fill();
-    graphics.strokeColor = new Color(stroke.r, stroke.g, stroke.b, 118);
-    graphics.lineWidth = Math.max(1, 1 * scale);
-    this.traceInfoPlateLowerFrame(graphics, plateWidth, plateHeight, 8 * scale);
-    graphics.stroke();
-  }
-
   private renderHeroCardChrome(card: Node, hero: LobbyHeroItemVO, width: number, height: number, scale: number): void {
     const rarity = safeText(hero.rarity || 'R').toUpperCase();
-    const badgeSize = 38 * scale;
-    const badgeInsetX = HERO_ROSTER_CARD_BADGE_INSET_X * scale;
-    const badgeInsetY = HERO_ROSTER_CARD_BADGE_INSET_Y * scale;
-    const badgeX = width / 2 - badgeInsetX - badgeSize / 2;
-    const badgeY = height / 2 - badgeInsetY - badgeSize / 2;
+    const badgeSize = clamp(width * HERO_ROSTER_CARD_BADGE_SIZE_RATIO, 28 * scale, 42 * scale);
+    const badgeX = width * HERO_ROSTER_CARD_BADGE_X_RATIO;
+    const badgeY = height * HERO_ROSTER_CARD_BADGE_Y_RATIO;
     const topBadge = this.host.addChildPlainNode(card, 'LobbyHeroRosterClassBadge', badgeX, badgeY, badgeSize, badgeSize);
-    this.drawDiamondBadge(topBadge, badgeSize, this.rarityStroke(rarity), scale);
+    this.drawCircleBadge(topBadge, badgeSize, this.rarityStroke(rarity), scale);
     const topLabel = this.host.addChildLabel(topBadge, 'LobbyHeroRosterClassBadgeText', hero.protagonist ? '主' : '英', 0, 0, 15 * scale, rgba(255, 235, 181), new Size(30 * scale, 26 * scale));
     topLabel.overflow = Label.Overflow.SHRINK;
     this.applyOutline(topLabel, scale, false);
 
-    if (hero.protagonist) {
-      const mark = this.host.addChildPlainNode(card, 'LobbyHeroRosterProtagonistDot', badgeX + 10 * scale, badgeY + 10 * scale, 12 * scale, 12 * scale);
-      const graphics = mark.addComponent(Graphics);
-      graphics.fillColor = rgba(238, 55, 44, 238);
-      graphics.circle(0, 0, 5 * scale);
-      graphics.fill();
-    }
-
-    this.drawHeroCardInfoPlate(card, hero, width, height, scale);
-
     const infoTop = -height / 2 + height * HERO_ROSTER_CARD_RARITY_Y_RATIO;
-    const rarityLabel = this.host.addChildLabel(card, 'LobbyHeroRosterRarity', rarity, 0, infoTop, Math.min(34 * scale, height * 0.105), this.rarityTextColor(rarity), new Size(width - 46 * scale, height * 0.12));
+    const rarityLabel = this.host.addChildLabel(card, 'LobbyHeroRosterRarity', rarity, 0, infoTop, Math.min(28 * scale, height * 0.078), this.rarityTextColor(rarity), new Size(width - 58 * scale, height * 0.086));
     rarityLabel.overflow = Label.Overflow.SHRINK;
     this.applyOutline(rarityLabel, scale, true);
 
-    const name = this.host.addChildLabel(card, 'LobbyHeroRosterHeroName', safeText(hero.heroName), 0, -height / 2 + height * 0.145, Math.min(17 * scale, height * 0.052), rgba(250, 218, 146), new Size(width - 42 * scale, height * 0.08));
-    name.overflow = Label.Overflow.SHRINK;
-    this.applyOutline(name, scale, true);
-
-    const star = this.host.addChildLabel(card, 'LobbyHeroRosterStars', starText(hero.star), 0, -height / 2 + height * 0.068, Math.min(15 * scale, height * 0.046), rgba(245, 202, 82), new Size(width - 50 * scale, height * 0.066));
+    const star = this.host.addChildLabel(card, 'LobbyHeroRosterStars', starText(hero.star), 0, -height / 2 + height * HERO_ROSTER_CARD_STARS_Y_RATIO, Math.min(16 * scale, height * 0.048), rgba(245, 202, 82), new Size(width - 54 * scale, height * 0.06));
     star.overflow = Label.Overflow.SHRINK;
     this.applyOutline(star, scale, false);
 
-    const levelWidth = 68 * scale;
-    const levelHeight = 26 * scale;
-    const levelInsetX = HERO_ROSTER_CARD_LEVEL_INSET_X * scale;
-    const levelInsetY = HERO_ROSTER_CARD_LEVEL_INSET_Y * scale;
-    const levelX = -width / 2 + levelInsetX + levelWidth / 2;
-    const levelY = height / 2 - levelInsetY - levelHeight / 2;
-    const levelPlate = this.host.addChildPlainNode(card, 'LobbyHeroRosterLevelPlate', levelX, levelY, levelWidth, levelHeight);
-    const levelGraphics = levelPlate.addComponent(Graphics);
-    levelGraphics.fillColor = rgba(12, 9, 6, 188);
-    this.traceSlantRect(levelGraphics, levelWidth, levelHeight, 6 * scale);
-    levelGraphics.fill();
-    levelGraphics.strokeColor = rgba(222, 178, 82, 122);
-    levelGraphics.lineWidth = Math.max(1, 1 * scale);
-    this.traceSlantRect(levelGraphics, levelWidth, levelHeight, 6 * scale);
-    levelGraphics.stroke();
-    const level = this.host.addChildLabel(levelPlate, 'LobbyHeroRosterLevelText', `Lv.${Math.max(1, hero.level)}`, 0, 0, 16 * scale, rgba(246, 225, 170), new Size(levelWidth - 10 * scale, levelHeight), HorizontalTextAlignment.CENTER);
+    const name = this.host.addChildLabel(card, 'LobbyHeroRosterHeroName', safeText(hero.heroName), 0, -height / 2 + height * HERO_ROSTER_CARD_NAME_Y_RATIO, Math.min(13 * scale, height * 0.038), rgba(250, 218, 146), new Size(width - 72 * scale, height * 0.054));
+    name.overflow = Label.Overflow.SHRINK;
+    this.applyOutline(name, scale, true);
+
+    const level = this.host.addChildLabel(card, 'LobbyHeroRosterLevelText', formatHeroCardLevel(hero.level), width * HERO_ROSTER_CARD_LEVEL_X_RATIO, height * HERO_ROSTER_CARD_LEVEL_Y_RATIO, Math.min(14 * scale, width * 0.078), rgba(246, 225, 170), new Size(width * HERO_ROSTER_CARD_LEVEL_TEXT_WIDTH_RATIO, height * 0.058), HorizontalTextAlignment.CENTER);
     level.overflow = Label.Overflow.SHRINK;
     this.applyOutline(level, scale, false);
   }
@@ -567,80 +649,19 @@ export class LobbyHeroRosterPanelRenderer {
     const node = this.host.addChildPlainNode(parent, 'LobbyHeroRosterHeroRelief', x, y, width, height);
     const graphics = node.addComponent(Graphics);
     const stroke = this.rarityStroke(hero.rarity);
-    const seed = Math.max(1, Math.abs(Math.trunc(hero.id || 1)));
-    graphics.fillColor = rgba(0, 0, 0, 96);
-    graphics.ellipse(0, -height * 0.43, width * 0.42, height * 0.06);
-    graphics.fill();
-
-    graphics.fillColor = new Color(stroke.r, stroke.g, stroke.b, 22);
-    graphics.ellipse(0, height * 0.02, width * 0.36, height * 0.44);
-    graphics.fill();
-    graphics.strokeColor = new Color(stroke.r, stroke.g, stroke.b, 74);
-    graphics.lineWidth = Math.max(1, 0.8 * scale);
-    graphics.ellipse(0, height * 0.02, width * 0.35, height * 0.43);
-    graphics.stroke();
-
-    for (let index = 0; index < 12; index += 1) {
-      const px = ((seed * (index + 7) * 17) % 100) / 100 * width - width / 2;
-      const py = ((seed * (index + 11) * 19) % 100) / 100 * height - height / 2;
-      graphics.fillColor = index % 2 === 0 ? rgba(210, 145, 70, 42) : new Color(stroke.r, stroke.g, stroke.b, 38);
-      graphics.circle(px * 0.74, py * 0.72, (0.7 + (index % 3) * 0.3) * scale);
-      graphics.fill();
-    }
-
-    graphics.fillColor = hero.protagonist ? rgba(63, 17, 15, 230) : rgba(8, 9, 13, 228);
-    graphics.moveTo(-width * 0.3, -height * 0.38);
-    graphics.lineTo(-width * 0.18, -height * 0.06);
-    graphics.lineTo(-width * 0.1, height * 0.14);
-    graphics.lineTo(width * 0.1, height * 0.14);
-    graphics.lineTo(width * 0.18, -height * 0.06);
-    graphics.lineTo(width * 0.3, -height * 0.38);
+    const color = hero.protagonist ? rgba(214, 58, 43, 224) : new Color(stroke.r, stroke.g, stroke.b, 214);
+    graphics.fillColor = color;
+    graphics.moveTo(0, height * 0.28);
+    graphics.lineTo(width * 0.18, -height * 0.26);
+    graphics.lineTo(-width * 0.18, -height * 0.26);
     graphics.close();
     graphics.fill();
-
-    graphics.fillColor = rgba(16, 17, 22, 238);
-    graphics.moveTo(-width * 0.36, -height * 0.18);
-    graphics.lineTo(-width * 0.18, -height * 0.02);
-    graphics.lineTo(width * 0.18, -height * 0.02);
-    graphics.lineTo(width * 0.36, -height * 0.18);
-    graphics.lineTo(width * 0.24, -height * 0.34);
-    graphics.lineTo(-width * 0.24, -height * 0.34);
+    graphics.strokeColor = rgba(0, 0, 0, 180);
+    graphics.lineWidth = Math.max(1, 1.2 * scale);
+    graphics.moveTo(0, height * 0.28);
+    graphics.lineTo(width * 0.18, -height * 0.26);
+    graphics.lineTo(-width * 0.18, -height * 0.26);
     graphics.close();
-    graphics.fill();
-
-    graphics.fillColor = rgba(3, 4, 7, 246);
-    graphics.moveTo(0, height * 0.32);
-    graphics.lineTo(width * 0.19, height * 0.11);
-    graphics.lineTo(width * 0.12, -height * 0.02);
-    graphics.lineTo(-width * 0.12, -height * 0.02);
-    graphics.lineTo(-width * 0.19, height * 0.11);
-    graphics.close();
-    graphics.fill();
-
-    graphics.strokeColor = new Color(stroke.r, stroke.g, stroke.b, 122);
-    graphics.lineWidth = Math.max(1, 1.15 * scale);
-    graphics.moveTo(-width * 0.22, -height * 0.18);
-    graphics.lineTo(-width * 0.1, height * 0.03);
-    graphics.lineTo(-width * 0.16, height * 0.12);
-    graphics.moveTo(width * 0.22, -height * 0.18);
-    graphics.lineTo(width * 0.1, height * 0.03);
-    graphics.lineTo(width * 0.16, height * 0.12);
-    graphics.stroke();
-
-    graphics.fillColor = hero.protagonist ? rgba(214, 58, 43, 204) : new Color(stroke.r, stroke.g, stroke.b, 158);
-    graphics.moveTo(0, height * 0.2);
-    graphics.lineTo(width * 0.1, -height * 0.14);
-    graphics.lineTo(0, -height * 0.05);
-    graphics.lineTo(-width * 0.1, -height * 0.14);
-    graphics.close();
-    graphics.fill();
-
-    graphics.strokeColor = rgba(214, 184, 126, 80);
-    graphics.lineWidth = Math.max(1, 0.9 * scale);
-    graphics.moveTo(0, height * 0.34);
-    graphics.lineTo(0, -height * 0.36);
-    graphics.moveTo(-width * 0.28, -height * 0.3);
-    graphics.lineTo(width * 0.28, -height * 0.3);
     graphics.stroke();
   }
 
@@ -718,8 +739,8 @@ export class LobbyHeroRosterPanelRenderer {
     graphics.fill();
   }
 
-  private resolveHeroRosterCardAsset(hero: LobbyHeroItemVO): string {
-    return HERO_CARD_ASSET_BY_RARITY[safeText(hero.rarity).toUpperCase()] ?? HERO_CARD_ASSET_BY_RARITY.R;
+  private resolveHeroRosterCardAsset(): string {
+    return LOBBY_HERO_ROSTER_CARD_FRAME_ASSET;
   }
 
   private resolveHeroRosterPortraitAsset(hero: LobbyHeroItemVO): string | null {
@@ -729,22 +750,14 @@ export class LobbyHeroRosterPanelRenderer {
     return safeText(hero.portraitAsset || hero.spineAsset || '').trim() ? null : null;
   }
 
-  private drawDiamondBadge(parent: Node, size: number, color: Color, scale: number): void {
+  private drawCircleBadge(parent: Node, size: number, color: Color, scale: number): void {
     const graphics = parent.addComponent(Graphics);
-    graphics.fillColor = new Color(color.r, color.g, color.b, 128);
-    graphics.moveTo(0, size / 2);
-    graphics.lineTo(size / 2, 0);
-    graphics.lineTo(0, -size / 2);
-    graphics.lineTo(-size / 2, 0);
-    graphics.close();
+    graphics.fillColor = new Color(color.r, color.g, color.b, 150);
+    graphics.circle(0, 0, size * 0.45);
     graphics.fill();
     graphics.strokeColor = color;
     graphics.lineWidth = Math.max(1, 1.4 * scale);
-    graphics.moveTo(0, size / 2);
-    graphics.lineTo(size / 2, 0);
-    graphics.lineTo(0, -size / 2);
-    graphics.lineTo(-size / 2, 0);
-    graphics.close();
+    graphics.circle(0, 0, size * 0.45);
     graphics.stroke();
   }
 
@@ -763,20 +776,6 @@ export class LobbyHeroRosterPanelRenderer {
     graphics.lineTo(left, bottom + corner);
     graphics.lineTo(left, top - corner);
     graphics.close();
-  }
-
-  private traceInfoPlateLowerFrame(graphics: Graphics, width: number, height: number, bevel: number): void {
-    const left = -width / 2;
-    const right = width / 2;
-    const top = height / 2;
-    const bottom = -height / 2;
-    const corner = Math.min(bevel, width * 0.2, height * 0.45);
-    graphics.moveTo(left, top - corner);
-    graphics.lineTo(left, bottom + corner);
-    graphics.lineTo(left + corner, bottom);
-    graphics.lineTo(right - corner, bottom);
-    graphics.lineTo(right, bottom + corner);
-    graphics.lineTo(right, top - corner);
   }
 
   private rarityTextColor(rarity: string): Color {
@@ -833,4 +832,9 @@ function formatCompactInteger(value: number): string {
 function starText(star: number): string {
   const count = Math.max(1, Math.min(6, Math.trunc(star || 1)));
   return `${'★'.repeat(count)}${'☆'.repeat(Math.max(0, 6 - count))}`;
+}
+
+function formatHeroCardLevel(level: number): string {
+  const safeLevel = Math.max(1, Math.trunc(Number(level) || 1));
+  return safeLevel >= 100 ? `Lv${safeLevel}` : `Lv.${safeLevel}`;
 }

@@ -156,14 +156,33 @@ const required = [
   'assets/resources/ui/hero-detail/hero_detail_protagonist.png',
   'assets/resources/ui/hero-detail/hero_detail_protagonist.png.meta',
   'assets/resources/ui/hero-roster.meta',
-  'assets/resources/ui/hero-roster/card_r.png',
-  'assets/resources/ui/hero-roster/card_r.png.meta',
-  'assets/resources/ui/hero-roster/card_sr.png',
-  'assets/resources/ui/hero-roster/card_sr.png.meta',
-  'assets/resources/ui/hero-roster/card_ssr.png',
-  'assets/resources/ui/hero-roster/card_ssr.png.meta',
-  'assets/resources/ui/hero-roster/card_ur.png',
-  'assets/resources/ui/hero-roster/card_ur.png.meta',
+  'assets/resources/ui/hero-roster/hero_card_frame.png',
+  'assets/resources/ui/hero-roster/hero_card_frame.png.meta',
+  'assets/resources/ui/hero-roster/UR-card-border.meta',
+  'assets/resources/ui/hero-roster/UR-card-border/01.png',
+  'assets/resources/ui/hero-roster/UR-card-border/01.png.meta',
+  'assets/resources/ui/hero-roster/UR-card-border/02.png',
+  'assets/resources/ui/hero-roster/UR-card-border/02.png.meta',
+  'assets/resources/ui/hero-roster/UR-card-border/03.png',
+  'assets/resources/ui/hero-roster/UR-card-border/03.png.meta',
+  'assets/resources/ui/hero-roster/UR-card-border/04.png',
+  'assets/resources/ui/hero-roster/UR-card-border/04.png.meta',
+  'assets/resources/ui/hero-roster/UR-card-border/05.png',
+  'assets/resources/ui/hero-roster/UR-card-border/05.png.meta',
+  'assets/resources/ui/hero-roster/UR-card-border/06.png',
+  'assets/resources/ui/hero-roster/UR-card-border/06.png.meta',
+  'assets/resources/ui/hero-roster/UR-card-border/07.png',
+  'assets/resources/ui/hero-roster/UR-card-border/07.png.meta',
+  'assets/resources/ui/hero-roster/UR-card-border/08.png',
+  'assets/resources/ui/hero-roster/UR-card-border/08.png.meta',
+  'assets/resources/ui/hero-roster/UR-card-border/09.png',
+  'assets/resources/ui/hero-roster/UR-card-border/09.png.meta',
+  'assets/resources/ui/hero-roster/UR-card-border/10.png',
+  'assets/resources/ui/hero-roster/UR-card-border/10.png.meta',
+  'assets/resources/ui/hero-roster/UR-card-border/11.png',
+  'assets/resources/ui/hero-roster/UR-card-border/11.png.meta',
+  'assets/resources/ui/hero-roster/UR-card-border/12.png',
+  'assets/resources/ui/hero-roster/UR-card-border/12.png.meta',
   'assets/resources/ui/common.meta',
   'assets/resources/ui/common/scene_back_button.png',
   'assets/resources/ui/common/scene_back_button.png.meta',
@@ -1456,36 +1475,57 @@ for (const token of [
   'openLobbyHeroDetail(hero.id)',
   'LobbyHeroRosterBackButton',
   'renderSceneBackButton(this.host, panelGroup, layout',
+  'LOBBY_HERO_ROSTER_CARD_FRAME_ASSET',
+  'ui/hero-roster/hero_card_frame/spriteFrame',
   'LOBBY_HERO_ROSTER_CARD_ASSETS',
   'LobbyHeroRosterFilterRail',
   'LobbyHeroRosterCardSkin',
-  'HERO_ROSTER_CARD_ASPECT_WIDTH',
-  'HERO_ROSTER_CARD_ASPECT_HEIGHT',
-  'const HERO_ROSTER_CARD_DESKTOP_TARGET_HEIGHT = 452;',
-  'const HERO_ROSTER_CARD_DESKTOP_MAX_HEIGHT = 474;',
-  'const HERO_ROSTER_CARD_COMPACT_TARGET_HEIGHT = 298;',
-  'const HERO_ROSTER_CARD_COMPACT_MAX_HEIGHT = 328;',
+  'HERO_ROSTER_CARD_ASPECT_WIDTH = 937',
+  'HERO_ROSTER_CARD_ASPECT_HEIGHT = 1676',
+  'HERO_ROSTER_CARD_DISPLAY_WIDTH_SCALE = 1.2',
+  'HERO_ROSTER_CARD_MAX_COLUMNS = 5',
+  'const HERO_ROSTER_CARD_DESKTOP_TARGET_HEIGHT = 468;',
+  'const HERO_ROSTER_CARD_DESKTOP_MAX_HEIGHT = 492;',
+  'const HERO_ROSTER_CARD_COMPACT_TARGET_HEIGHT = 310;',
+  'const HERO_ROSTER_CARD_COMPACT_MAX_HEIGHT = 340;',
+  'HERO_ROSTER_RARITY_DISPLAY_ORDER',
+  'UR: 0',
+  'SSR: 1',
+  'SR: 2',
+  'R: 3',
+  'sortHeroesForRosterDisplay',
+  'resolveRarityDisplayRank',
+  'const displayHeroes = this.sortHeroesForRosterDisplay(state.heroes);',
   'bodyLeft + cardInsetX + cardWidth / 2',
   'bodyTop - cardInsetY - cardHeight / 2',
-  'HERO_ROSTER_CARD_LEVEL_INSET_X',
-  'HERO_ROSTER_CARD_LEVEL_INSET_Y',
-  'HERO_ROSTER_CARD_BADGE_INSET_X',
-  'HERO_ROSTER_CARD_BADGE_INSET_Y',
-  'HERO_ROSTER_CARD_RARITY_Y_RATIO = 0.218',
-  'HERO_ROSTER_CARD_INFO_PLATE_BASE_ALPHA = 255',
-  'HERO_ROSTER_CARD_INFO_PLATE_TINT_ALPHA = 46',
-  'traceInfoPlateLowerFrame',
-  'this.traceInfoPlateLowerFrame(graphics, plateWidth, plateHeight, 8 * scale)',
+  'HERO_ROSTER_CARD_LEVEL_X_RATIO = -0.38',
+  'HERO_ROSTER_CARD_LEVEL_Y_RATIO = 0.38',
+  'HERO_ROSTER_CARD_LEVEL_TEXT_WIDTH_RATIO = 0.29',
+  'HERO_ROSTER_CARD_BADGE_X_RATIO = 0.37',
+  'HERO_ROSTER_CARD_BADGE_Y_RATIO = 0.38',
+  'HERO_ROSTER_CARD_BADGE_SIZE_RATIO = 0.17',
+  'HERO_ROSTER_CARD_RARITY_Y_RATIO = 0.324',
+  'HERO_ROSTER_CARD_NAME_Y_RATIO = 0.132',
+  'HERO_ROSTER_CARD_STARS_Y_RATIO = 0.815',
+  'Math.min(16 * scale, height * 0.048)',
+  'new Size(width - 54 * scale, height * 0.06)',
+  'formatHeroCardLevel(hero.level)',
+  'safeLevel >= 100 ? `Lv${safeLevel}` : `Lv.${safeLevel}`',
+  'LobbyHeroRosterHeroName',
+  'safeText(hero.heroName)',
+  'const maxCardsInRow = Math.max(1, Math.min(displayHeroes.length, HERO_ROSTER_CARD_MAX_COLUMNS))',
+  'const maxCardWidthForRow = Math.max(96 * scale',
+  '* HERO_ROSTER_CARD_DISPLAY_WIDTH_SCALE',
   'topBarLeftReserve',
   'cursorX - reloadWidth < topBarLeftReserve',
   'statusX - statusWidth / 2 < topBarLeftReserve',
-  'const levelWidth = 68 * scale',
-  'const levelX = -width / 2 + levelInsetX + levelWidth / 2',
-  'LobbyHeroRosterLevelPlate',
   'LobbyHeroRosterLevelText',
-  'const badgeSize = 38 * scale',
-  'const badgeX = width / 2 - badgeInsetX - badgeSize / 2',
-  'const badgeY = height / 2 - badgeInsetY - badgeSize / 2',
+  'width * HERO_ROSTER_CARD_LEVEL_X_RATIO',
+  'height * HERO_ROSTER_CARD_LEVEL_Y_RATIO',
+  'drawCircleBadge',
+  'const badgeSize = clamp(width * HERO_ROSTER_CARD_BADGE_SIZE_RATIO',
+  'const badgeX = width * HERO_ROSTER_CARD_BADGE_X_RATIO',
+  'const badgeY = height * HERO_ROSTER_CARD_BADGE_Y_RATIO',
   'USE_HERO_ROSTER_EXTERNAL_PORTRAITS = false',
   'LobbyHeroRosterHeroRelief',
   'HERO_ROSTER_BORDER_EFFECT_RESOURCE',
@@ -1494,6 +1534,22 @@ for (const token of [
   "SR: 'K4'",
   "SSR: 'K5'",
   "UR: 'K7'",
+  'HERO_ROSTER_UR_SEQUENCE_BORDER_PATH_PREFIX',
+  'HERO_ROSTER_UR_SEQUENCE_BORDER_FRAME_COUNT = 12',
+  'HERO_ROSTER_UR_SEQUENCE_BORDER_ALPHA = 255',
+  'HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_WIDTH_RATIO = 1.25',
+  'HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_HEIGHT_RATIO = 1.25',
+  'HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_Y_RATIO = -0.01',
+  'HERO_ROSTER_UR_SEQUENCE_BORDER_FRAME_PATHS',
+  'HERO_ROSTER_GOODS_BORDER_WIDTH_PADDING = 30',
+  'HERO_ROSTER_GOODS_BORDER_HEIGHT_PADDING = 54',
+  'HERO_ROSTER_GOODS_BORDER_Y_RATIO = -0.01',
+  'ui/hero-roster/UR-card-border',
+  'renderUrCardSequenceBorder',
+  'LobbyHeroRosterUrSequenceBorderSprite',
+  'loadUrSequenceBorderFrames',
+  'startSequenceBorderAnimation',
+  'resources.load(path, SpriteFrame',
   'spine/ui/hero-roster/goods_1_border/goods_1',
   'renderHeroCardBorderEffect',
   'renderRarityGoodsBorderSpine',
@@ -1501,11 +1557,11 @@ for (const token of [
   'loadBorderEffectData',
   'resolveRarityBorderAnimationName',
   'name.toLowerCase() === targetLower',
-  'clamp((width + 12) / 120',
-  'clamp((height + 30) / 120',
+  'clamp((width + HERO_ROSTER_GOODS_BORDER_WIDTH_PADDING) / 120',
+  'clamp((height + HERO_ROSTER_GOODS_BORDER_HEIGHT_PADDING) / 120',
   'drawHeroReliefPortrait',
+  'graphics.lineTo(width * 0.18, -height * 0.26)',
   'LobbyHeroRosterAbyssDust',
-  'LobbyHeroRosterInfoPlate',
   'resolveHeroRosterPortraitAsset',
   'LobbyHeroRosterUpgradeButtonDisabled',
   '养成入口未开放',
@@ -1537,9 +1593,33 @@ for (const token of [
   'graphics.moveTo(rarityLineGap / 2',
   'plateWidth - 8 * scale',
   'plateHeight - 8 * scale',
+  'ui/hero-roster/card_r/spriteFrame',
+  'ui/hero-roster/card_sr/spriteFrame',
+  'ui/hero-roster/card_ssr/spriteFrame',
+  'ui/hero-roster/card_ur/spriteFrame',
+  'HERO_CARD_ASSET_BY_RARITY',
+  'HERO_ROSTER_CARD_INFO_PLATE_BASE_ALPHA',
+  'HERO_ROSTER_CARD_INFO_PLATE_TINT_ALPHA',
+  'traceInfoPlateLowerFrame',
+  'drawHeroCardInfoPlate',
+  'LobbyHeroRosterInfoPlate',
+  'LobbyHeroRosterLevelPlate',
+  'drawDiamondBadge',
+  'LobbyHeroRosterProtagonistDot',
+  'HERO_ROSTER_SSR_SEQUENCE_BORDER_PATH_PREFIX',
+  'HERO_ROSTER_SSR_SEQUENCE_BORDER_FRAME_PATHS',
+  'renderSsrCardSequenceBorder',
+  'LobbyHeroRosterSsrSequenceBorderSprite',
+  'loadSsrSequenceBorderFrames',
+  'ui/hero-roster/01',
+  'ui/hero-roster/02',
+  'ui/hero-roster/03',
+  'ui/hero-roster/04',
+  'ui/hero-roster/熔化',
+  'ui/hero-roster/SSR-card-border',
 ]) {
   if (lobbyHeroRosterPanel.includes(token)) {
-    console.error(`forbidden extra UR aura border token in ${lobbyHeroRosterPanelPath}: ${token}`);
+    console.error(`forbidden legacy hero roster visual token in ${lobbyHeroRosterPanelPath}: ${token}`);
     ok = false;
   }
 }
@@ -2447,6 +2527,11 @@ const huangfengAtlasPath = 'assets/resources/spine/gacha/huangfengjiaozong/huang
 const heroSpineMetaPath = 'assets/resources/spine/hero/npc_1001/npc_1001.skel.meta';
 const heroSpineAtlasPath = 'assets/resources/spine/hero/npc_1001/npc_1001.atlas';
 const heroRosterUrBorderAtlasPath = 'assets/resources/spine/ui/hero-roster/goods_1_border/goods_1.atlas';
+const heroRosterUnifiedCardFramePath = 'assets/resources/ui/hero-roster/hero_card_frame.png';
+const heroRosterUrSequenceBorderFrames = Array.from(
+  { length: 12 },
+  (_, index) => `assets/resources/ui/hero-roster/UR-card-border/${String(index + 1).padStart(2, '0')}.png`,
+);
 
 try {
   const huangfengData = JSON.parse(readFileSync(huangfengJsonPath, 'utf8'));
@@ -2537,6 +2622,32 @@ try {
 } catch (error) {
   console.error(`failed to read hero roster UR border atlas: ${error.message}`);
   ok = false;
+}
+
+try {
+  const meta = JSON.parse(readFileSync(`${heroRosterUnifiedCardFramePath}.meta`, 'utf8'));
+  const spriteFrame = meta.subMetas?.f9941?.userData;
+  if (spriteFrame?.width !== 937 || spriteFrame?.height !== 1676 || spriteFrame?.rawWidth !== 937 || spriteFrame?.rawHeight !== 1676) {
+    console.error(`hero roster unified card frame meta size mismatch: ${heroRosterUnifiedCardFramePath}.meta`);
+    ok = false;
+  }
+} catch (error) {
+  console.error(`failed to read hero roster unified card frame meta: ${heroRosterUnifiedCardFramePath}.meta ${error.message}`);
+  ok = false;
+}
+
+for (const framePath of heroRosterUrSequenceBorderFrames) {
+  try {
+    const meta = JSON.parse(readFileSync(`${framePath}.meta`, 'utf8'));
+    const spriteFrame = meta.subMetas?.f9941?.userData;
+    if (spriteFrame?.width !== 464 || spriteFrame?.height !== 628 || spriteFrame?.rawWidth !== 464 || spriteFrame?.rawHeight !== 628) {
+      console.error(`hero roster UR sequence frame meta size mismatch: ${framePath}.meta`);
+      ok = false;
+    }
+  } catch (error) {
+    console.error(`failed to read hero roster UR sequence frame meta: ${framePath}.meta ${error.message}`);
+    ok = false;
+  }
 }
 
 for (const legacyUrEffectPath of [

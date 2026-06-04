@@ -2345,3 +2345,236 @@
 - Review result:
   - `check:layout`, focused TypeScript, `git diff --check`, and `.spine` source scan passed;
   - `check:preview` still reports stale running Preview chunks, so final visual acceptance still requires refreshing/restarting Cocos Preview.
+
+## 2026-06-04 Hero Roster Rarity Border Guard Recheck QA Note
+
+- QA recheck confirms Stage 4CU remains the active acceptance target: R/SR/SSR/UR cards should map to `goods_1` animations `K3/K4/K5/K7`, with case-insensitive runtime lookup for lowercase `k3/k4/k5/k7`.
+- Static acceptance passed again: `check:layout`, project TypeScript no-emit, `.spine` source scan, old UR-only token search, and `git diff --check`.
+- Preview acceptance is still blocked by stale running Cocos Preview chunks; restart/refresh Preview before judging card size, rarity border animation mapping, top labels, and bottom opaque info plates.
+
+## 2026-06-04 Hero Roster UR Sequence Border Frames QA Note
+
+- Product acceptance:
+  - UR should now read through the provided `UR-card-border` sequence-frame effect, not only the shared `goods_1` border;
+  - R/SR/SSR should keep the existing `goods_1` `K3/K4/K5` behavior;
+  - the UR effect remains visual/read-only and must not imply a new acquisition, reward, growth, probability, or economy behavior.
+- UI acceptance:
+  - `LobbyHeroRosterUrSequenceBorderSprite` should align with the UR card frame and loop smoothly across 12 frames;
+  - the effect should sit behind hero relief and card chrome so it does not cover rarity label, name, stars, level plate, or corner badge;
+  - if sequence frames fail before Creator reimport, the fallback `goods_1` `K7` border may appear instead of a blank card.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, `.spine` source scan, and `git diff --check` passed;
+  - `check:preview` still reports stale running Preview chunks, so final visual acceptance requires refreshing/restarting Cocos Preview.
+
+## 2026-06-04 Hero Roster UR Sequence Border Outer Alignment QA Note
+
+- Product acceptance:
+  - the UR sequence-frame effect should wrap the full card frame, not the inner portrait/content frame;
+  - the red/gold top flame can extend slightly beyond the card, but the visible rectangular border should read as the card outer edge;
+  - Lv, corner badge, rarity label, name, and stars must remain readable above the effect layer.
+- UI acceptance:
+  - `LobbyHeroRosterUrSequenceBorderSprite` uses the outer-alignment ratios `1.28 / 1.245 / -0.049`;
+  - if further tuning is needed after Preview refresh, adjust those ratios only, keeping the sequence node below card chrome.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, and `git diff --check` passed;
+  - final visual acceptance still requires refreshing/restarting Cocos Preview.
+
+## 2026-06-04 Hero Roster UR Sequence Border Outside Frame QA Note
+
+- Product acceptance:
+  - the UR sequence-frame bright border should sit outside the card's visible frame, not on the inner frame line;
+  - top flame may extend beyond the card, but side/bottom glow should read as an outer aura wrapping the whole card;
+  - text and badges remain above the effect layer.
+- UI acceptance:
+  - current outside-frame ratios are `1.56 / 1.44 / -0.045`;
+  - if the effect is still visually inside after Preview refresh, tune only those ratios upward or sideways, keeping the sequence node below card chrome.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, and `git diff --check` passed;
+  - final visual acceptance still requires refreshing/restarting Cocos Preview.
+
+## 2026-06-04 Hero Roster Unified Card Frame QA Note
+
+- Product acceptance:
+  - all hero roster cards should share `hero_card_frame.png` as the base frame;
+  - rarity should not depend on separate base-card textures anymore;
+  - rarity still reads through text, nameplate tone, shared Spine border mapping for R/SR/SSR, and UR sequence-frame border.
+- UI acceptance:
+  - card proportions follow the new `937 / 1676` source ratio;
+  - UR sequence-frame alignment should be rechecked after Preview refresh because the base frame changed;
+  - old `card_r/card_sr/card_ssr/card_ur` paths may remain on disk as archived/legacy resources, but the active renderer must not reference them.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, and `.spine` source scan passed;
+  - final visual acceptance still requires refreshing/restarting Cocos Preview.
+
+## 2026-06-04 Hero Roster Card Interior Cleanup QA Note
+
+- Product acceptance:
+  - the card should rely on the frame art's own slots; avoid additional text plate or level plate backgrounds;
+  - left level text should sit cleanly in the top-left circle area;
+  - right class/protagonist marker should be circular and sit inside the top-right circle;
+  - center emblem should be a single triangle only;
+  - bottom rarity/name/stars should be smaller and contained inside the built-in bottom text grid.
+- UI acceptance:
+  - no `LobbyHeroRosterInfoPlate` or `LobbyHeroRosterLevelPlate` should render;
+  - no diamond badge should render on the top-right;
+  - if text still overflows after Preview refresh, tune only the three bottom text Y ratios and font caps.
+- Review result:
+  - `check:layout` and project TypeScript no-emit passed;
+  - final visual acceptance still requires refreshing/restarting Cocos Preview.
+
+## 2026-06-04 Hero Roster Wider Five Card Layout QA Note
+
+- Product acceptance:
+  - hero roster cards should read wider and less cramped than the previous narrow frame layout;
+  - one row should contain at most five cards;
+  - the rarity label `SSR/UR/SR/R` should sit above the lower text grid, not inside it;
+  - hero name and stars should remain inside the lower text grid without overlapping or clipping.
+- UI acceptance:
+  - active renderer should keep `HERO_ROSTER_CARD_DISPLAY_WIDTH_SCALE = 1.2`;
+  - active renderer should keep `HERO_ROSTER_CARD_MAX_COLUMNS = 5`;
+  - bottom text placement should use `0.278 / 0.151 / 0.087` for rarity, name, and stars respectively;
+  - if text still feels crowded after Preview refresh, tune only the bottom text ratios/font caps and keep the five-card row constraint.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, `.spine` source scan, and `git diff --check` passed;
+  - `check:preview` still reports stale running Preview chunks, so final visual acceptance still requires refreshing/restarting Cocos Preview.
+
+## 2026-06-05 Hero Roster SSR Melt Sequence Source QA Note
+
+- Product acceptance:
+  - SSR cards should now play the `熔化` sequence-frame source, not the earlier `SSR-card-border` source;
+  - the source swap should not move card text, stars, level, badge, or existing card layout;
+  - hero-name text should remain visible in the lower grid after the source swap.
+- UI acceptance:
+  - active SSR sequence frame paths use `ui/hero-roster/熔化/合成 1_00000..00124/spriteFrame`;
+  - frame count remains `125`, frame duration remains `0.04`, and frame metadata remains `1080x1920`;
+  - SSR sequence alignment remains `1.22 / 1.14 / -0.01` until a fresh Preview visual pass requires tuning.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, `.spine` source scan, and `git diff --check` passed;
+  - `check:preview` still reports stale running Preview chunks, so final visual acceptance still requires refreshing/restarting Cocos Preview and waiting for the new resource import.
+
+## 2026-06-05 Hero Roster SSR Goods Border Restore QA Note
+
+- Product acceptance:
+  - SSR should no longer rely on large sequence-frame folders;
+  - SSR should visually return to the shared `goods_1` K5 border behavior;
+  - resource cleanup should not change hero order, card size, text layout, hero ownership, growth, rewards, or acquisition semantics.
+- UI acceptance:
+  - `熔化` and `SSR-card-border` resources are removed from `assets/resources/ui/hero-roster`;
+  - active renderer keeps `SSR: 'K5'` in `HERO_ROSTER_BORDER_ANIMATION_BY_RARITY`;
+  - active renderer has no `renderSsrCardSequenceBorder`, `LobbyHeroRosterSsrSequenceBorderSprite`, `loadSsrSequenceBorderFrames`, `ui/hero-roster/熔化`, or `ui/hero-roster/SSR-card-border` token.
+- Final visual acceptance still requires refreshing/restarting Cocos Preview so the current renderer chunk and resource deletion are picked up.
+
+## 2026-06-05 Hero Roster SSR 04 Sequence Trial QA Note
+
+- Product acceptance:
+  - SSR can temporarily trial the smaller `04` sequence to judge whether the visual language fits better than the previous large sequence folders;
+  - the trial must stay visual-only and must not imply a rarity, acquisition, reward, growth, or economy change;
+  - if the 7-frame loop feels too short, too soft, or too jumpy after Preview, prefer reverting to `goods_1` K5 or tuning the SSR sequence ratios rather than importing another large folder.
+- UI acceptance:
+  - active SSR sequence source is `ui/hero-roster/04/00118..00124/spriteFrame`;
+  - source frame metadata is `270x396`;
+  - initial alignment shares UR's `1.25 / 1.25 / -0.01`;
+  - old `ui/hero-roster/熔化` and `ui/hero-roster/SSR-card-border` paths must stay absent from the active renderer.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, `.spine` source scan, and `git diff --check` passed;
+  - `check:preview` still reports stale running Preview chunks, so final visual acceptance requires refreshing/restarting Cocos Preview and waiting for `04` import.
+
+## 2026-06-05 Hero Roster SSR 03 Sequence Trial QA Note
+
+- Product acceptance:
+  - SSR should now evaluate the `03` sequence rather than `04`;
+  - the test should focus on whether 25 frames produce a smoother, more premium border loop;
+  - the trial must stay visual-only and must not imply a rarity, acquisition, reward, growth, or economy change.
+- UI acceptance:
+  - active SSR sequence source is `ui/hero-roster/03/00093..00117/spriteFrame`;
+  - source frame metadata is `374x515`;
+  - frame duration must remain `0.15`;
+  - alpha must remain `255`;
+  - width ratio must remain tied to UR width;
+  - height ratio must remain `1.14`;
+  - Y ratio must remain `-0.035`.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, `.spine` source scan, and `git diff --check` passed;
+  - `check:preview` still reports stale running Preview chunks, so final visual acceptance requires refreshing/restarting Cocos Preview and waiting for `03` import.
+
+## 2026-06-05 Hero Roster Sequence Cleanup And SSR Goods Restore QA Note
+
+- Product acceptance:
+  - SSR should no longer rely on experimental sequence folders `01..04`;
+  - SSR should visually return to the shared `goods_1` K5 border behavior;
+  - old `card_r/card_sr/card_ssr/card_ur` base-card images are removed because all cards use the unified `hero_card_frame.png`;
+  - cleanup must not change hero order, card size, text layout, hero ownership, growth, rewards, or acquisition semantics.
+- UI acceptance:
+  - active renderer keeps `SSR: 'K5'` in `HERO_ROSTER_BORDER_ANIMATION_BY_RARITY`;
+  - active renderer has no `renderSsrCardSequenceBorder`, `LobbyHeroRosterSsrSequenceBorderSprite`, `loadSsrSequenceBorderFrames`, `ui/hero-roster/01..04`, or old `ui/hero-roster/card_*` token;
+  - `UR-card-border` remains available for UR only, and `hero_card_frame.png` remains the only active card base.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, `.spine` source scan, and `git diff --check` passed;
+  - `check:preview` could not reach `localhost:7456`; final visual acceptance still requires refreshing/restarting Cocos Preview so the current renderer chunk and resource deletion are picked up.
+
+## 2026-06-04 Hero Roster Longer Cards And Rarity Order QA Note
+
+- Product acceptance:
+  - roster cards should feel slightly longer and more like vertical collectible hero cards;
+  - the first visible row should prioritize rarities in `UR -> SSR -> SR -> R` order;
+  - heroes with the same rarity should keep their existing relative order;
+  - the longer card should not push the bottom overflow hint, lower text grid, level text, or corner badge into overlap.
+- UI acceptance:
+  - desktop card target/max heights should remain `468 / 492`;
+  - compact card target/max heights should remain `310 / 340`;
+  - render sorting should use `HERO_ROSTER_RARITY_DISPLAY_ORDER` and `displayHeroes`;
+  - the sort is presentation-only and must not change owned heroes, team formation, rewards, fragments, gacha state, or any economy data.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, `.spine` source scan, and `git diff --check` passed;
+  - `check:preview` still reports stale running Preview chunks, so final visual acceptance still requires refreshing/restarting Cocos Preview.
+
+## 2026-06-05 Hero Roster Border Brightness And Star Placement QA Note
+
+- Product acceptance:
+  - border effects should read brighter and should not look dimmed by a translucent overlay;
+  - UR sequence-frame border should hug the card frame instead of sitting one large ring outside it;
+  - rarity should sit clearly above the lower name grid;
+  - stars should sit between rarity and the name grid, not on the baked gem area;
+  - the lower grid should visually contain only the hero name.
+- UI acceptance:
+  - UR sequence alpha should remain `255`;
+  - UR sequence ratios should remain `1.18 / 1.16 / -0.048` until a fresh Preview visual pass says otherwise;
+  - rarity/name/star placement should remain `0.318 / 0.132 / 0.235`;
+  - if star text still feels busy, reduce star font size first before moving it back into the name grid.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, `.spine` source scan, and `git diff --check` passed;
+  - `check:preview` still reports stale running Preview chunks, so final visual acceptance still requires refreshing/restarting Cocos Preview.
+
+## 2026-06-05 Hero Roster Larger Star Text QA Note
+
+- Product acceptance:
+  - star text should be noticeably easier to read than the previous 11px-scaled version;
+  - larger stars should remain between rarity and the name grid;
+  - stars should not collide with rarity, the hero name, or the baked lower-card gem.
+- UI acceptance:
+  - star font sizing should remain `Math.min(15 * scale, height * 0.046)`;
+  - star label bounds should remain `new Size(width - 68 * scale, height * 0.056)`;
+  - if stars still feel weak after Preview refresh, prefer color/outline strength before moving them back into the name grid.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, `.spine` source scan, and `git diff --check` passed;
+  - `check:preview` still reports stale running Preview chunks, so final visual acceptance still requires refreshing/restarting Cocos Preview.
+
+## 2026-06-05 Hero Roster SSR Sequence Border And Level Fit QA Note
+
+- Product acceptance:
+  - SSR cards should use the provided `SSR-card-border` sequence-frame effect instead of the shared `goods_1` K5 Spine border;
+  - UR and SSR sequence borders should visually hug the card frame with the same alignment family;
+  - R/SR Spine border effects should sit on the card edge rather than reading as an inner border;
+  - stars should sit above the center triangle and remain readable;
+  - hero-name text should render inside the bottom grid so card identity remains clear;
+  - `Lv.9`, `Lv.99`, and `Lv100` should all stay readable inside the top-left circle.
+- UI acceptance:
+  - SSR sequence frame count remains `125`, with frame duration `0.04`;
+  - SSR sequence frame paths use `ui/hero-roster/SSR-card-border/合成 1_00000..00124/spriteFrame`;
+  - SSR frame meta remains `1080x1920`;
+  - SSR sequence alignment remains `1.22 / 1.14 / -0.01`, while UR remains `1.25 / 1.25 / -0.01`;
+  - R/SR `goods_1` border edge padding remains `30 / 54 / -0.01`;
+  - card width remains unchanged for this pass, so sequence-border ratios remain synchronized with the current card width.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, `.spine` source scan, and `git diff --check` passed;
+  - `check:preview` still reports stale running Preview chunks, so final visual acceptance still requires refreshing/restarting Cocos Preview.
