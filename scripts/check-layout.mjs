@@ -205,6 +205,15 @@ const required = [
   'assets/resources/spine/hero/npc_1001/npc_1001.atlas.meta',
   'assets/resources/spine/hero/npc_1001/npc_1001.png',
   'assets/resources/spine/hero/npc_1001/npc_1001.png.meta',
+  'assets/resources/spine/ui.meta',
+  'assets/resources/spine/ui/hero-roster.meta',
+  'assets/resources/spine/ui/hero-roster/goods_1_border.meta',
+  'assets/resources/spine/ui/hero-roster/goods_1_border/goods_1.skel',
+  'assets/resources/spine/ui/hero-roster/goods_1_border/goods_1.skel.meta',
+  'assets/resources/spine/ui/hero-roster/goods_1_border/goods_1.atlas',
+  'assets/resources/spine/ui/hero-roster/goods_1_border/goods_1.atlas.meta',
+  'assets/resources/spine/ui/hero-roster/goods_1_border/goods_1.png',
+  'assets/resources/spine/ui/hero-roster/goods_1_border/goods_1.png.meta',
   'assets/resources/ui/lobby/lobby_player_info_panel.png',
   'assets/resources/ui/lobby/lobby_player_info_panel.png.meta',
   'assets/resources/ui/protagonist.meta',
@@ -1450,8 +1459,50 @@ for (const token of [
   'LOBBY_HERO_ROSTER_CARD_ASSETS',
   'LobbyHeroRosterFilterRail',
   'LobbyHeroRosterCardSkin',
+  'HERO_ROSTER_CARD_ASPECT_WIDTH',
+  'HERO_ROSTER_CARD_ASPECT_HEIGHT',
+  'const HERO_ROSTER_CARD_DESKTOP_TARGET_HEIGHT = 452;',
+  'const HERO_ROSTER_CARD_DESKTOP_MAX_HEIGHT = 474;',
+  'const HERO_ROSTER_CARD_COMPACT_TARGET_HEIGHT = 298;',
+  'const HERO_ROSTER_CARD_COMPACT_MAX_HEIGHT = 328;',
+  'bodyLeft + cardInsetX + cardWidth / 2',
+  'bodyTop - cardInsetY - cardHeight / 2',
+  'HERO_ROSTER_CARD_LEVEL_INSET_X',
+  'HERO_ROSTER_CARD_LEVEL_INSET_Y',
+  'HERO_ROSTER_CARD_BADGE_INSET_X',
+  'HERO_ROSTER_CARD_BADGE_INSET_Y',
+  'HERO_ROSTER_CARD_RARITY_Y_RATIO = 0.218',
+  'HERO_ROSTER_CARD_INFO_PLATE_BASE_ALPHA = 255',
+  'HERO_ROSTER_CARD_INFO_PLATE_TINT_ALPHA = 46',
+  'traceInfoPlateLowerFrame',
+  'this.traceInfoPlateLowerFrame(graphics, plateWidth, plateHeight, 8 * scale)',
+  'topBarLeftReserve',
+  'cursorX - reloadWidth < topBarLeftReserve',
+  'statusX - statusWidth / 2 < topBarLeftReserve',
+  'const levelWidth = 68 * scale',
+  'const levelX = -width / 2 + levelInsetX + levelWidth / 2',
+  'LobbyHeroRosterLevelPlate',
+  'LobbyHeroRosterLevelText',
+  'const badgeSize = 38 * scale',
+  'const badgeX = width / 2 - badgeInsetX - badgeSize / 2',
+  'const badgeY = height / 2 - badgeInsetY - badgeSize / 2',
   'USE_HERO_ROSTER_EXTERNAL_PORTRAITS = false',
   'LobbyHeroRosterHeroRelief',
+  'HERO_ROSTER_BORDER_EFFECT_RESOURCE',
+  'HERO_ROSTER_BORDER_ANIMATION_BY_RARITY',
+  "R: 'K3'",
+  "SR: 'K4'",
+  "SSR: 'K5'",
+  "UR: 'K7'",
+  'spine/ui/hero-roster/goods_1_border/goods_1',
+  'renderHeroCardBorderEffect',
+  'renderRarityGoodsBorderSpine',
+  'LobbyHeroRosterRarityGoodsBorderSpine_${rarity}',
+  'loadBorderEffectData',
+  'resolveRarityBorderAnimationName',
+  'name.toLowerCase() === targetLower',
+  'clamp((width + 12) / 120',
+  'clamp((height + 30) / 120',
   'drawHeroReliefPortrait',
   'LobbyHeroRosterAbyssDust',
   'LobbyHeroRosterInfoPlate',
@@ -1462,6 +1513,33 @@ for (const token of [
 ]) {
   if (!lobbyHeroRosterPanel.includes(token)) {
     console.error(`missing lobby hero roster panel guard in ${lobbyHeroRosterPanelPath}: ${token}`);
+    ok = false;
+  }
+}
+
+for (const token of [
+  'drawUrBorderAura',
+  'LobbyHeroRosterUrBorderAura',
+  'HERO_ROSTER_UR_BORDER_OUTSET_X',
+  'HERO_ROSTER_UR_BORDER_OUTSET_Y',
+  'HERO_ROSTER_UR_BORDER_EFFECT_RESOURCE',
+  'renderHeroCardUrEffect',
+  'renderUrGoodsBorderSpine',
+  'LobbyHeroRosterUrGoodsBorderSpine',
+  "rarity !== 'UR'",
+  'resolveUrEffectAnimationName',
+  'urBorderEffect',
+  'borderWidth = width + borderOutsetX * 2',
+  'traceSlantRect(graphics, borderWidth, borderHeight',
+  'HERO_ROSTER_CARD_INFO_ACCENT_GAP_RATIO',
+  'rarityLineGap',
+  'accentY = plateHeight / 2',
+  'graphics.moveTo(rarityLineGap / 2',
+  'plateWidth - 8 * scale',
+  'plateHeight - 8 * scale',
+]) {
+  if (lobbyHeroRosterPanel.includes(token)) {
+    console.error(`forbidden extra UR aura border token in ${lobbyHeroRosterPanelPath}: ${token}`);
     ok = false;
   }
 }
@@ -2368,6 +2446,7 @@ const huangfengJsonPath = 'assets/resources/spine/gacha/huangfengjiaozong/huangf
 const huangfengAtlasPath = 'assets/resources/spine/gacha/huangfengjiaozong/huangfengjiaozong.atlas';
 const heroSpineMetaPath = 'assets/resources/spine/hero/npc_1001/npc_1001.skel.meta';
 const heroSpineAtlasPath = 'assets/resources/spine/hero/npc_1001/npc_1001.atlas';
+const heroRosterUrBorderAtlasPath = 'assets/resources/spine/ui/hero-roster/goods_1_border/goods_1.atlas';
 
 try {
   const huangfengData = JSON.parse(readFileSync(huangfengJsonPath, 'utf8'));
@@ -2439,6 +2518,37 @@ try {
 } catch (error) {
   console.error(`failed to read npc_1001 hero spine atlas: ${error.message}`);
   ok = false;
+}
+
+try {
+  const atlasText = readFileSync(heroRosterUrBorderAtlasPath, 'utf8');
+  const atlasPages = Array.from(atlasText.matchAll(/^(\S+\.png)$/gm), (match) => match[1]);
+  if (!atlasPages.includes('goods_1.png')) {
+    console.error('hero roster UR border atlas must reference goods_1.png');
+    ok = false;
+  }
+  for (const page of atlasPages) {
+    const pagePath = `assets/resources/spine/ui/hero-roster/goods_1_border/${page}`;
+    if (!existsSync(pagePath)) {
+      console.error(`hero roster UR border atlas page missing: ${pagePath}`);
+      ok = false;
+    }
+  }
+} catch (error) {
+  console.error(`failed to read hero roster UR border atlas: ${error.message}`);
+  ok = false;
+}
+
+for (const legacyUrEffectPath of [
+  'assets/resources/spine/ui/hero-roster/card_light',
+  'assets/resources/spine/ui/hero-roster/card_light.meta',
+  'assets/resources/spine/ui/hero-roster/frame',
+  'assets/resources/spine/ui/hero-roster/frame.meta',
+]) {
+  if (existsSync(legacyUrEffectPath)) {
+    console.error(`legacy full-card UR beam effect must stay removed: ${legacyUrEffectPath}`);
+    ok = false;
+  }
 }
 
 for (const token of ["id: 'friend'", '友情召唤']) {

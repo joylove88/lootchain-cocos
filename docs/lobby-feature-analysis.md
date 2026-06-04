@@ -2153,3 +2153,195 @@
   - focused TypeScript passes;
   - `check:preview` still reports stale running Preview chunks missing `USE_HERO_ROSTER_EXTERNAL_PORTRAITS = false`, `LobbyHeroRosterHeroRelief`, and `LobbyHeroRosterAbyssDust`;
   - restart/refresh Cocos Preview before final visual acceptance.
+
+## 2026-06-04 Hero Roster Top-Left Cards And UR Effect QA Note
+
+- Product acceptance:
+  - hero cards should start near the top of the roster body and expand from the left, matching the second reference image's reading order;
+  - SSR and UR should no longer read as nearly identical cards;
+  - UR rarity remains visual emphasis only and must not imply new odds, rewards, growth, or acquisition behavior.
+- UI/resource acceptance:
+  - `spine/ui/card_light` from the provided local reference package is used only as a UR card-frame light effect;
+  - runtime files live at `assets/resources/spine/ui/hero-roster/card_light/card_light.skel|atlas|png`;
+  - no `.spine` source file may remain under `assets/resources/spine`;
+  - if the Spine runtime fails to load, `LobbyHeroRosterUrAura` still provides a gold UR fallback.
+- Development acceptance:
+  - `LobbyHeroRosterPanelRenderer.ts` uses top-left body anchoring through `bodyLeft + cardInsetX + cardWidth / 2` and `bodyTop - cardInsetY - cardHeight / 2`;
+  - only `rarity === 'UR'` cards render `LobbyHeroRosterUrCardLightSpine`;
+  - clicking a card still only opens the existing readonly hero detail page;
+  - refresh still calls the readonly hero roster loader;
+  - disabled growth dock remains non-interactive.
+- Review result:
+  - `check-layout` and `check-preview-freshness` guard the layout/effect tokens and the `card_light` runtime resource path;
+  - `check:layout`, focused TypeScript, `.spine` source scan, and `git diff --check` passed;
+  - `check:preview` still reports stale running Preview chunks missing the latest hero roster top-left layout and UR effect tokens;
+  - final visual acceptance still requires restarting/refreshing Cocos Preview after resource import.
+
+## 2026-06-04 Hero Roster UR Border Effect Replacement QA Note
+
+- Product acceptance:
+  - UR card effects should read as border emphasis, not as a vertical full-card beam;
+  - SSR/UR differentiation should come from restrained UR border motion and gold edge highlights;
+  - level text and corner badge must sit inside the card frame with visible padding.
+- UI/resource acceptance:
+  - `spine/ui/goods_1` from the provided local reference package is the selected UR border effect;
+  - runtime files live at `assets/resources/spine/ui/hero-roster/goods_1_border/goods_1.skel|atlas|png`;
+  - old `card_light` and temporary `frame` UR effect runtime paths must stay absent from `assets/resources/spine/ui/hero-roster`;
+  - no `.spine` source file may remain under `assets/resources/spine`.
+- Development acceptance:
+  - only `rarity === 'UR'` cards render `LobbyHeroRosterUrGoodsBorderSpine`;
+  - `LobbyHeroRosterUrBorderAura` provides a thin local fallback border if the Spine runtime fails to load;
+  - `LobbyHeroRosterLevel` uses `levelInsetX + levelWidth / 2` and `levelInsetY + levelHeight / 2` center positioning;
+  - `LobbyHeroRosterClassBadge` uses `badgeInsetX + badgeSize / 2` and `badgeInsetY + badgeSize / 2` center positioning;
+  - top status capsules respect `topBarLeftReserve` so they do not push into the return-title area.
+- Review result:
+  - `check:layout`, focused TypeScript, `git diff --check`, and `.spine` source scan passed;
+  - `check:preview` still reports stale running Preview chunks missing `goods_1_border` and the latest level/badge inset tokens;
+  - final visual acceptance still requires restarting/refreshing Cocos Preview after the new Spine resource import.
+
+## 2026-06-04 Hero Roster UR Border Alignment QA Note
+
+- Product acceptance:
+  - UR border lines should sit on the card frame instead of floating outside it;
+  - top `Lv.1` and class badge must be readable at normal zoom and should not sit directly on ornate card-frame texture;
+  - UR differentiation should remain a border effect, not a central glow over the hero relief or nameplate.
+- UI acceptance:
+  - `LobbyHeroRosterUrBorderAura` should use the inset `borderWidth/borderHeight` path;
+  - `LobbyHeroRosterLevelPlate` should create a small dark backing area for level text;
+  - `LobbyHeroRosterClassBadge` should be visibly larger and lower than the previous overlapping corner placement.
+- Review result:
+  - `check:layout`, focused TypeScript, `git diff --check`, and `.spine` source scan passed;
+  - `check:preview` still reports stale running Preview chunks missing the latest UR border inset and top label readability tokens;
+  - final visual acceptance still requires refreshing/restarting Cocos Preview so the latest hero roster chunk and `goods_1_border` resource are served.
+
+## 2026-06-04 Hero Roster Larger Cards QA Note
+
+- Product acceptance:
+  - the hero cards should read larger and more dominant in the roster scene;
+  - UR border effect should sit closer to the card's outer edge than the previous inner-line version;
+  - increasing card size must not introduce new economy, growth, reward, or acquisition semantics.
+- UI acceptance:
+  - desktop card target/max heights should use the new `420 / 440` constants;
+  - UR border uses `HERO_ROSTER_UR_BORDER_OUTSET_X/Y` and `width + borderOutsetX * 2`;
+  - top level plate and class badge remain readable after the card size increase.
+- Review result:
+  - `check:layout`, focused TypeScript, `git diff --check`, and `.spine` source scan passed;
+  - `check:preview` still reports stale running Preview chunks missing the latest larger-card and UR border-outset tokens;
+  - final visual acceptance still requires refreshing/restarting Cocos Preview.
+
+## 2026-06-04 Hero Roster Larger Cards And Vertical Border Outset QA Note
+
+- Product acceptance:
+  - the hero cards should read visibly larger than the previous `420 / 440` version;
+  - UR top and bottom border effects should extend farther outside the frame, while left/right spread remains restrained to avoid touching adjacent cards;
+  - the change remains purely visual/read-only and must not add upgrade, acquisition, reward, or economy semantics.
+- UI acceptance:
+  - desktop card target/max heights should use `452 / 474`;
+  - compact card target/max heights should use `298 / 328`;
+  - UR border vertical outset should use `HERO_ROSTER_UR_BORDER_OUTSET_Y = 10`;
+  - UR Spine border scale should use `height + 30`.
+- Review result:
+  - `check:layout`, focused TypeScript, `git diff --check`, and `.spine` source scan passed;
+  - `check:preview` still reports stale running Preview chunks missing the latest larger-card and vertical border-outset tokens;
+  - final visual acceptance still requires refreshing/restarting Cocos Preview.
+
+## 2026-06-04 Hero Roster UR Border Horizontal De-overlap QA Note
+
+- Product acceptance:
+  - UR should still read as the highest rarity through top/bottom border emphasis;
+  - side border glow should not spill into background vertical lines or adjacent-card spacing;
+  - the change remains purely visual/read-only.
+- UI acceptance:
+  - UR horizontal border outset should use `HERO_ROSTER_UR_BORDER_OUTSET_X = 0`;
+  - UR vertical border outset should stay at `HERO_ROSTER_UR_BORDER_OUTSET_Y = 10`;
+  - UR Spine border scale should use `width + 2` and `height + 30`.
+- Review result:
+  - `check:layout`, focused TypeScript, `git diff --check`, and `.spine` source scan passed;
+  - `check:preview` still reports stale running Preview chunks missing the latest horizontal de-overlap tokens;
+  - final visual acceptance still requires refreshing/restarting Cocos Preview.
+
+## 2026-06-04 Hero Roster Rarity Label Line Fix QA Note
+
+- Product acceptance:
+  - UR should not gain an extra-feeling frame from the previous horizontal de-overlap attempt;
+  - the bottom `SSR/UR` text should sit on a clean info plate without a decorative line running behind the glyphs;
+  - UR top/bottom border emphasis remains stronger than SSR, but this change targets the lower rarity label area.
+- UI acceptance:
+  - UR horizontal border outset returns to `HERO_ROSTER_UR_BORDER_OUTSET_X = 4`;
+  - UR Spine border scale returns to `width + 12` horizontally and keeps `height + 30` vertically;
+  - the info-plate top accent uses a center gap, guarded by `HERO_ROSTER_CARD_INFO_ACCENT_GAP_RATIO = 0.48`;
+  - rarity label vertical placement uses `HERO_ROSTER_CARD_RARITY_Y_RATIO = 0.218`.
+- Review result:
+  - `check:layout`, focused TypeScript, `git diff --check`, and `.spine` source scan passed;
+  - `check:preview` still reports stale running Preview chunks missing the restored UR border width and rarity-label line-gap tokens;
+  - final visual acceptance still requires refreshing/restarting Cocos Preview.
+
+## 2026-06-04 Hero Roster UR Extra Outer Frame Removal QA Note
+
+- Product acceptance:
+  - UR should not show an additional local gold frame outside the card art and Spine border;
+  - UR rarity should still read above SSR through the imported `goods_1_border` Spine effect;
+  - the bottom `SSR/UR` rarity label should keep the center line gap from the previous fix.
+- UI acceptance:
+  - `LobbyHeroRosterUrBorderAura` must stay absent from the active renderer;
+  - `drawUrBorderAura` and local `HERO_ROSTER_UR_BORDER_OUTSET_X/Y` aura constants must stay absent;
+  - only `LobbyHeroRosterUrGoodsBorderSpine` should render the UR border effect.
+- Review result:
+  - `check:layout`, focused TypeScript, `git diff --check`, and `.spine` source scan passed;
+  - `check:preview` still reports stale running Preview chunks, so final visual acceptance still requires refreshing/restarting Cocos Preview.
+
+## 2026-06-04 Hero Roster Rarity Border Spine Mapping QA Note
+
+- Product acceptance:
+  - R/SR/SSR/UR should no longer share a single UR-only border behavior;
+  - each rarity should play the requested `goods_1` animation: `R=K3`, `SR=K4`, `SSR=K5`, `UR=K7`;
+  - the change remains purely visual/read-only and must not add upgrade, acquisition, reward, draw, or economy semantics.
+- UI acceptance:
+  - the shared resource path is `spine/ui/hero-roster/goods_1_border/goods_1`;
+  - `HERO_ROSTER_BORDER_ANIMATION_BY_RARITY` is the source of truth for rarity-to-animation mapping;
+  - animation lookup must remain case-insensitive because the current runtime skeleton stores the clips as lowercase `k3/k4/k5/k7`;
+  - old UR-only effect names such as `renderHeroCardUrEffect` and `LobbyHeroRosterUrGoodsBorderSpine` must stay absent from the active renderer.
+- Review result:
+  - `check:layout`, focused TypeScript, `git diff --check`, and `.spine` source scan passed;
+  - `check:preview` still reports stale running Preview chunks missing the latest rarity mapping tokens;
+  - final visual acceptance still requires refreshing/restarting Cocos Preview so the latest hero roster chunk and `goods_1_border` resource are served.
+
+## 2026-06-04 Hero Roster Rarity Label Opaque Cover QA Note
+
+- Product acceptance:
+  - the baked card-skin line behind `SSR/UR/SR/R` should be fully covered, not just dimmed;
+  - rarity label readability should remain unchanged;
+  - the side and bottom outline remain, while top/internal horizontal lines stay absent.
+- UI acceptance:
+  - info-plate base alpha is now guarded by `HERO_ROSTER_CARD_INFO_PLATE_BASE_ALPHA = 255`;
+  - full-plate tint remains `HERO_ROSTER_CARD_INFO_PLATE_TINT_ALPHA = 46`.
+- Review result:
+  - final visual acceptance still requires refreshing/restarting Cocos Preview.
+
+## 2026-06-04 Hero Roster Rarity Label Baked Line Cover QA Note
+
+- Product acceptance:
+  - the card skin's baked lower-panel line should not show through behind `SSR/UR/SR/R`;
+  - the info plate should remain readable and tinted by rarity;
+  - the side and bottom outline remain, while the top and internal horizontal lines stay absent.
+- UI acceptance:
+  - info-plate base alpha is guarded by `HERO_ROSTER_CARD_INFO_PLATE_BASE_ALPHA = 238`;
+  - full-plate tint alpha is guarded by `HERO_ROSTER_CARD_INFO_PLATE_TINT_ALPHA = 46`;
+  - inset tint tokens `plateWidth - 8 * scale` and `plateHeight - 8 * scale` must stay absent.
+- Review result:
+  - `check:layout`, focused TypeScript, `git diff --check`, and `.spine` source scan passed;
+  - `check:preview` still reports stale running Preview chunks, so final visual acceptance still requires refreshing/restarting Cocos Preview.
+
+## 2026-06-04 Hero Roster Rarity Label Top Line Removal QA Note
+
+- Product acceptance:
+  - bottom `SSR/UR/SR/R` rarity labels should not have a visible horizontal border or accent line behind the text;
+  - the info plate should still read as a contained lower panel through side and bottom outline;
+  - UR rarity differentiation remains the Spine border effect, not extra static frame lines.
+- UI acceptance:
+  - `traceInfoPlateLowerFrame` draws the info-plate side and bottom outline only;
+  - old accent-line tokens `HERO_ROSTER_CARD_INFO_ACCENT_GAP_RATIO`, `rarityLineGap`, and `accentY` must stay absent;
+  - `HERO_ROSTER_CARD_RARITY_Y_RATIO = 0.218` remains the rarity label placement.
+- Review result:
+  - `check:layout`, focused TypeScript, `git diff --check`, and `.spine` source scan passed;
+  - `check:preview` still reports stale running Preview chunks, so final visual acceptance still requires refreshing/restarting Cocos Preview.

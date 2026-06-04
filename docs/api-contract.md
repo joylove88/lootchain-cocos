@@ -307,7 +307,7 @@ Allowed routes in the current Cocos phase:
 
 Blocked routes include full gacha, full hero growth/detail, full bag/use, reward, currency, USDT, fund-pool, and EX routes unless separately reviewed and added to the allowlist.
 
-Cocos `GachaApi.draw()` must stay locally blocked during this phase and must not POST `/api/player/gacha/draw`.
+Historical note: this 2026-05-31 phase required Cocos `GachaApi.draw()` to stay locally blocked. The current 2026-06-02+ summon phase has separately reviewed and connected the existing `POST /api/player/gacha/draw` endpoint only. The client still must not add gacha exchange/reissue, EX V1, bag use/sell, hero growth, reward/currency/fund-pool writes, or any new economy write route.
 
 ### 2026-05-31 Stage 4Q Battle Start Idempotency
 

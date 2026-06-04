@@ -6,7 +6,9 @@ import {
   HorizontalTextAlignment,
   Label,
   Node,
+  resources,
   Size,
+  sp,
   Sprite,
   UITransform,
   Vec3,
@@ -25,6 +27,28 @@ export const LOBBY_HERO_ROSTER_CARD_ASSETS = [
 ];
 
 const HERO_FILTER_TABS = ['全部', '坦克', '近战', '远程', '物理', '法术'];
+const HERO_ROSTER_CARD_ASPECT_WIDTH = 224;
+const HERO_ROSTER_CARD_ASPECT_HEIGHT = 406;
+const HERO_ROSTER_CARD_DESKTOP_TARGET_HEIGHT = 452;
+const HERO_ROSTER_CARD_DESKTOP_MAX_HEIGHT = 474;
+const HERO_ROSTER_CARD_COMPACT_TARGET_HEIGHT = 298;
+const HERO_ROSTER_CARD_COMPACT_MAX_HEIGHT = 328;
+const HERO_ROSTER_CARD_LEFT_INSET = 12;
+const HERO_ROSTER_CARD_TOP_INSET = 14;
+const HERO_ROSTER_CARD_LEVEL_INSET_X = 19;
+const HERO_ROSTER_CARD_LEVEL_INSET_Y = 36;
+const HERO_ROSTER_CARD_BADGE_INSET_X = 22;
+const HERO_ROSTER_CARD_BADGE_INSET_Y = 33;
+const HERO_ROSTER_BORDER_EFFECT_RESOURCE = 'spine/ui/hero-roster/goods_1_border/goods_1';
+const HERO_ROSTER_BORDER_ANIMATION_BY_RARITY: Record<string, string> = {
+  R: 'K3',
+  SR: 'K4',
+  SSR: 'K5',
+  UR: 'K7',
+};
+const HERO_ROSTER_CARD_RARITY_Y_RATIO = 0.218;
+const HERO_ROSTER_CARD_INFO_PLATE_BASE_ALPHA = 255;
+const HERO_ROSTER_CARD_INFO_PLATE_TINT_ALPHA = 46;
 
 const HERO_CARD_ASSET_BY_RARITY: Record<string, string> = {
   R: 'ui/hero-roster/card_r/spriteFrame',
@@ -61,6 +85,10 @@ export interface LobbyHeroRosterPanelHost {
 
 /** 大厅英雄队列只读面板。参考竖卡英雄墙排版，但保持当前阶段无养成写入口。 */
 export class LobbyHeroRosterPanelRenderer {
+  private borderEffectData: sp.SkeletonData | null = null;
+  private borderEffectLoading = false;
+  private readonly borderEffectCallbacks: Array<(data: sp.SkeletonData | null) => void> = [];
+
   constructor(private readonly host: LobbyHeroRosterPanelHost) {}
 
   render(layout: UiLayout): void {
@@ -114,7 +142,9 @@ export class LobbyHeroRosterPanelRenderer {
 
   private renderTopBar(parent: Node, width: number, height: number, scale: number, state: LobbyHeroRosterPanelState): void {
     const y = height / 2 - 42 * scale;
-    const right = width / 2 - 34 * scale;
+    const topBarRightInset = 42 * scale;
+    const topBarLeftReserve = -width / 2 + 170 * scale;
+    const right = width / 2 - topBarRightInset;
     const compact = width < 760 * scale;
     const power = state.heroes.reduce((sum, hero) => sum + Math.max(0, Number(hero.power) || 0), 0);
     const capsules = compact ? [
@@ -133,6 +163,9 @@ export class LobbyHeroRosterPanelRenderer {
     }
 
     const reloadWidth = 86 * scale;
+    if (cursorX - reloadWidth < topBarLeftReserve) {
+      return;
+    }
     const reload = this.addTopCapsule(parent, 'LobbyHeroRosterReloadButton', '刷新', cursorX - reloadWidth / 2, y, reloadWidth, 30 * scale, scale, true);
     reload.addComponent(Button);
     reload.on(Button.EventType.CLICK, () => this.host.reloadLobbyHeroRoster(), this);
@@ -142,15 +175,20 @@ export class LobbyHeroRosterPanelRenderer {
       return;
     }
     const statusText = state.loading ? '读取中' : state.error ? '读取失败' : state.loaded ? '已同步' : '待同步';
+    const statusWidth = 94 * scale;
+    const statusX = cursorX - reloadWidth - 60 * scale;
+    if (statusX - statusWidth / 2 < topBarLeftReserve) {
+      return;
+    }
     const status = this.host.addChildLabel(
       parent,
       'LobbyHeroRosterStatus',
       statusText,
-      cursorX - reloadWidth - 60 * scale,
+      statusX,
       y,
       15 * scale,
       state.error ? rgba(238, 116, 92) : rgba(213, 191, 137),
-      new Size(94 * scale, 24 * scale),
+      new Size(statusWidth, 24 * scale),
     );
     status.overflow = Label.Overflow.SHRINK;
   }
@@ -261,15 +299,18 @@ export class LobbyHeroRosterPanelRenderer {
       return;
     }
 
-    const gap = (filterMetrics.horizontal ? 14 : 24) * scale;
-    const preferredCardHeight = filterMetrics.horizontal ? Math.min(252 * scale, bodyHeight * 0.96) : Math.min(372 * scale, bodyHeight * 0.98);
-    const cardHeight = clamp(preferredCardHeight, 158 * scale, 386 * scale);
-    const cardWidth = cardHeight * 224 / 406;
+    const gap = (filterMetrics.horizontal ? 12 : 22) * scale;
+    const preferredCardHeight = filterMetrics.horizontal
+      ? Math.min(HERO_ROSTER_CARD_COMPACT_TARGET_HEIGHT * scale, bodyHeight * 0.98)
+      : Math.min(HERO_ROSTER_CARD_DESKTOP_TARGET_HEIGHT * scale, bodyHeight * 0.99);
+    const cardHeight = clamp(preferredCardHeight, 168 * scale, (filterMetrics.horizontal ? HERO_ROSTER_CARD_COMPACT_MAX_HEIGHT : HERO_ROSTER_CARD_DESKTOP_MAX_HEIGHT) * scale);
+    const cardWidth = cardHeight * HERO_ROSTER_CARD_ASPECT_WIDTH / HERO_ROSTER_CARD_ASPECT_HEIGHT;
     const columns = Math.max(1, Math.min(state.heroes.length, Math.floor((bodyWidth + gap) / (cardWidth + gap))));
     const visibleCount = Math.max(1, columns);
-    const gridWidth = columns * cardWidth + Math.max(0, columns - 1) * gap;
-    const startX = bodyCenterX - gridWidth / 2 + cardWidth / 2;
-    const cardY = bodyCenterY + Math.min(10 * scale, bodyHeight * 0.025);
+    const cardInsetX = HERO_ROSTER_CARD_LEFT_INSET * scale;
+    const cardInsetY = HERO_ROSTER_CARD_TOP_INSET * scale;
+    const startX = bodyLeft + cardInsetX + cardWidth / 2;
+    const cardY = bodyTop - cardInsetY - cardHeight / 2;
 
     state.heroes.slice(0, visibleCount).forEach((hero, index) => {
       this.renderHeroCard(parent, hero, index, startX + index * (cardWidth + gap), cardY, cardWidth, cardHeight, scale);
@@ -350,6 +391,7 @@ export class LobbyHeroRosterPanelRenderer {
     if (!this.host.addSprite('LobbyHeroRosterCardSkin', cardAsset, 0, 0, width, height, card)) {
       this.drawHeroCardFallback(card, width, height, scale, hero);
     }
+    this.renderHeroCardBorderEffect(card, hero, width, height);
     this.renderHeroPortrait(card, hero, width, height, scale);
     this.renderHeroCardChrome(card, hero, width, height, scale);
   }
@@ -376,6 +418,65 @@ export class LobbyHeroRosterPanelRenderer {
     graphics.stroke();
   }
 
+  private renderHeroCardBorderEffect(card: Node, hero: LobbyHeroItemVO, width: number, height: number): void {
+    const rarity = safeText(hero.rarity).toUpperCase();
+    if (!HERO_ROSTER_BORDER_ANIMATION_BY_RARITY[rarity]) {
+      return;
+    }
+    this.renderRarityGoodsBorderSpine(card, rarity, width, height);
+  }
+
+  private renderRarityGoodsBorderSpine(card: Node, rarity: string, width: number, height: number): void {
+    const effectNode = this.host.addChildPlainNode(card, `LobbyHeroRosterRarityGoodsBorderSpine_${rarity}`, 0, 0, width, height);
+    effectNode.setScale(new Vec3(clamp((width + 12) / 120, 1.05, 2.3), clamp((height + 30) / 120, 1.6, 3.85), 1));
+    const skeleton = effectNode.addComponent(sp.Skeleton);
+    skeleton.premultipliedAlpha = false;
+    this.loadBorderEffectData((data) => {
+      if (!data || !effectNode.isValid) {
+        return;
+      }
+      skeleton.skeletonData = data;
+      const animationName = this.resolveRarityBorderAnimationName(data, rarity);
+      if (animationName) {
+        skeleton.setAnimation(0, animationName, true);
+      }
+    });
+  }
+
+  private loadBorderEffectData(callback: (data: sp.SkeletonData | null) => void): void {
+    if (this.borderEffectData) {
+      callback(this.borderEffectData);
+      return;
+    }
+    this.borderEffectCallbacks.push(callback);
+    if (this.borderEffectLoading) {
+      return;
+    }
+    this.borderEffectLoading = true;
+    resources.load(HERO_ROSTER_BORDER_EFFECT_RESOURCE, sp.SkeletonData, (error, data) => {
+      this.borderEffectLoading = false;
+      this.borderEffectData = error ? null : data ?? null;
+      const callbacks = this.borderEffectCallbacks.splice(0);
+      callbacks.forEach((queued) => queued(this.borderEffectData));
+    });
+  }
+
+  private resolveRarityBorderAnimationName(data: sp.SkeletonData, rarity: string): string | null {
+    const target = HERO_ROSTER_BORDER_ANIMATION_BY_RARITY[rarity.toUpperCase()];
+    if (!target) {
+      return null;
+    }
+    const enumMap = data.getAnimsEnum();
+    if (!enumMap) {
+      return null;
+    }
+    const names = Object.keys(enumMap).filter((name) => name !== '<None>' && typeof enumMap[name] === 'number');
+    const targetLower = target.toLowerCase();
+    return names.find((name) => name.toLowerCase() === targetLower)
+      ?? names.find((name) => name.toLowerCase().includes(targetLower))
+      ?? null;
+  }
+
   private renderHeroPortrait(card: Node, hero: LobbyHeroItemVO, width: number, height: number, scale: number): void {
     const portraitAsset = this.resolveHeroRosterPortraitAsset(hero);
     const portraitWidth = width * 0.82;
@@ -394,41 +495,42 @@ export class LobbyHeroRosterPanelRenderer {
     const plate = this.host.addChildPlainNode(card, 'LobbyHeroRosterInfoPlate', 0, plateY, plateWidth, plateHeight);
     const graphics = plate.addComponent(Graphics);
     const stroke = this.rarityStroke(hero.rarity);
-    graphics.fillColor = rgba(2, 3, 6, 170);
+    graphics.fillColor = rgba(2, 3, 6, HERO_ROSTER_CARD_INFO_PLATE_BASE_ALPHA);
     this.traceSlantRect(graphics, plateWidth, plateHeight, 8 * scale);
     graphics.fill();
-    graphics.fillColor = new Color(stroke.r, stroke.g, stroke.b, 34);
-    this.traceSlantRect(graphics, plateWidth - 8 * scale, plateHeight - 8 * scale, 6 * scale);
+    graphics.fillColor = new Color(stroke.r, stroke.g, stroke.b, HERO_ROSTER_CARD_INFO_PLATE_TINT_ALPHA);
+    this.traceSlantRect(graphics, plateWidth, plateHeight, 8 * scale);
     graphics.fill();
     graphics.strokeColor = new Color(stroke.r, stroke.g, stroke.b, 118);
     graphics.lineWidth = Math.max(1, 1 * scale);
-    this.traceSlantRect(graphics, plateWidth, plateHeight, 8 * scale);
-    graphics.stroke();
-    graphics.strokeColor = rgba(236, 206, 139, 72);
-    graphics.moveTo(-plateWidth / 2 + 12 * scale, plateHeight / 2 - 6 * scale);
-    graphics.lineTo(plateWidth / 2 - 12 * scale, plateHeight / 2 - 6 * scale);
+    this.traceInfoPlateLowerFrame(graphics, plateWidth, plateHeight, 8 * scale);
     graphics.stroke();
   }
 
   private renderHeroCardChrome(card: Node, hero: LobbyHeroItemVO, width: number, height: number, scale: number): void {
     const rarity = safeText(hero.rarity || 'R').toUpperCase();
-    const topBadge = this.host.addChildPlainNode(card, 'LobbyHeroRosterClassBadge', width / 2 - 25 * scale, height / 2 - 24 * scale, 32 * scale, 32 * scale);
-    this.drawDiamondBadge(topBadge, 32 * scale, this.rarityStroke(rarity), scale);
-    const topLabel = this.host.addChildLabel(topBadge, 'LobbyHeroRosterClassBadgeText', hero.protagonist ? '主' : '英', 0, 0, 12 * scale, rgba(255, 235, 181), new Size(28 * scale, 24 * scale));
+    const badgeSize = 38 * scale;
+    const badgeInsetX = HERO_ROSTER_CARD_BADGE_INSET_X * scale;
+    const badgeInsetY = HERO_ROSTER_CARD_BADGE_INSET_Y * scale;
+    const badgeX = width / 2 - badgeInsetX - badgeSize / 2;
+    const badgeY = height / 2 - badgeInsetY - badgeSize / 2;
+    const topBadge = this.host.addChildPlainNode(card, 'LobbyHeroRosterClassBadge', badgeX, badgeY, badgeSize, badgeSize);
+    this.drawDiamondBadge(topBadge, badgeSize, this.rarityStroke(rarity), scale);
+    const topLabel = this.host.addChildLabel(topBadge, 'LobbyHeroRosterClassBadgeText', hero.protagonist ? '主' : '英', 0, 0, 15 * scale, rgba(255, 235, 181), new Size(30 * scale, 26 * scale));
     topLabel.overflow = Label.Overflow.SHRINK;
     this.applyOutline(topLabel, scale, false);
 
     if (hero.protagonist) {
-      const mark = this.host.addChildPlainNode(card, 'LobbyHeroRosterProtagonistDot', width / 2 - 9 * scale, height / 2 - 10 * scale, 14 * scale, 14 * scale);
+      const mark = this.host.addChildPlainNode(card, 'LobbyHeroRosterProtagonistDot', badgeX + 10 * scale, badgeY + 10 * scale, 12 * scale, 12 * scale);
       const graphics = mark.addComponent(Graphics);
       graphics.fillColor = rgba(238, 55, 44, 238);
-      graphics.circle(0, 0, 6 * scale);
+      graphics.circle(0, 0, 5 * scale);
       graphics.fill();
     }
 
     this.drawHeroCardInfoPlate(card, hero, width, height, scale);
 
-    const infoTop = -height / 2 + height * 0.235;
+    const infoTop = -height / 2 + height * HERO_ROSTER_CARD_RARITY_Y_RATIO;
     const rarityLabel = this.host.addChildLabel(card, 'LobbyHeroRosterRarity', rarity, 0, infoTop, Math.min(34 * scale, height * 0.105), this.rarityTextColor(rarity), new Size(width - 46 * scale, height * 0.12));
     rarityLabel.overflow = Label.Overflow.SHRINK;
     this.applyOutline(rarityLabel, scale, true);
@@ -441,8 +543,24 @@ export class LobbyHeroRosterPanelRenderer {
     star.overflow = Label.Overflow.SHRINK;
     this.applyOutline(star, scale, false);
 
-    const level = this.host.addChildLabel(card, 'LobbyHeroRosterLevel', `Lv.${Math.max(1, hero.level)}`, -width / 2 + 12 * scale, height / 2 - 18 * scale, 13 * scale, rgba(223, 208, 169), new Size(52 * scale, 20 * scale), HorizontalTextAlignment.LEFT);
+    const levelWidth = 68 * scale;
+    const levelHeight = 26 * scale;
+    const levelInsetX = HERO_ROSTER_CARD_LEVEL_INSET_X * scale;
+    const levelInsetY = HERO_ROSTER_CARD_LEVEL_INSET_Y * scale;
+    const levelX = -width / 2 + levelInsetX + levelWidth / 2;
+    const levelY = height / 2 - levelInsetY - levelHeight / 2;
+    const levelPlate = this.host.addChildPlainNode(card, 'LobbyHeroRosterLevelPlate', levelX, levelY, levelWidth, levelHeight);
+    const levelGraphics = levelPlate.addComponent(Graphics);
+    levelGraphics.fillColor = rgba(12, 9, 6, 188);
+    this.traceSlantRect(levelGraphics, levelWidth, levelHeight, 6 * scale);
+    levelGraphics.fill();
+    levelGraphics.strokeColor = rgba(222, 178, 82, 122);
+    levelGraphics.lineWidth = Math.max(1, 1 * scale);
+    this.traceSlantRect(levelGraphics, levelWidth, levelHeight, 6 * scale);
+    levelGraphics.stroke();
+    const level = this.host.addChildLabel(levelPlate, 'LobbyHeroRosterLevelText', `Lv.${Math.max(1, hero.level)}`, 0, 0, 16 * scale, rgba(246, 225, 170), new Size(levelWidth - 10 * scale, levelHeight), HorizontalTextAlignment.CENTER);
     level.overflow = Label.Overflow.SHRINK;
+    this.applyOutline(level, scale, false);
   }
 
   private drawHeroReliefPortrait(parent: Node, hero: LobbyHeroItemVO, x: number, y: number, width: number, height: number, scale: number): void {
@@ -645,6 +763,20 @@ export class LobbyHeroRosterPanelRenderer {
     graphics.lineTo(left, bottom + corner);
     graphics.lineTo(left, top - corner);
     graphics.close();
+  }
+
+  private traceInfoPlateLowerFrame(graphics: Graphics, width: number, height: number, bevel: number): void {
+    const left = -width / 2;
+    const right = width / 2;
+    const top = height / 2;
+    const bottom = -height / 2;
+    const corner = Math.min(bevel, width * 0.2, height * 0.45);
+    graphics.moveTo(left, top - corner);
+    graphics.lineTo(left, bottom + corner);
+    graphics.lineTo(left + corner, bottom);
+    graphics.lineTo(right - corner, bottom);
+    graphics.lineTo(right, bottom + corner);
+    graphics.lineTo(right, top - corner);
   }
 
   private rarityTextColor(rarity: string): Color {

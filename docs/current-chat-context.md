@@ -1,6 +1,6 @@
 # LootChain Cocos 当前聊天窗口交接上下文
 
-更新时间：2026-06-03
+更新时间：2026-06-04
 
 本文用于其他 Codex 窗口快速接手当前阶段。先读本文件，再按 LootChain 规则读取服务端 `D:\project\LootChain` 下的 `README.md`、`AGENTS.md`、`AI_RULE.md`、`PROJECT_CONTEXT1.md`、`PROJECT_CONTEXT2.md`、`docs/`、`sql/`、`team-history/CURRENT_PROGRESS.md`。
 
@@ -3448,3 +3448,296 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-player-f
   - Cocos Creator 3.8.8 focused TypeScript no-emit 通过；
   - `npm.cmd run check:preview` 仍失败，运行中的 Cocos Preview 继续服务旧 chunks，缺少 `USE_HERO_ROSTER_EXTERNAL_PORTRAITS = false`、`LobbyHeroRosterHeroRelief`、`LobbyHeroRosterAbyssDust` 等本轮 token；需重启/刷新 Cocos Preview 后做视觉验收。
 - 边界不变：本阶段只调整 Cocos 英雄列表视觉与本地资源归档；不开放升级、升星、觉醒、装备、抽卡、领取、资源消耗、EX V1 或任何新增经济写入口。
+
+## 2026-06-04 Stage 4CH Current Phase Guard Recheck
+
+- 已按新窗口接手要求重新读取 `current-chat-context.md`、`README.md`、`lobby-feature-analysis.md`、`api-contract.md`。
+- Cocos 守卫复验：
+  - `npm.cmd run check:layout` 通过，输出 `layout ok`；
+  - `profiles/v2/packages/preview.json` 的 `general.start_scene` 仍固定为主场景 uuid `623f777a-eb33-4d74-ae88-eb79e749fcfe`；
+  - `assets/resources/spine` 下未发现 `.spine/.spine.meta` 源文件；
+  - Cocos Creator 3.8.8 自带 TypeScript 对项目 `tsconfig.json` 执行 no-emit 通过；
+  - 源码红线检索未发现新增 `/api/player/bag/use`、`/api/player/bag/batch-use`、`/api/player/bag/sell`、`/api/player/gacha/exchange`、`/api/player/gacha/reissue`、英雄养成写接口或 `gacha_pool_item` 修改入口。
+- Preview 状态：
+  - `http://localhost:7456/settings.js?scene=623f777a-eb33-4d74-ae88-eb79e749fcfe` 返回 200；
+  - `npm.cmd run check:preview` 仍失败，当前运行中的 Cocos Preview 服务继续返回旧 import-map/chunks；
+  - stale chunk 缺少统一返回标题、背包碎片聚合、英雄详情 Spine uuid/audio、Gacha 页内弹框和中心 Spine 布局等已在源码中存在的 token；
+  - 因 Preview stale，本轮无法可信完成登录页、大厅、召唤页、英雄详情 Spine、背包只读和 Gacha 弹框的可视点击验收；需要重启/刷新 Cocos Creator Preview，等待脚本重新编译和资源重新导入后再复跑 `npm.cmd run check:preview`。
+- 文档同步：
+  - `docs/api-contract.md` 中 2026-05-31 Stage 4P 的历史 `GachaApi.draw()` 本地阻断说明已标注为历史阶段约束；
+  - 当前口径以 2026-06-02 后已批准的既有 `POST /api/player/gacha/draw` 真实 draw 接入为准，但仍不开放 exchange/reissue、EX V1、背包 use/sell、英雄养成或新增经济写入口。
+- 边界不变：本轮只做检查与文档澄清；未修改 Cocos 代码、后端代码、SQL、抽卡概率、权重、保底、消耗、奖励、重复转碎片、`gacha_pool_item`、EX V1 或任何新增经济写入口。
+
+## 2026-06-04 Stage 4CI Hero Roster Top-Left Cards And UR Effect
+
+- 用户反馈：英雄卡牌位置应参考第二张图贴近顶部并向左靠齐；当前 SSR 与 UR 卡视觉差异不明显，UR 需要额外特效。
+- 已按“分多角色执行”拆分只读分析：
+  - 资源/UI 角色检查 `C:\Users\axian\Desktop\决胜之心3.8.99`，认为 `spine/ui/card_light` 最适合作为英雄卡 UR 特效，原因是它是卡框扫光/星点类循环效果，比获得特效或等级特效更贴合卡牌常驻展示；
+  - 开发/审查角色检查 `LobbyHeroRosterPanelRenderer.ts`，确认当前卡组仍按 body 居中公式排布，应改为 body 顶部左齐；UR 特效应只挂在卡牌视觉层，不新增交互或经济含义。
+- Cocos 实现：
+  - 英雄列表卡牌排布从 body 居中改为 `bodyLeft + cardInsetX + cardWidth / 2` 与 `bodyTop - cardInsetY - cardHeight / 2`，让卡墙贴近顶部并向左展开；
+  - 卡牌宽高改为显式 `224 / 406` 比例常量，避免后续视觉调参回退到魔法数；
+  - UR 卡额外渲染 `LobbyHeroRosterUrAura` 本地金色光晕兜底，并加载 `LobbyHeroRosterUrCardLightSpine`；
+  - SSR 保持暗红/血金卡底与静态氛围，UR 增加卡框扫光和金色粒子后与 SSR 形成更明显层级差异。
+- 资源接入：
+  - 源目录：`C:\Users\axian\Desktop\决胜之心3.8.99\spine\ui\card_light`；
+  - Cocos runtime 目录：`assets/resources/spine/ui/hero-roster/card_light/`；
+  - 仅复制运行时 `card_light.skel`、`card_light.atlas`、`card_light.png` 及 meta，不复制 `.spine` 源文件；
+  - `assets/resources/spine` 下仍不允许保留 `.spine/.spine.meta`。
+- 守卫同步：
+  - `scripts/check-layout.mjs` 增加 hero-roster `card_light` runtime/meta 存在性、atlas page 引用和英雄列表 top-left/UR token；
+  - `scripts/check-preview-freshness.mjs` 增加最新 hero roster 布局与 UR effect token，避免 Preview 旧 chunk 被误判为通过。
+- 复验结果：
+  - `npm.cmd run check:layout` 通过，输出 `layout ok`；
+  - Cocos Creator 3.8.8 自带 TypeScript 对项目 `tsconfig.json` 执行 no-emit 通过；
+  - `git diff --check` 通过，仅提示 Git 换行转换 warning；
+  - `assets/resources/spine` 下未发现 `.spine/.spine.meta` 源文件；
+  - `npm.cmd run check:preview` 仍失败，当前运行中的 Cocos Preview 继续服务旧 chunks，`LobbyHeroRosterPanelRenderer.ts` 旧包缺少 `bodyLeft + cardInsetX + cardWidth / 2`、`HERO_ROSTER_UR_CARD_LIGHT_RESOURCE`、`renderHeroCardUrEffect`、`LobbyHeroRosterUrAura`、`LobbyHeroRosterUrCardLightSpine` 等本轮 token。
+- Preview 复验要求：重启/刷新 Cocos Creator Preview，等待 `assets/resources/spine/ui/hero-roster/card_light/` 资源导入和脚本重新编译后，再检查英雄页卡牌顶部左齐、UR 扫光特效、SSR/UR 差异，以及登录页、大厅、召唤页、英雄详情 Spine、背包只读、Gacha 页内弹框。
+- 边界不变：本阶段只改 Cocos 英雄列表视觉、只读卡牌布局和本地运行时资源；不修改后端、SQL、`gacha_pool_item`、抽卡概率、权重、保底、消耗、奖励、重复转碎片，不开放 EX V1、exchange/reissue、背包 use/sell、英雄养成或新增经济写入口。
+
+## 2026-06-04 Stage 4CJ Hero Roster UR Border Effect Replacement
+
+- 用户反馈：Stage 4CI 的 `card_light` UR 特效形成竖向大光柱，不适合英雄卡；需要改成围绕当前卡牌边框的特效，同时左上 `Lv.1` 与右上角标不能再压住边框。
+- 多角色复查：
+  - 资源角色重新扫描 `C:\Users\axian\Desktop\决胜之心3.8.99`，确认 `spine/ui/goods_1` 比 `card_light` 更适合作为 UR 边框特效；它的 atlas 主要由四角高光、横竖边线和小星点构成，整屏光柱风险低；
+  - 开发审查角色确认重叠根因在 `LobbyHeroRosterLevel` 与 `LobbyHeroRosterClassBadge` 把 label/角标中心点贴近卡片边缘，实际外框会越界。
+- Cocos 实现：
+  - 已下线 `assets/resources/spine/ui/hero-roster/card_light/`，并禁止该旧全卡光柱资源回归；
+  - 已改用 `assets/resources/spine/ui/hero-roster/goods_1_border/goods_1.skel|atlas|png`；
+  - `LobbyHeroRosterPanelRenderer.ts` 的 UR 卡改为 `LobbyHeroRosterUrBorderAura` 本地细边框兜底 + `LobbyHeroRosterUrGoodsBorderSpine` Spine 边框层；
+  - UR 特效仍位于卡底之上、头像与文字之下，不覆盖名称、稀有度、星级或角标；
+  - `Lv.1` 改为 `levelWidth/levelHeight + inset` 计算中心点，右上角标改为 `badgeSize + inset` 计算中心点，避免左上/右上内容与卡牌边框重叠；
+  - 顶部状态胶囊增加 `topBarLeftReserve`，空间不足时不再挤到返回标题区域。
+- 守卫同步：
+  - `scripts/check-layout.mjs` 要求 `goods_1_border` runtime/meta 存在、atlas 引用 `goods_1.png`、旧 `card_light/frame` runtime 不得存在；
+  - `scripts/check-layout.mjs` 和 `scripts/check-preview-freshness.mjs` 均加入 UR 边框资源、角标内缩、等级内缩、顶部保留区 token。
+- 复验结果：
+  - `npm.cmd run check:layout` 通过，输出 `layout ok`；
+  - Cocos Creator 3.8.8 自带 TypeScript 对项目 `tsconfig.json` 执行 no-emit 通过；
+  - `git diff --check` 通过，仅提示 Git 换行转换 warning；
+  - `assets/resources/spine` 下未发现 `.spine/.spine.meta` 源文件。
+  - `npm.cmd run check:preview` 仍失败，当前运行中的 Cocos Preview 继续服务旧 chunks，`LobbyHeroRosterPanelRenderer.ts` 旧包缺少 `HERO_ROSTER_UR_BORDER_EFFECT_RESOURCE`、`spine/ui/hero-roster/goods_1_border/goods_1`、`LobbyHeroRosterUrBorderAura`、`renderUrGoodsBorderSpine`、`LobbyHeroRosterUrGoodsBorderSpine`、等级/角标内缩和 `topBarLeftReserve` 等本轮 token。
+- Preview 复验要求：重启/刷新 Cocos Creator Preview，等待 `assets/resources/spine/ui/hero-roster/goods_1_border/` 导入和脚本重新编译后，再检查英雄页 UR 边框光效、左上等级/右上角标边距、顶部胶囊不压返回标题，以及登录页、大厅、召唤页、英雄详情 Spine、背包只读、Gacha 页内弹框。
+- 边界不变：本阶段只改 Cocos 英雄列表视觉、只读布局和本地 Spine runtime 资源；不修改后端、SQL、`gacha_pool_item`、抽卡概率、权重、保底、消耗、奖励、重复转碎片，不开放 EX V1、exchange/reissue、背包 use/sell、英雄养成或新增经济写入口。
+
+## 2026-06-04 Stage 4CK Hero Roster UR Border Alignment And Top Text Readability
+
+- 用户反馈：`goods_1_border` 特效仍需要和卡牌边框对齐；上方 `Lv.1`/角标文字太小且直接压在卡框纹路上，不清晰。
+- Cocos 调整：
+  - `LobbyHeroRosterUrBorderAura` 不再画外扩大框，改用 `HERO_ROSTER_UR_BORDER_INSET_X/Y` 计算内收后的 `borderWidth/borderHeight`，金线贴近卡牌实际框线；
+  - 第二圈 UR 线从外扩改为内收细线，降低和背景/邻卡冲突；
+  - `LobbyHeroRosterUrGoodsBorderSpine` 缩放按 `width - 18`、`height - 22` 计算，避免 Spine 边框光压到卡牌外侧；
+  - `LobbyHeroRosterLevel` 改为 `LobbyHeroRosterLevelPlate + LobbyHeroRosterLevelText`，增加暗色底板、金色描边和更大字号，避免文字直接叠在卡框花纹上；
+  - 右上 `LobbyHeroRosterClassBadge` 从 `30 * scale` 放大到 `36 * scale`，并通过更大的 top inset 下移，避免和卡牌右上边框纹理重叠。
+- 守卫同步：
+  - `scripts/check-layout.mjs` 和 `scripts/check-preview-freshness.mjs` 增加 `HERO_ROSTER_UR_BORDER_INSET_X/Y`、`borderWidth`、`LobbyHeroRosterLevelPlate`、`LobbyHeroRosterLevelText`、`badgeSize = 36 * scale` 等 token。
+- 复验结果：
+  - `npm.cmd run check:layout` 通过，输出 `layout ok`；
+  - Cocos Creator 3.8.8 自带 TypeScript 对项目 `tsconfig.json` 执行 no-emit 通过。
+  - `git diff --check` 通过，仅提示 Git 换行转换 warning；
+  - `assets/resources/spine` 下未发现 `.spine/.spine.meta` 源文件；
+  - `npm.cmd run check:preview` 仍失败，当前运行中的 Cocos Preview 继续服务旧 chunks，`LobbyHeroRosterPanelRenderer.ts` 旧包缺少 `HERO_ROSTER_UR_BORDER_INSET_X`、`borderWidth`、`LobbyHeroRosterLevelPlate`、`LobbyHeroRosterLevelText`、`badgeSize = 36 * scale` 等本轮 token。
+- Preview 复验要求：重启/刷新 Cocos Creator Preview，等待脚本重新编译后，重点检查 UR 边框是否贴合卡框、顶部等级暗底标签是否清晰、右上角标是否避开边框纹路。
+- 边界不变：本阶段只调整 Cocos 英雄列表视觉、只读布局和本地 Spine runtime 对齐；不修改后端、SQL、`gacha_pool_item`、抽卡概率、权重、保底、消耗、奖励、重复转碎片，不开放 EX V1、exchange/reissue、背包 use/sell、英雄养成或新增经济写入口。
+
+## 2026-06-04 Stage 4CL Hero Roster Larger Cards And Border Outset
+
+- 用户反馈：英雄卡牌还需要更大，UR 边框特效还需要向外一些。
+- Cocos 调整：
+  - 英雄卡桌面目标高度从约 `372 * scale` 提升为 `HERO_ROSTER_CARD_DESKTOP_TARGET_HEIGHT = 420`，桌面上限提升为 `HERO_ROSTER_CARD_DESKTOP_MAX_HEIGHT = 440`；
+  - 横向/小屏卡牌目标高度提升为 `HERO_ROSTER_CARD_COMPACT_TARGET_HEIGHT = 278`，上限为 `HERO_ROSTER_CARD_COMPACT_MAX_HEIGHT = 306`；
+  - 卡牌间距略收为桌面 `22 * scale`、横向 `12 * scale`，给放大后的卡牌留出横向空间；
+  - UR 边框从内收改为轻微外扩：`HERO_ROSTER_UR_BORDER_OUTSET_X = 4`、`HERO_ROSTER_UR_BORDER_OUTSET_Y = 5`，`borderWidth/borderHeight` 使用 `width + borderOutset * 2`；
+  - `LobbyHeroRosterUrGoodsBorderSpine` 的缩放改按 `width + 12`、`height + 14` 计算，让外部边框特效更靠近卡框外沿；
+  - 顶部等级牌和右上角标随卡牌放大再增强：等级牌 `68x26`、字号 `16 * scale`，角标 `38 * scale`、字号 `15 * scale`。
+- 守卫同步：
+  - `scripts/check-layout.mjs` 和 `scripts/check-preview-freshness.mjs` 增加卡牌目标/上限高度、UR border outset、`borderWidth = width + borderOutsetX * 2`、`badgeSize = 38 * scale` 等 token。
+- 复验结果：
+  - `npm.cmd run check:layout` 通过，输出 `layout ok`；
+  - Cocos Creator 3.8.8 自带 TypeScript 对项目 `tsconfig.json` 执行 no-emit 通过。
+- 边界不变：本阶段只调整 Cocos 英雄列表视觉尺寸和只读边框特效位置；不修改后端、SQL、`gacha_pool_item`、抽卡概率、权重、保底、消耗、奖励、重复转碎片，不开放 EX V1、exchange/reissue、背包 use/sell、英雄养成或新增经济写入口。
+
+## 2026-06-04 Stage 4CM Hero Roster Larger Card Final Verification
+
+- Scope: final verification for the larger hero cards and outward UR border effect requested after Stage 4CL.
+- Verification:
+  - `npm.cmd run check:layout` passed with `layout ok`;
+  - Cocos Creator 3.8.8 bundled TypeScript no-emit passed for project `tsconfig.json`;
+  - `git diff --check` passed with only Git line-ending conversion warnings;
+  - `assets/resources/spine` contains `0` `.spine/.spine.meta` source files;
+  - `assets/resources/spine/ui/hero-roster/goods_1_border/` contains only runtime `goods_1.skel`, `goods_1.atlas`, `goods_1.png`, and their `.meta` files.
+- Preview status:
+  - `profiles/v2/packages/preview.json` still pins `general.start_scene` to `623f777a-eb33-4d74-ae88-eb79e749fcfe`;
+  - `npm.cmd run check:preview` still fails because the running Cocos Preview service is serving stale chunks;
+  - the stale `LobbyHeroRosterPanelRenderer.ts` chunk is missing the new `HERO_ROSTER_CARD_DESKTOP_TARGET_HEIGHT`, `HERO_ROSTER_CARD_DESKTOP_MAX_HEIGHT`, `HERO_ROSTER_UR_BORDER_OUTSET_X`, `borderWidth = width + borderOutsetX * 2`, and `badgeSize = 38 * scale` tokens.
+- Next visual acceptance step: restart/refresh Cocos Creator Preview and wait for scripts/resources to recompile, then verify the hero roster card size, UR border outset, top label readability, login page, lobby, gacha page, hero detail Spine, readonly bag, and Gacha in-page dialogs.
+- Boundary unchanged: Cocos frontend visual/layout verification only. No backend, SQL, probability, weight, pity, cost, reward, duplicate conversion, `gacha_pool_item`, EX V1, exchange/reissue, bag write, hero growth, or new economy write entry changed.
+
+## 2026-06-04 Stage 4CN Hero Roster Larger Cards And Vertical Border Outset
+
+- 用户反馈：卡牌边框特效上下位置还需要向外扩一下，卡牌再大一些。
+- Cocos 调整：
+  - 英雄卡桌面目标高度从 `420 * scale` 提升为 `452 * scale`，桌面上限从 `440 * scale` 提升为 `474 * scale`；
+  - 横向/小屏卡牌目标高度从 `278 * scale` 提升为 `298 * scale`，上限从 `306 * scale` 提升为 `328 * scale`；
+  - UR 边框横向外扩保持 `HERO_ROSTER_UR_BORDER_OUTSET_X = 4`，上下外扩从 `HERO_ROSTER_UR_BORDER_OUTSET_Y = 5` 提升为 `10`；
+  - `LobbyHeroRosterUrGoodsBorderSpine` 横向仍按 `width + 12` 缩放，纵向改按 `height + 30` 缩放，让上下边框特效更外扩，左右不继续扩散。
+- 守卫同步：
+  - `scripts/check-layout.mjs` 和 `scripts/check-preview-freshness.mjs` 改为检查精确常量 `452 / 474 / 298 / 328`、`HERO_ROSTER_UR_BORDER_OUTSET_Y = 10` 和 `clamp((height + 30) / 120`；
+  - `npm.cmd run check:layout` 已通过，输出 `layout ok`。
+- 复验结果：
+  - Cocos Creator 3.8.8 自带 TypeScript 对项目 `tsconfig.json` 执行 no-emit 通过；
+  - `git diff --check` 通过，仅有 Git 换行转换 warning；
+  - `assets/resources/spine` 下 `.spine/.spine.meta` 源文件数量为 `0`。
+- Preview 状态：
+  - `npm.cmd run check:preview` 仍失败，当前运行中的 Cocos Preview 继续服务旧 chunks；
+  - `LobbyHeroRosterPanelRenderer.ts` 旧包缺少 `452 / 474 / 298 / 328`、`HERO_ROSTER_UR_BORDER_OUTSET_Y = 10` 和 `clamp((height + 30) / 120` 等本轮 token。
+- 待复验：仍需重启/刷新 Cocos Creator Preview，等待脚本和 `goods_1_border` 资源重新服务后，视觉确认卡牌更大、UR 上下边框特效外扩、顶部文字不压框。
+- 边界不变：本阶段只调整 Cocos 英雄列表视觉尺寸和只读边框特效位置；不修改后端、SQL、`gacha_pool_item`、抽卡概率、权重、保底、消耗、奖励、重复转碎片，不开放 EX V1、exchange/reissue、背包 use/sell、英雄养成或新增经济写入口。
+
+## 2026-06-04 Stage 4CO Hero Roster UR Border Horizontal De-overlap
+
+- 用户反馈：UR 边框特效和背景线重叠，需要调整。
+- Cocos 调整：
+  - UR 横向边框外扩从 `HERO_ROSTER_UR_BORDER_OUTSET_X = 4` 收回到 `0`，让左右边线贴回卡框，避免压到背景竖线或相邻卡间距；
+  - UR 上下外扩保持 `HERO_ROSTER_UR_BORDER_OUTSET_Y = 10`，不回退上一轮“上下更外扩”的要求；
+  - `LobbyHeroRosterUrGoodsBorderSpine` 横向缩放从 `width + 12` 收到 `width + 2`，纵向仍保持 `height + 30`。
+- 守卫同步：
+  - `scripts/check-layout.mjs` 和 `scripts/check-preview-freshness.mjs` 要求 `HERO_ROSTER_UR_BORDER_OUTSET_X = 0`、`HERO_ROSTER_UR_BORDER_OUTSET_Y = 10`、`clamp((width + 2) / 120`、`clamp((height + 30) / 120`。
+- 复验结果：
+  - `npm.cmd run check:layout` 通过，输出 `layout ok`；
+  - Cocos Creator 3.8.8 自带 TypeScript 对项目 `tsconfig.json` 执行 no-emit 通过；
+  - `git diff --check` 通过，仅有 Git 换行转换 warning；
+  - `assets/resources/spine` 下 `.spine/.spine.meta` 源文件数量为 `0`。
+- Preview 状态：
+  - `npm.cmd run check:preview` 仍失败，当前运行中的 Cocos Preview 继续服务旧 chunks；
+  - `LobbyHeroRosterPanelRenderer.ts` 旧包缺少 `HERO_ROSTER_UR_BORDER_OUTSET_X = 0`、`clamp((width + 2) / 120`、`clamp((height + 30) / 120` 和当前卡牌尺寸 token。
+- 待复验：重启/刷新 Cocos Creator Preview 后检查 UR 左右边框不再和背景竖线重叠，同时确认上下边框仍有外扩感。
+- 边界不变：本阶段只调整 Cocos 英雄列表 UR 边框视觉位置；不修改后端、SQL、`gacha_pool_item`、抽卡概率、权重、保底、消耗、奖励、重复转碎片，不开放 EX V1、exchange/reissue、背包 use/sell、英雄养成或新增经济写入口。
+
+## 2026-06-04 Stage 4CP Hero Roster Rarity Label Line Fix
+
+- 用户纠正：恢复上一轮 UR 横向收回调整；UR 看起来多了一个框。实际问题是卡牌下方 `SSR/UR` 字体背后的信息牌边框线。
+- Cocos 调整：
+  - 恢复 UR 横向边框外扩为 `HERO_ROSTER_UR_BORDER_OUTSET_X = 4`；
+  - 恢复 `LobbyHeroRosterUrGoodsBorderSpine` 横向缩放为 `width + 12`，纵向继续保持 `height + 30`；
+  - 新增 `HERO_ROSTER_CARD_RARITY_Y_RATIO = 0.218`，让底部稀有度文字略微下移，避开信息牌上沿；
+  - 新增 `HERO_ROSTER_CARD_INFO_ACCENT_GAP_RATIO = 0.48`，将信息牌顶部装饰线拆成左右两段，中间避开 `SSR/UR` 文本区域。
+- 守卫同步：
+  - `scripts/check-layout.mjs` 和 `scripts/check-preview-freshness.mjs` 要求恢复后的 `HERO_ROSTER_UR_BORDER_OUTSET_X = 4`、`clamp((width + 12) / 120`，并新增底部稀有度文字位置和信息牌中线留空 token；
+  - `npm.cmd run check:layout` 已通过，输出 `layout ok`。
+- 复验结果：
+  - Cocos Creator 3.8.8 自带 TypeScript 对项目 `tsconfig.json` 执行 no-emit 通过；
+  - `git diff --check` 通过，仅有 Git 换行转换 warning；
+  - `assets/resources/spine` 下 `.spine/.spine.meta` 源文件数量为 `0`。
+- Preview 状态：
+  - `npm.cmd run check:preview` 仍失败，当前运行中的 Cocos Preview 继续服务旧 chunks；
+  - `LobbyHeroRosterPanelRenderer.ts` 旧包缺少恢复后的 `HERO_ROSTER_UR_BORDER_OUTSET_X = 4`、`clamp((width + 12) / 120`，以及 `HERO_ROSTER_CARD_RARITY_Y_RATIO = 0.218`、`HERO_ROSTER_CARD_INFO_ACCENT_GAP_RATIO = 0.48` 等本轮 token。
+- 待复验：重启/刷新 Cocos Creator Preview 后检查 UR 不再出现额外框感，同时确认底部 `SSR/UR` 字体背后不再有横线穿过。
+- 边界不变：本阶段只调整 Cocos 英雄列表底部信息牌和 UR 视觉位置；不修改后端、SQL、`gacha_pool_item`、抽卡概率、权重、保底、消耗、奖励、重复转碎片，不开放 EX V1、exchange/reissue、背包 use/sell、英雄养成或新增经济写入口。
+
+## 2026-06-04 Stage 4CQ Hero Roster UR Extra Outer Frame Removal
+
+- 用户反馈：UR 的框外层多了一层边框，需要去掉。
+- Cocos 调整：
+  - 删除 `drawUrBorderAura()` 调用和函数；
+  - 删除活跃渲染器中的 `LobbyHeroRosterUrBorderAura` 本地节点路径；
+  - 删除活跃渲染器中的 `HERO_ROSTER_UR_BORDER_OUTSET_X/Y` 本地 Aura 外框常量；
+  - UR 差异现在只依赖 `LobbyHeroRosterUrGoodsBorderSpine` 加载的 `goods_1_border` Spine 边框层，仍按 `width + 12`、`height + 30` 缩放；
+  - Stage 4CP 的底部 `SSR/UR` 信息牌中线留空修复继续保留。
+- 守卫同步：
+  - `scripts/check-layout.mjs` 不再要求 Aura token，改为禁止 `drawUrBorderAura`、`LobbyHeroRosterUrBorderAura`、`HERO_ROSTER_UR_BORDER_OUTSET_X/Y`、`borderWidth = width + borderOutsetX * 2` 和本地 Aura 斜角框 token；
+  - `scripts/check-preview-freshness.mjs` 不再把 Aura token 当作 Preview 新鲜度要求，只检查当前 Spine 边框和信息牌 token。
+- 复验结果：
+  - `npm.cmd run check:layout` 通过，输出 `layout ok`；
+  - Cocos Creator 3.8.8 自带 TypeScript 对项目 `tsconfig.json` 执行 no-emit 通过；
+  - `git diff --check` 通过，仅有 Git 换行转换 warning；
+  - `assets/resources/spine` 下 `.spine/.spine.meta` 源文件数量为 `0`。
+- Preview 状态：
+  - `npm.cmd run check:preview` 仍失败，当前运行中的 Cocos Preview 继续服务旧 chunks；
+  - 需要重启/刷新 Cocos Creator Preview 后，才能确认旧 `LobbyHeroRosterUrBorderAura` 外层框已从运行时移除。
+- 边界不变：本阶段只调整 Cocos 英雄列表 UR 视觉层级；不修改后端、SQL、`gacha_pool_item`、抽卡概率、权重、保底、消耗、奖励、重复转碎片，不开放 EX V1、exchange/reissue、背包 use/sell、英雄养成或新增经济写入口。
+
+## 2026-06-04 Stage 4CR Hero Roster Rarity Label Top Line Removal
+
+- 用户反馈：卡牌下方 `SSR/UR` 字体背后仍有边框线，希望去掉。
+- Cocos 调整：
+  - 删除信息牌顶部装饰线，不再使用 `HERO_ROSTER_CARD_INFO_ACCENT_GAP_RATIO`、`rarityLineGap`、`accentY`；
+  - 信息牌描边从完整 `traceSlantRect` 改为 `traceInfoPlateLowerFrame`，只画左右边和底边，不画靠近 `SSR/UR` 字体的顶部线；
+  - 保留 `HERO_ROSTER_CARD_RARITY_Y_RATIO = 0.218`，稀有度文字位置不回退；
+  - UR 仍只保留 `goods_1_border` Spine 边框特效，不恢复本地 Aura 外框。
+- 守卫同步：
+  - `scripts/check-layout.mjs` 和 `scripts/check-preview-freshness.mjs` 要求 `traceInfoPlateLowerFrame` 和 `this.traceInfoPlateLowerFrame(graphics, plateWidth, plateHeight, 8 * scale)`；
+  - `scripts/check-layout.mjs` 禁止旧的 `HERO_ROSTER_CARD_INFO_ACCENT_GAP_RATIO`、`rarityLineGap`、`accentY = plateHeight / 2`、`graphics.moveTo(rarityLineGap / 2` token 回归。
+- 复验结果：
+  - `npm.cmd run check:layout` 通过，输出 `layout ok`；
+  - Cocos Creator 3.8.8 自带 TypeScript 对项目 `tsconfig.json` 执行 no-emit 通过；
+  - `git diff --check` 通过，仅有 Git 换行转换 warning；
+  - `assets/resources/spine` 下 `.spine/.spine.meta` 源文件数量为 `0`。
+- Preview 状态：
+  - `npm.cmd run check:preview` 仍失败，当前运行中的 Cocos Preview 继续服务旧 chunks；
+  - `LobbyHeroRosterPanelRenderer.ts` 旧包缺少 `traceInfoPlateLowerFrame` 和 `this.traceInfoPlateLowerFrame(graphics, plateWidth, plateHeight, 8 * scale)` 等本轮 token。
+- 待复验：重启/刷新 Cocos Creator Preview 后确认 `SSR/UR` 字体背后不再有横向边框线，同时确认信息牌侧边/底边仍保留。
+- 边界不变：本阶段只调整 Cocos 英雄列表底部信息牌视觉；不修改后端、SQL、`gacha_pool_item`、抽卡概率、权重、保底、消耗、奖励、重复转碎片，不开放 EX V1、exchange/reissue、背包 use/sell、英雄养成或新增经济写入口。
+
+## 2026-06-04 Stage 4CS Hero Roster Rarity Label Baked Line Cover
+
+- 用户反馈：`SSR/UR` 字体背后仍有一条线，上一轮删错了。
+- 结论：上一轮删掉的是代码绘制的顶部线；当前截图中剩余的线主要来自 `card_ssr/card_ur` 卡牌底图自带的底栏上沿线，以及旧的内部小一圈透明染色块边界透出。
+- Cocos 调整：
+  - 新增 `HERO_ROSTER_CARD_INFO_PLATE_BASE_ALPHA = 238`，提高信息牌底色覆盖，遮住卡牌底图自带横线；
+  - 新增 `HERO_ROSTER_CARD_INFO_PLATE_TINT_ALPHA = 46`，稀有度染色改为整块信息牌染色；
+  - 删除旧的内部小框染色路径，不再使用 `plateWidth - 8 * scale` / `plateHeight - 8 * scale`，避免在 `SSR/UR` 背后形成新的水平分界；
+  - 保留 `traceInfoPlateLowerFrame`，信息牌仍只画左右边和底边。
+- 守卫同步：
+  - `scripts/check-layout.mjs` 和 `scripts/check-preview-freshness.mjs` 要求两个信息牌 alpha token；
+  - `scripts/check-layout.mjs` 禁止旧的内部小框染色 token `plateWidth - 8 * scale`、`plateHeight - 8 * scale` 回归。
+- 复验结果：
+  - `npm.cmd run check:layout` 通过，输出 `layout ok`；
+  - Cocos Creator 3.8.8 自带 TypeScript 对项目 `tsconfig.json` 执行 no-emit 通过；
+  - `git diff --check` 通过，仅有 Git 换行转换 warning；
+  - `assets/resources/spine` 下 `.spine/.spine.meta` 源文件数量为 `0`。
+- Preview 状态：
+  - `npm.cmd run check:preview` 仍失败，当前运行中的 Cocos Preview 继续服务旧 chunks；
+  - `LobbyHeroRosterPanelRenderer.ts` 旧包缺少 `HERO_ROSTER_CARD_INFO_PLATE_BASE_ALPHA = 238`、`HERO_ROSTER_CARD_INFO_PLATE_TINT_ALPHA = 46` 等本轮 token。
+- 待复验：重启/刷新 Cocos Creator Preview 后确认 `SSR/UR` 字体背后不再透出卡牌底图横线，且信息牌侧边/底边仍保留。
+- 边界不变：本阶段只调整 Cocos 英雄列表底部信息牌视觉覆盖；不修改后端、SQL、`gacha_pool_item`、抽卡概率、权重、保底、消耗、奖励、重复转碎片，不开放 EX V1、exchange/reissue、背包 use/sell、英雄养成或新增经济写入口。
+
+## 2026-06-04 Stage 4CT Hero Roster Rarity Label Opaque Cover
+
+- 用户反馈：`SSR/UR` 字体背后的线仍能看到，只是没那么明显；上一轮是透明化压淡，不是直接移除。
+- Cocos 调整：
+  - `HERO_ROSTER_CARD_INFO_PLATE_BASE_ALPHA` 从 `238` 调整为 `255`；
+  - 底部信息牌底色改为完全不透明覆盖，直接盖住卡牌底图自带的横线，而不是让其半透明透出；
+  - `HERO_ROSTER_CARD_INFO_PLATE_TINT_ALPHA = 46`、`traceInfoPlateLowerFrame` 侧边/底边描线和 UR Spine 边框特效保持不变。
+- 守卫同步：
+  - `scripts/check-layout.mjs` 和 `scripts/check-preview-freshness.mjs` 要求 `HERO_ROSTER_CARD_INFO_PLATE_BASE_ALPHA = 255`；
+  - 继续禁止旧的内部小框染色 token `plateWidth - 8 * scale`、`plateHeight - 8 * scale` 回归。
+- 待复验：重启/刷新 Cocos Creator Preview 后确认 `SSR/UR` 字体背后的底图横线被完全覆盖，而不是仅变淡。
+- 边界不变：本阶段只调整 Cocos 英雄列表底部信息牌视觉覆盖；不修改后端、SQL、`gacha_pool_item`、抽卡概率、权重、保底、消耗、奖励、重复转碎片，不开放 EX V1、exchange/reissue、背包 use/sell、英雄养成或新增经济写入口。
+
+## 2026-06-04 Stage 4CU Hero Roster Rarity Border Spine Mapping
+
+- 用户要求：不同稀有度边框特效使用 `goods_1` 里的不同骨骼动画，`R=K3`、`SR=K4`、`SSR=K5`、`UR=K7`。
+- 资源复核：
+  - 当前运行时资源仍为 `assets/resources/spine/ui/hero-roster/goods_1_border/goods_1.skel|atlas|png`；
+  - `goods_1.skel` 中实际动画名为小写 `k3/k4/k5/k7`，代码保留用户指定的 `K3/K4/K5/K7` 映射，并用大小写不敏感匹配解析实际动画名。
+- Cocos 调整：
+  - `LobbyHeroRosterPanelRenderer.ts` 将原 UR-only 边框特效改为全稀有度 `renderHeroCardBorderEffect`；
+  - 新增 `HERO_ROSTER_BORDER_ANIMATION_BY_RARITY`，按 `R/SR/SSR/UR` 分别映射 `K3/K4/K5/K7`；
+  - 所有受支持稀有度卡牌统一加载 `HERO_ROSTER_BORDER_EFFECT_RESOURCE = 'spine/ui/hero-roster/goods_1_border/goods_1'`；
+  - 节点名改为 `LobbyHeroRosterRarityGoodsBorderSpine_${rarity}`，避免继续表达成 UR 专属；
+  - 旧 `renderHeroCardUrEffect`、`renderUrGoodsBorderSpine`、`resolveUrEffectAnimationName`、`urBorderEffect*` 命名已从活动渲染器移除。
+- 守卫同步：
+  - `scripts/check-layout.mjs` 和 `scripts/check-preview-freshness.mjs` 要求全稀有度映射 token、`goods_1_border` 路径、大小写不敏感动画解析 token；
+  - `scripts/check-layout.mjs` 禁止旧 UR-only 边框特效 token 回归。
+- 复验结果：
+  - `npm.cmd run check:layout` 通过，输出 `layout ok`；
+  - Cocos Creator 3.8.8 自带 TypeScript 对项目 `tsconfig.json` 执行 no-emit 通过；
+  - `git diff --check` 通过，仅有 Git 换行转换 warning；
+  - `assets/resources/spine` 下 `.spine/.spine.meta` 源文件数量为 `0`。
+- Preview 状态：
+  - `npm.cmd run check:preview` 仍失败，当前运行中的 Cocos Preview 继续服务旧 chunks；
+  - `LobbyHeroRosterPanelRenderer.ts` 旧包缺少 `HERO_ROSTER_BORDER_EFFECT_RESOURCE`、`HERO_ROSTER_BORDER_ANIMATION_BY_RARITY`、`R: 'K3'`、`SR: 'K4'`、`SSR: 'K5'`、`UR: 'K7'`、`renderHeroCardBorderEffect`、`renderRarityGoodsBorderSpine`、`LobbyHeroRosterRarityGoodsBorderSpine_${rarity}`、`resolveRarityBorderAnimationName` 等本轮 token。
+- 待复验：重启/刷新 Cocos Creator Preview 后确认 R/SR/SSR/UR 卡牌分别播放 `goods_1` 对应边框动画，且底部稀有度文字背后的不透明信息牌仍正常覆盖底图横线。
+- 边界不变：本阶段只调整 Cocos 英雄列表只读视觉特效映射；不修改后端、SQL、`gacha_pool_item`、抽卡概率、权重、保底、消耗、奖励、重复转碎片，不开放 EX V1、exchange/reissue、背包 use/sell、英雄养成或新增经济写入口。
