@@ -23,6 +23,7 @@
 - `GET /api/player/lobby/notices`，只用于大厅公告/活动面板只读展示，读取已发布且处于有效期内的公告配置，不领取奖励、不改变玩家状态、不写入经济数据。
 - `GET /api/player/lobby/codex`，只用于大厅英雄图鉴面板只读展示，后端会过滤 EX/锁定内容，前端不提供升级、升星、觉醒、精炼、获取、领奖或任何经济写入口。
 - `GET /api/player/lobby/heroes`，只用于大厅英雄队列只读展示，后端会把 `source_type=PROTAGONIST` 主角置顶并过滤 EX，前端不提供升级、升星、觉醒、精炼、抽卡、领取或任何经济写入口。
+- `GET /api/player/lobby/heroes/filter-options`，只用于大厅英雄队列职业筛选项，优先读取 `sys_param_config.param_key='hero.class.options'` 的职业配置，不写库、不改变英雄或经济状态。
 
 本文件后续列出的抽卡、英雄、背包接口只是后端已存在的玩家侧契约，不代表当前 UI 可以开放。当前 Cocos 流程在 dev-login 成功后先检查/创建主角色，再进入资源加载进度页，并在大厅资源准备完成后展示大厅背景与只读玩家信息。
 
@@ -111,6 +112,8 @@
         "heroCode": "PROTAGONIST_MALE_ATTACK",
         "heroName": "圣契1",
         "rarity": "SSR",
+        "faction": "深渊议会",
+        "heroClass": "战士",
         "level": 1,
         "star": 1,
         "power": 8300,
@@ -131,6 +134,24 @@
 - EX 稀有度和 `EX_` 英雄编码会在后端和前端双重过滤。
 - `portraitAsset`、`spineAsset`、`spineUuid` 仅用于 Cocos 英雄详情资源展示；`spineUuid` 对应 Cocos `sp.SkeletonData` 资源 uuid，前端优先按 uuid 加载，失败时才按 `assets/resources/spine/hero/{spineAsset}/{spineAsset}` 路径兜底。
 - 这些展示字段不代表获取来源、概率、奖励、消耗、碎片转换或任何经济语义。
+
+### 大厅英雄职业筛选项
+
+- `GET /api/player/lobby/heroes/filter-options`
+  - response data:
+    ```json
+    {
+      "heroClasses": ["战士", "辅助", "刺客", "法师", "射手", "坦克"]
+    }
+    ```
+
+约束：
+- 该接口优先读取 `sys_param_config.param_key='hero.class.options'`，`param_value` 使用逗号/分号/换行分隔职业名。
+- `heroClasses` 仅用于 Cocos 英雄队列左侧职业筛选项。
+- Cocos 左侧按钮显示该接口返回的职业文本，但内部过滤使用规范化职业 key 匹配 `GET /api/player/lobby/heroes` 的 `heroClass`；该规范化只用于只读展示去重、选中态和筛选，不写库、不修改英雄模板。
+- 当前运行中的旧本地后端如果尚未开放本接口，或 `GET /api/player/lobby/heroes` 暂时返回 `heroClass: null`，Cocos 会对已知 V1 `heroCode` 使用只读职业兜底映射；后端返回真实 `heroClass` 时始终优先使用后端字段。
+- 当配置缺失或为空时，后端才回退读取启用模板 `hero_template.hero_class where status=1` 并合并默认六职业；查询失败时只返回默认六职业展示兜底：`战士 / 辅助 / 刺客 / 法师 / 射手 / 坦克`。
+- 该兜底不会插入或修改数据库行，不改变英雄、抽卡、经济或奖励语义。
 
 ## 大厅冒险主线只读壳
 
@@ -240,7 +261,7 @@
 ## 当前缺口
 
 - 正式注册/登录/邮箱登录/钱包登录未实现。
-- 除主角色初始化、`GET /api/player/me/lobby` 只读大厅资料、`GET /api/player/lobby/notices` 只读公告、`GET /api/player/lobby/codex` 只读图鉴、`GET /api/player/lobby/heroes` 只读英雄队列、`GET /api/player/lobby/adventure` 只读冒险壳、`POST /api/player/battles/start` 战斗会话和 `POST /api/player/battles/{battleNo}/settle` 无奖励记录结算外，玩家 `/me` 总览、货币总览等更大接口仍未实现。
+- 除主角色初始化、`GET /api/player/me/lobby` 只读大厅资料、`GET /api/player/lobby/notices` 只读公告、`GET /api/player/lobby/codex` 只读图鉴、`GET /api/player/lobby/heroes` 只读英雄队列、`GET /api/player/lobby/heroes/filter-options` 只读英雄职业筛选项、`GET /api/player/lobby/adventure` 只读冒险壳、`POST /api/player/battles/start` 战斗会话和 `POST /api/player/battles/{battleNo}/settle` 无奖励记录结算外，玩家 `/me` 总览、货币总览等更大接口仍未实现。
 - 队伍保存、副本、Boss 玩家侧接口未实现；战斗启动/结算当前只用于无奖励 battle session 闭环，不扣体力、不写主线进度、不发放奖励。
 - Cocos 本地预览跨域需要后端 CORS 或同源代理支持。
 
@@ -444,3 +465,17 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-battle-s
 ```
 
 This is a defensive battle-start guard only. It does not open rewards, stamina cost, mainline progress write, saved formation, bag/currency, USDT, fund-pool, EX V1, or any economy write route.
+
+### 2026-06-05 Lobby hero class fields
+
+- `GET /api/player/lobby/heroes` now includes display-only `faction` and `heroClass`.
+- These fields come from `hero_template.faction` and `hero_template.hero_class`.
+- Cocos uses `heroClass` for the hero roster class filter and one-character card badge. Missing `heroClass` heroes stay visible in `全部` only.
+- The client must not implement class filtering by calling hero detail for every card, and must not add any hero growth, gacha, reward, bag, or economy write path for this filter.
+
+### 2026-06-05 Cocos summon visibility and real-draw gate
+
+- Cocos hides the light/dark display pool by filtering `poolCode=SEALED_LIGHT_DARK`, `displayType=LOCKED`, or `themeColor=locked`.
+- Cocos enables summon buttons only for pools returned by the backend with `drawEnabled=true`, `previewOnly=false`, and `locked=false`; the actual draw still goes only through the existing `POST /api/player/gacha/draw`.
+- Preview-only pools such as a limited preview must not be treated as real active pools by the client. A limited pool becomes drawable only when backend data exposes it as a real active pool under the same guard.
+- This does not add exchange/reissue, does not change `gacha_pool_item`, and does not change probability, weight, pity, cost, reward, or duplicate conversion rules.

@@ -4,6 +4,8 @@ export interface LobbyHeroItemVO {
   heroCode: string;
   heroName: string;
   rarity: string;
+  faction?: string | null;
+  heroClass?: string | null;
   level: number;
   star: number;
   power: number;
@@ -16,10 +18,15 @@ export interface LobbyHeroItemVO {
   formLabel?: string | null;
 }
 
+export interface LobbyHeroFilterOptionsVO {
+  heroClasses: string[];
+}
+
 /** 英雄队列面板渲染所需的本地状态快照。 */
 export interface LobbyHeroRosterPanelState {
   loading: boolean;
   loaded: boolean;
   error: string;
   heroes: LobbyHeroItemVO[];
+  heroClassOptions: string[];
 }

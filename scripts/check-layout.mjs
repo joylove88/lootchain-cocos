@@ -972,7 +972,7 @@ const lobbyReadonlyApiAllowlist = new Map([
   [profileApiPath, new Set(['/api/player/me/lobby'])],
   [lobbyAdventureApiPath, new Set(['/api/player/lobby/adventure'])],
   [lobbyCodexApiPath, new Set(['/api/player/lobby/codex'])],
-  [lobbyHeroApiPath, new Set(['/api/player/lobby/heroes'])],
+  [lobbyHeroApiPath, new Set(['/api/player/lobby/heroes', '/api/player/lobby/heroes/filter-options'])],
   [lobbyNoticeApiPath, new Set(['/api/player/lobby/notices'])],
 ]);
 
@@ -1259,8 +1259,21 @@ for (const token of [
 
 for (const token of [
   'export class LobbyHeroApi',
+  'LobbyHeroFilterOptionsVO',
   "this.http.get<unknown>('/api/player/lobby/heroes')",
+  "this.http.get<unknown>('/api/player/lobby/heroes/filter-options')",
+  'lobbyHeroFilterOptions(): Promise<LobbyHeroFilterOptionsVO>',
   'function validateLobbyHeroes(data: unknown): LobbyHeroItemVO[]',
+  'function validateHeroFilterOptions(data: unknown): LobbyHeroFilterOptionsVO',
+  'Array.isArray(data.heroClasses)',
+  "faction: readOptionalText(item, 'faction', 64)",
+  "heroClass: readOptionalText(item, 'heroClass', 32) ?? fallbackHeroClass",
+  'const HERO_CLASS_FALLBACKS',
+  'PROTAGONIST_MALE_ATTACK',
+  'UR_EVELYN',
+  'const fallbackHeroClass = resolveHeroClassFallback(heroCode);',
+  'resolveHeroClassFallback(heroCode)',
+  'function resolveHeroClassFallback(heroCode: string): string | null',
   'const HERO_ASSET_FALLBACKS',
   'R_PATROL_01',
   'resolveHeroAssetFallback(heroCode)',
@@ -1377,6 +1390,9 @@ for (const token of [
   'export class LobbyHeroRosterLoader',
   'private loadTicket = 0;',
   'this.heroApi.lobbyHeroes()',
+  'this.heroApi.lobbyHeroFilterOptions()',
+  'lobby hero class filter options load failed',
+  'this.rosterState.applyLoaded(heroes, filterOptions.heroClasses)',
   'private isCurrentRequest(ticket: number): boolean',
 ]) {
   if (!lobbyHeroRosterLoader.includes(token)) {
@@ -1489,29 +1505,58 @@ for (const token of [
   'const HERO_ROSTER_CARD_COMPACT_TARGET_HEIGHT = 310;',
   'const HERO_ROSTER_CARD_COMPACT_MAX_HEIGHT = 340;',
   'HERO_ROSTER_RARITY_DISPLAY_ORDER',
+  'HERO_FILTER_ALL',
+  'HERO_CLASS_FILTER_ORDER',
+  'HERO_CLASS_KEY_ALIASES',
+  'selectHeroClassFilter',
+  'resolveHeroFilterTabs',
+  'state.heroClassOptions',
+  'new Map<string, string>()',
+  'heroClassOptions.forEach',
+  'filterHeroesBySelectedClass',
+  'resolveHeroClass',
+  'addHeroClassTab',
+  'isHeroClassTabActive',
+  'normalizeHeroClassKey',
+  'const selectedKey = this.normalizeHeroClassKey(this.selectedHeroClass);',
+  'return heroes.filter((hero) => this.normalizeHeroClassKey(this.resolveHeroClass(hero)) === selectedKey);',
   'UR: 0',
   'SSR: 1',
   'SR: 2',
   'R: 3',
   'sortHeroesForRosterDisplay',
   'resolveRarityDisplayRank',
-  'const displayHeroes = this.sortHeroesForRosterDisplay(state.heroes);',
-  'bodyLeft + cardInsetX + cardWidth / 2',
-  'bodyTop - cardInsetY - cardHeight / 2',
+  'const displayHeroes = this.filterHeroesBySelectedClass(this.sortHeroesForRosterDisplay(state.heroes));',
+  'LobbyHeroRosterScrollView',
+  'LobbyHeroRosterScrollContent',
+  'scrollView.content = content;',
+  'const scrollEffectTopPadding = HERO_ROSTER_CARD_EFFECT_TOP_MASK_PADDING * scale;',
+  'const viewportHeight = bodyHeight + scrollEffectTopPadding;',
+  'const viewportCenterY = bodyCenterY + scrollEffectTopPadding / 2;',
+  'const contentHeight = Math.max(viewportHeight',
+  'const startX = -bodyWidth / 2 + cardInsetX + cardWidth / 2',
+  'const startY = contentHeight / 2 - scrollEffectTopPadding - cardInsetY - cardHeight / 2',
   'HERO_ROSTER_CARD_LEVEL_X_RATIO = -0.38',
   'HERO_ROSTER_CARD_LEVEL_Y_RATIO = 0.38',
   'HERO_ROSTER_CARD_LEVEL_TEXT_WIDTH_RATIO = 0.29',
+  'HERO_ROSTER_CARD_EFFECT_TOP_MASK_PADDING = 62',
   'HERO_ROSTER_CARD_BADGE_X_RATIO = 0.37',
   'HERO_ROSTER_CARD_BADGE_Y_RATIO = 0.38',
   'HERO_ROSTER_CARD_BADGE_SIZE_RATIO = 0.17',
   'HERO_ROSTER_CARD_RARITY_Y_RATIO = 0.324',
   'HERO_ROSTER_CARD_NAME_Y_RATIO = 0.132',
+  'HERO_ROSTER_CARD_POWER_Y_RATIO = 0.205',
   'HERO_ROSTER_CARD_STARS_Y_RATIO = 0.815',
   'Math.min(16 * scale, height * 0.048)',
   'new Size(width - 54 * scale, height * 0.06)',
   'formatHeroCardLevel(hero.level)',
   'safeLevel >= 100 ? `Lv${safeLevel}` : `Lv.${safeLevel}`',
   'LobbyHeroRosterHeroName',
+  'LobbyHeroRosterHeroPower',
+  'Math.min(15 * scale, height * 0.044)',
+  'new Size(width - 64 * scale, height * 0.058)',
+  '战力 ${formatCompactInteger(hero.power)}',
+  'resolveHeroClassBadgeText',
   'safeText(hero.heroName)',
   'const maxCardsInRow = Math.max(1, Math.min(displayHeroes.length, HERO_ROSTER_CARD_MAX_COLUMNS))',
   'const maxCardWidthForRow = Math.max(96 * scale',
@@ -1541,11 +1586,13 @@ for (const token of [
   'HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_HEIGHT_RATIO = 1.25',
   'HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_Y_RATIO = -0.01',
   'HERO_ROSTER_UR_SEQUENCE_BORDER_FRAME_PATHS',
-  'HERO_ROSTER_GOODS_BORDER_WIDTH_PADDING = 30',
-  'HERO_ROSTER_GOODS_BORDER_HEIGHT_PADDING = 54',
-  'HERO_ROSTER_GOODS_BORDER_Y_RATIO = -0.01',
+  'HERO_ROSTER_GOODS_BORDER_WIDTH_PADDING = 33',
+  'HERO_ROSTER_GOODS_BORDER_HEIGHT_PADDING = 61',
+  'HERO_ROSTER_GOODS_BORDER_Y_RATIO = -0.03',
+  'HERO_ROSTER_GOODS_BORDER_WIDTH_SCALE_MAX = 2.8',
   'ui/hero-roster/UR-card-border',
   'renderUrCardSequenceBorder',
+  "this.renderRarityGoodsBorderSpine(card, 'UR', width, height);",
   'LobbyHeroRosterUrSequenceBorderSprite',
   'loadUrSequenceBorderFrames',
   'startSequenceBorderAnimation',
@@ -1557,7 +1604,7 @@ for (const token of [
   'loadBorderEffectData',
   'resolveRarityBorderAnimationName',
   'name.toLowerCase() === targetLower',
-  'clamp((width + HERO_ROSTER_GOODS_BORDER_WIDTH_PADDING) / 120',
+  'clamp((width + HERO_ROSTER_GOODS_BORDER_WIDTH_PADDING) / 120, 1.12, HERO_ROSTER_GOODS_BORDER_WIDTH_SCALE_MAX)',
   'clamp((height + HERO_ROSTER_GOODS_BORDER_HEIGHT_PADDING) / 120',
   'drawHeroReliefPortrait',
   'graphics.lineTo(width * 0.18, -height * 0.26)',
@@ -2665,6 +2712,36 @@ for (const legacyUrEffectPath of [
 for (const token of ["id: 'friend'", '友情召唤']) {
   if (gachaSceneConfig.includes(token)) {
     console.error(`friendship summon pool must stay removed in ${gachaSceneConfigPath}: ${token}`);
+    ok = false;
+  }
+}
+
+for (const token of ["id: 'sealed'", '光暗召唤']) {
+  if (gachaSceneConfig.includes(token)) {
+    console.error(`light/dark summon pool must stay hidden in ${gachaSceneConfigPath}: ${token}`);
+    ok = false;
+  }
+}
+
+for (const token of [
+  'poolType?: string | null;',
+  'displayType?: string | null;',
+]) {
+  if (!gachaSceneConfig.includes(token)) {
+    console.error(`missing gacha pool metadata token in ${gachaSceneConfigPath}: ${token}`);
+    ok = false;
+  }
+}
+
+for (const token of [
+  'isVisibleGachaPool(pool: GachaPreviewPool)',
+  "poolCode !== 'SEALED_LIGHT_DARK'",
+  "displayType !== 'LOCKED'",
+  "theme !== 'locked'",
+  'await this.loadLobbyHeroRoster(true);',
+]) {
+  if (!gameRoot.includes(token)) {
+    console.error(`missing gacha pool visibility/readonly refresh guard in ${gameRootPath}: ${token}`);
     ok = false;
   }
 }

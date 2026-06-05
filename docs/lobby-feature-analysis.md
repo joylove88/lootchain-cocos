@@ -2438,6 +2438,49 @@
   - `check:layout`, project TypeScript no-emit, `.spine` source scan, and `git diff --check` passed;
   - `check:preview` still reports stale running Preview chunks, so final visual acceptance still requires refreshing/restarting Cocos Preview.
 
+## 2026-06-05 Hero Roster Cleanup Recheck After Window Switch QA Note
+
+- Product acceptance:
+  - Stage 4DK remains the active target: SSR should use shared `goods_1 K5`, R/SR should use `goods_1 K3/K4`, and UR should remain the only sequence-frame border card;
+  - all cards should use the unified `hero_card_frame.png` base;
+  - the old SSR sequence trials and legacy rarity-specific base-card images must stay removed.
+- UI acceptance:
+  - active renderer should keep `LOBBY_HERO_ROSTER_CARD_FRAME_ASSET` and `HERO_ROSTER_BORDER_ANIMATION_BY_RARITY`;
+  - active renderer should not contain `renderSsrCardSequenceBorder`, `LobbyHeroRosterSsrSequenceBorderSprite`, `loadSsrSequenceBorderFrames`, `ui/hero-roster/01..04`, or old `ui/hero-roster/card_*` references;
+  - final visual pass should confirm hero name, stars, level, and badge remain readable after Preview refresh.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, `.spine` source scan, and `git diff --check` passed;
+  - `check:preview` now reaches `localhost:7456` but still reports stale chunks, so final visual acceptance requires refreshing/restarting Cocos Preview.
+
+## 2026-06-05 Hero Roster Goods Border Effect Width Cap QA Note
+
+- Product acceptance:
+  - widening R/SR/SSR border visuals should affect only the `goods_1` effect layer;
+  - card base width, row layout, unified `hero_card_frame.png`, and UR sequence-frame behavior should remain unchanged;
+  - the change must stay visual-only and must not alter rarity, ownership, growth, acquisition, reward, or economy semantics.
+- UI acceptance:
+  - active renderer keeps `HERO_ROSTER_GOODS_BORDER_WIDTH_PADDING = 33`;
+  - active renderer keeps `HERO_ROSTER_GOODS_BORDER_HEIGHT_PADDING = 61` and `HERO_ROSTER_GOODS_BORDER_Y_RATIO = -0.03`;
+  - X scale clamp uses `HERO_ROSTER_GOODS_BORDER_WIDTH_SCALE_MAX = 2.8`;
+  - final visual pass should confirm R/SR/SSR effect width changes without moving or resizing the card frame itself.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, `.spine` source scan, and `git diff --check` passed;
+  - `check:preview` still reports stale chunks missing the new effect-width cap token, so final visual acceptance requires refreshing/restarting Cocos Preview.
+
+## 2026-06-05 Hero Roster UR Goods K7 Overlay Trial QA Note
+
+- Product acceptance:
+  - UR should now visually combine the existing `UR-card-border` sequence frame with the `goods_1 K7` Spine effect;
+  - this is a visual trial only and should not change rarity, ownership, acquisition, rewards, growth, or economy semantics;
+  - R/SR/SSR behavior should remain unchanged.
+- UI acceptance:
+  - UR branch should call `renderUrCardSequenceBorder(card, width, height)` and then `renderRarityGoodsBorderSpine(card, 'UR', width, height)`;
+  - sequence-frame failure should not add a duplicate K7 layer;
+  - after Preview refresh, check whether the combined UR effect is too bright, doubled, clipped, or overlapping level/badge/name/star text.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, `.spine` source scan, and `git diff --check` passed;
+  - `check:preview` still reports stale chunks missing the new UR K7 overlay token, so final visual acceptance requires refreshing/restarting Cocos Preview.
+
 ## 2026-06-05 Hero Roster SSR Melt Sequence Source QA Note
 
 - Product acceptance:
@@ -2578,3 +2621,78 @@
 - Review result:
   - `check:layout`, project TypeScript no-emit, `.spine` source scan, and `git diff --check` passed;
   - `check:preview` still reports stale running Preview chunks, so final visual acceptance still requires refreshing/restarting Cocos Preview.
+
+## 2026-06-05 Hero Roster Scroll/Class Filter/Power QA Note
+
+- Product decision:
+  - per-card combat power belongs below the hero name in the bottom information area;
+  - the top-right card badge should mean class/role, not faction, because faction names are too long and the left filter is class-driven;
+  - protagonist keeps `主`, non-protagonist heroes use one-character class abbreviations with `英` fallback.
+- UI acceptance:
+  - class tabs are derived from `heroClass` values returned by `GET /api/player/lobby/heroes`;
+  - empty/missing `heroClass` heroes appear in `全部` only;
+  - the card grid scrolls vertically inside the card area and must not clip the top bar, left filter rail, back button, footer, or disabled upgrade dock;
+  - every filtered hero renders into `LobbyHeroRosterScrollContent`;
+  - `LobbyHeroRosterHeroPower` must stay under `LobbyHeroRosterHeroName` without overlapping the rarity, name, stars, or baked card frame.
+- Gacha acceptance:
+  - light/dark summon is hidden;
+  - summon buttons are real only for backend active pools with `drawEnabled=true`, `previewOnly=false`, and `locked=false`;
+  - limited preview pools must not be forced open by the client.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, `.spine` source scan, backend `PlayerLobbyHeroServiceImplTest`, and backend admin/game compile passed;
+  - `check:preview` still fails because running Cocos Preview serves stale chunks missing the new class-options and combat-power placement tokens;
+  - visual acceptance still requires refreshing/restarting Cocos Preview.
+
+## 2026-06-05 Hero Roster Power Above Name And DB Class Options QA Note
+
+- Product decision:
+  - per-card combat power now belongs above the hero name, inside the lower information area but separated from the name line;
+  - the power font should be larger than the previous small label and remain readable on desktop and compact layouts;
+  - the left class rail should not depend only on the current visible heroes. It should consume backend class options and always keep the existing six class tabs available.
+- API acceptance:
+  - `GET /api/player/lobby/heroes/filter-options` returns readonly `heroClasses`;
+  - backend source is `sys_param_config.param_key='hero.class.options'`; enabled `hero_template.hero_class` is used only when the config is missing/empty;
+  - fallback is the existing six classes: `战士 / 辅助 / 刺客 / 法师 / 射手 / 坦克`;
+  - fallback is display-only and must not write a class dictionary or mutate hero templates.
+- UI acceptance:
+  - `LobbyHeroRosterPanelRenderer` should call `resolveHeroFilterTabs(state.heroes, state.heroClassOptions)`;
+  - the merged class tab set should include `heroClassOptions`, loaded hero `heroClass`, and the default six-class order;
+  - `LobbyHeroRosterHeroPower` uses `HERO_ROSTER_CARD_POWER_Y_RATIO = 0.205`;
+  - power font sizing should remain `Math.min(15 * scale, height * 0.044)` unless a fresh Preview screenshot shows overlap;
+  - power, rarity, stars, hero name, level, and class badge must not overlap the baked card frame or each other.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, `.spine` source scan, backend `PlayerLobbyHeroServiceImplTest`, and backend admin/game compile passed;
+  - visual acceptance still requires refreshing/restarting Cocos Preview.
+
+## 2026-06-05 Hero Roster Class Filter Match QA Note
+
+- Product decision:
+  - the left class rail continues to display backend/configured class names;
+  - filtering must match heroes by a normalized class key, not by raw display-text equality;
+  - empty/missing `heroClass` heroes remain visible only under `全部`.
+- UI acceptance:
+  - `resolveHeroFilterTabs()` should merge default classes, `state.heroClassOptions`, and loaded hero classes by normalized key;
+  - `isHeroClassTabActive()` should use the same normalized key as the filter path;
+  - `filterHeroesBySelectedClass()` should compare `normalizeHeroClassKey(this.resolveHeroClass(hero))` against the selected normalized key;
+  - `resolveHeroClassBadgeText()` should use the same key for one-character class badge abbreviations.
+- Runtime compatibility:
+  - current local game-server Preview can still be backed by an old process where `filter-options` returns `code=1000` and roster heroes return `heroClass: null`;
+  - `LobbyHeroApi` should keep a readonly V1 `heroCode -> heroClass` fallback so class switching works before the backend process is refreshed;
+  - real backend `heroClass` must remain the preferred source when present.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, and `.spine` source scan passed;
+  - `check:preview` still fails because the running Cocos Preview serves stale chunks missing `HERO_CLASS_KEY_ALIASES`, `normalizeHeroClassKey`, `addHeroClassTab`, and the new normalized filter comparison tokens;
+  - this remains a Cocos-only readonly display fix and does not open hero growth, bag use/sell, gacha exchange/reissue, EX V1, or any new economy write surface.
+
+## 2026-06-05 Hero Roster UR Effect Scroll Mask QA Note
+
+- Product issue:
+  - after adding vertical scrolling, the first-row UR card top flame/border effect can be clipped by the ScrollView Mask.
+- UI acceptance:
+  - `LobbyHeroRosterScrollView` should extend upward by `HERO_ROSTER_CARD_EFFECT_TOP_MASK_PADDING = 62`;
+  - the top padding should affect only the mask/viewport safety area, not the card size or lower information layout;
+  - `startY` should subtract `scrollEffectTopPadding`, keeping the visible card row aligned while leaving room for external top effects;
+  - bottom clipping should stay at the original body bottom so card rows do not leak into the footer/upgrade dock.
+- Review result:
+  - `check:layout` and project TypeScript no-emit passed after the mask adjustment;
+  - this remains a Cocos-only visual clipping fix and does not open hero growth, bag use/sell, gacha exchange/reissue, EX V1, or any new economy write surface.

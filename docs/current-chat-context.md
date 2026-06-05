@@ -1,6 +1,6 @@
 # LootChain Cocos 当前聊天窗口交接上下文
 
-更新时间：2026-06-04
+更新时间：2026-06-05
 
 本文用于其他 Codex 窗口快速接手当前阶段。先读本文件，再按 LootChain 规则读取服务端 `D:\project\LootChain` 下的 `README.md`、`AGENTS.md`、`AI_RULE.md`、`PROJECT_CONTEXT1.md`、`PROJECT_CONTEXT2.md`、`docs/`、`sql/`、`team-history/CURRENT_PROGRESS.md`。
 
@@ -18,6 +18,35 @@
 - 2026-06-01 追加修复：点击主角页“进入游戏”出现“系统异常”的本地根因是 `lootchain` 库未执行 `sql/12_protagonist_module.sql`，缺少 `player_protagonist` 表；已在本机执行该 SQL，并用测试玩家复验 `POST /api/player/protagonist` 成功。
 - 不开放抽卡、英雄养成、背包使用/出售、USDT、资金池、领取、购买、结算或任何经济写入口。
 - Zeno 子代理继续作为“用户视角监督 agent”，负责从玩家验收角度拦截体验断点；当前监督口径要求直到完整游玩流程打通前持续检查流程可达性、误触、文案误导和经济红线。
+
+## 2026-06-05 Hero Roster Class Filter Match Fix
+
+- 用户反馈点击英雄列表左侧职业后没有展示对应职业英雄。
+- 根因定位在 Cocos 前端 `LobbyHeroRosterPanelRenderer`：点击链路会触发 `refreshLobbyOverlay()` 重新渲染，但原筛选使用 `resolveHeroClass(hero) === selectedHeroClass` 的完全相等比较；职业配置表独立后，按钮显示文本与英雄 `heroClass` 只要存在空格、繁简体或历史编码差异，就可能筛出空列表。
+- 已将英雄队列职业筛选改为显示文本与匹配 key 分离：左侧职业按钮仍显示 `GET /api/player/lobby/heroes/filter-options` / `heroClass` 返回的文本，内部通过 `normalizeHeroClassKey()` 去空白、归一化常见别名后比较。
+- `resolveHeroFilterTabs()` 现在按职业 key 去重，默认六职业、配置表职业和已加载英雄职业仍按现有顺序合并；空职业英雄仍只在“全部”中展示。
+- `resolveHeroClassBadgeText()` 也复用同一职业 key，避免角标缩写与筛选逻辑不一致。
+- `scripts/check-layout.mjs` 与 `scripts/check-preview-freshness.mjs` 已增加职业 key、去重、选中态和过滤比较 token，防止后续退回完全相等匹配。
+- 验证结果：`npm.cmd run check:layout` 通过，Cocos Creator 3.8.8 TypeScript no-emit 通过，`assets/resources/spine` 下 `.spine/.spine.meta` 扫描结果为 `0`，`git diff --check` 通过且仅有 LF/CRLF warning。
+- Preview 状态：`npm.cmd run check:preview` 仍失败，因为当前运行中的 Cocos Preview 在服务旧 chunk，`LobbyHeroRosterPanelRenderer` 运行时 chunk 缺少 `HERO_CLASS_KEY_ALIASES`、`normalizeHeroClassKey`、`addHeroClassTab` 等新 token；需要刷新/重启 Cocos Creator Preview 后再做视觉验收。
+- 本次只修复 Cocos 只读英雄列表展示筛选；未修改接口写入、英雄/抽卡经济规则、`gacha_pool_item`、概率、消耗、奖励、保底、碎片转换、EX V1 或背包操作。
+
+### Runtime Old Backend Fallback
+
+- 复查当前本地运行后端时发现：`GET /api/player/lobby/heroes/filter-options` 仍返回 `code=1000`（当前 Cocos 阶段暂未开放该玩家接口），`GET /api/player/lobby/heroes` 返回的 `heroClass` 也都是 `null`，说明运行中的 game 服务仍是旧进程/旧代码。
+- 为避免当前 Cocos Preview 必须等待后端重启，`LobbyHeroApi.normalizeHeroItem()` 已增加只读兜底：当接口未返回 `heroClass` 时，按已知 V1 `heroCode` 映射出 `战士/辅助/刺客/法师/射手/坦克`。
+- 该兜底仅用于 Cocos 展示筛选；后端返回真实 `heroClass` 时优先使用后端字段，不写库、不修改英雄模板、不新增任何经济写入口。
+- `scripts/check-layout.mjs` 已增加 `HERO_CLASS_FALLBACKS`、`resolveHeroClassFallback()` 和 `heroClass ?? fallbackHeroClass` 守卫。
+
+### UR Border Effect Scroll Mask Fix
+
+- 用户反馈新增滚动列表后，UR 卡牌顶部火焰/边框特效被 ScrollView 的 Mask 裁掉。
+- 修复位置：`D:\project\lootchain-cocos\assets\scripts\scenes\lobby\LobbyHeroRosterPanelRenderer.ts`。
+- 新增 `HERO_ROSTER_CARD_EFFECT_TOP_MASK_PADDING = 62`，只向上扩展 `LobbyHeroRosterScrollView` 的裁剪高度；卡牌自身位置、尺寸、底部信息区和滚动内容排序不变。
+- `contentHeight`、`viewportHeight`、`viewportCenterY`、`startY` 已按顶部特效安全区重算，使 UR 外扩特效能显示在首行卡牌上方，同时保持底部裁剪边界不变。
+- `scripts/check-layout.mjs` 与 `scripts/check-preview-freshness.mjs` 已增加顶部 Mask 安全区 token。
+- 验证结果：`check:layout`、Cocos TypeScript no-emit、`.spine/.spine.meta` 扫描和 `git diff --check` 通过；`check:preview` 仍失败，因为运行中的 Cocos Preview 旧 chunk 缺少 `HERO_ROSTER_CARD_EFFECT_TOP_MASK_PADDING`、`viewportHeight`、`viewportCenterY` 和新的 `startY` token，需要刷新/重启 Preview。
+- 本次只改 Cocos 只读英雄列表视觉裁剪；未修改接口、SQL、抽卡/英雄经济规则或任何写入口。
 
 ## 2026-06-03 Backend Table Comment UTF8 Repair
 
@@ -4155,3 +4184,188 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-player-f
   - 当前 `http://localhost:7456/scripting/x/import-map.json` 拒绝连接，说明 Cocos Preview 服务未正常监听或已关闭，不是本轮资源清理导致的脚本 token 失败。
 - 待复验：重启/刷新 Cocos Creator Preview 后确认 SSR 显示 `goods_1` 的 `K5` 边框，UR 仍保留 `UR-card-border` 12 帧序列帧，所有卡牌继续使用统一 `hero_card_frame.png`。
 - 边界不变：本阶段只清理 Cocos 前端资源并恢复 SSR 只读视觉路径；不修改后端、SQL、`gacha_pool_item`、抽卡概率、权重、保底、消耗、奖励、重复转碎片，不开放 EX V1、exchange/reissue、背包 use/sell、英雄养成或新增经济写入口。
+
+## 2026-06-05 Stage 4DL Hero Roster Cleanup Recheck After Window Switch
+
+- 新窗口接手后已重读 `current-chat-context.md`、`README.md`、`lobby-feature-analysis.md`、`api-contract.md`，当前仍以 Stage 4DK 清理结果为准。
+- 资源状态复核：
+  - `assets/resources/ui/hero-roster/` 当前只包含 `hero_card_frame.png`、`hero_card_frame.png.meta`、`UR-card-border/`、`UR-card-border.meta`；
+  - `UR-card-border/` 下保留 `01.png` 到 `12.png` 及对应 `.meta`；
+  - `01/02/03/04` 试验序列帧目录和旧 `card_r/card_sr/card_ssr/card_ur` 卡图未回归。
+- 渲染器状态复核：
+  - active renderer 仍使用 `LOBBY_HERO_ROSTER_CARD_FRAME_ASSET = 'ui/hero-roster/hero_card_frame/spriteFrame'`；
+  - `HERO_ROSTER_BORDER_ANIMATION_BY_RARITY` 仍包含 `R: 'K3'`、`SR: 'K4'`、`SSR: 'K5'`、`UR: 'K7'`；
+  - SSR 继续走 `goods_1` 的 `K5` Spine 边框；
+  - UR 继续保留 `ui/hero-roster/UR-card-border` 12 帧序列帧；
+  - `renderSsrCardSequenceBorder`、`LobbyHeroRosterSsrSequenceBorderSprite`、`loadSsrSequenceBorderFrames` 和 active `ui/hero-roster/01..04` / old `card_*` 路径未出现在活动渲染器中。
+- 复验结果：
+  - `npm.cmd run check:layout` 通过，输出 `layout ok`；
+  - Cocos Creator 3.8.8 自带 TypeScript 对项目 `tsconfig.json` 执行 no-emit 通过；
+  - `assets/resources/spine` 下 `.spine/.spine.meta` 源文件数量为 `0`；
+  - `git diff --check` 通过，仅有 `assets/main.scene` 的 LF/CRLF warning。
+- Preview 状态更新：
+  - `npm.cmd run check:preview` 仍失败；
+  - 当前 `localhost:7456` 已能响应，但服务的是旧 chunks，不再是上一轮的连接拒绝状态；
+  - 旧 `LobbyHeroRosterPanelRenderer.ts` chunk 缺少当前英雄列表 token，包括 `468/492/310/340` 卡牌高度、`displayHeroes` 稀有度排序、`formatHeroCardLevel()`、`LobbyHeroRosterRarityGoodsBorderSpine_${rarity}`、`HERO_ROSTER_GOODS_BORDER_*` 等。
+- 待复验：重启/刷新 Cocos Creator Preview，等待脚本与资源重新导入后，再确认 SSR 显示 `goods_1 K5`、R/SR 显示 `goods_1 K3/K4`、UR 显示 `UR-card-border`、所有卡牌使用统一 `hero_card_frame.png`，并检查英雄名、星级、等级、角标不重叠。
+- 边界不变：本轮只做 Cocos 前端状态复核和文档同步；不修改后端、SQL、`gacha_pool_item`、抽卡概率、权重、保底、消耗、奖励、重复转碎片，不开放 EX V1、exchange/reissue、背包 use/sell、英雄养成或新增经济写入口。
+
+## 2026-06-05 Stage 4DM Hero Roster Goods Border Effect Width Cap
+
+- 用户澄清：不想改卡牌边框/卡牌宽度，只想改除 UR 外的 `goods_1` 边框特效宽度。
+- 定位结论：
+  - `HERO_ROSTER_GOODS_BORDER_WIDTH_PADDING` 控制的是 `goods_1` Spine 特效层的 X 缩放输入，不会改变 `hero_card_frame.png` 或卡牌布局宽度；
+  - 但此前 X 缩放写死 `clamp(..., 1.12, 2.55)`，桌面卡牌宽度下 `30 -> 34` 会继续被夹到 `2.55`，所以视觉上没有变化。
+- Cocos 调整：
+  - 保持卡牌本体和统一底框 `LOBBY_HERO_ROSTER_CARD_FRAME_ASSET` 不变；
+  - 保持当前 `HERO_ROSTER_GOODS_BORDER_WIDTH_PADDING = 33`、`HERO_ROSTER_GOODS_BORDER_HEIGHT_PADDING = 61`、`HERO_ROSTER_GOODS_BORDER_Y_RATIO = -0.03`；
+  - 新增 `HERO_ROSTER_GOODS_BORDER_WIDTH_SCALE_MAX = 2.8`；
+  - 非 UR 的 `renderRarityGoodsBorderSpine()` 横向缩放改为 `clamp((width + HERO_ROSTER_GOODS_BORDER_WIDTH_PADDING) / 120, 1.12, HERO_ROSTER_GOODS_BORDER_WIDTH_SCALE_MAX)`，只放开 `goods_1` 特效层宽度上限，不改变卡牌宽度、卡框资源或行布局。
+- 守卫同步：
+  - `scripts/check-layout.mjs` 与 `scripts/check-preview-freshness.mjs` 已更新为要求 `33 / 61 / -0.03` 和 `HERO_ROSTER_GOODS_BORDER_WIDTH_SCALE_MAX = 2.8`；
+  - 继续禁止回到旧 `01..04`、旧 `card_*` 卡图或 SSR 序列帧分支。
+- 复验结果：
+  - `npm.cmd run check:layout` 通过，输出 `layout ok`；
+  - Cocos Creator 3.8.8 自带 TypeScript 对项目 `tsconfig.json` 执行 no-emit 通过；
+  - `assets/resources/spine` 下 `.spine/.spine.meta` 源文件数量为 `0`；
+  - `git diff --check` 通过，仅有 LF/CRLF warning。
+- Preview 状态：
+  - `npm.cmd run check:preview` 仍失败，当前 `localhost:7456` 继续服务旧 chunks；
+  - 旧 `LobbyHeroRosterPanelRenderer.ts` chunk 缺少 `HERO_ROSTER_GOODS_BORDER_WIDTH_PADDING = 33`、`HERO_ROSTER_GOODS_BORDER_WIDTH_SCALE_MAX = 2.8` 和新的横向 clamp token。
+- 待复验：重启/刷新 Cocos Creator Preview 后确认 R/SR/SSR 的 `goods_1` 边框特效横向变宽，但卡牌底框、卡牌行宽和 UR 序列帧不发生联动变化。
+- 边界不变：本阶段只调整 Cocos 英雄列表只读视觉特效层宽度上限；不修改后端、SQL、`gacha_pool_item`、抽卡概率、权重、保底、消耗、奖励、重复转碎片，不开放 EX V1、exchange/reissue、背包 use/sell、英雄养成或新增经济写入口。
+
+## 2026-06-05 Stage 4DN Hero Roster UR Goods K7 Overlay Trial
+
+- 用户要求：UR 边框在现有 `UR-card-border` 基础上，再叠一层 `goods_1` 里的 `K7` 效果看看。
+- Cocos 调整：
+  - `renderHeroCardBorderEffect()` 的 UR 分支现在先渲染 `renderUrCardSequenceBorder(card, width, height)`；
+  - 同一 UR 分支随后调用 `this.renderRarityGoodsBorderSpine(card, 'UR', width, height);`，叠加 `goods_1` 的 `K7` Spine 边框特效；
+  - `renderUrCardSequenceBorder()` 的序列帧加载失败兜底不再额外调用 `renderRarityGoodsBorderSpine(card, 'UR', ...)`，避免 UR 在序列帧缺失时重复叠两层 K7；
+  - 保留现有 `UR-card-border` 12 帧序列帧、统一 `hero_card_frame.png`、卡牌尺寸和行布局；
+  - 保留当前 `goods_1` 特效参数 `HERO_ROSTER_GOODS_BORDER_WIDTH_PADDING = 33`、`HERO_ROSTER_GOODS_BORDER_HEIGHT_PADDING = 61`、`HERO_ROSTER_GOODS_BORDER_Y_RATIO = -0.03`、`HERO_ROSTER_GOODS_BORDER_WIDTH_SCALE_MAX = 2.8`。
+- 守卫同步：
+  - `scripts/check-layout.mjs` 和 `scripts/check-preview-freshness.mjs` 要求 UR 分支中的 `this.renderRarityGoodsBorderSpine(card, 'UR', width, height);` token；
+  - 继续禁止旧 `01..04`、旧 `card_*` 卡图或 SSR 序列帧分支回归。
+- 复验结果：
+  - `npm.cmd run check:layout` 通过，输出 `layout ok`；
+  - Cocos Creator 3.8.8 自带 TypeScript 对项目 `tsconfig.json` 执行 no-emit 通过；
+  - `assets/resources/spine` 下 `.spine/.spine.meta` 源文件数量为 `0`；
+  - `git diff --check` 通过，仅有 LF/CRLF warning。
+- Preview 状态：
+  - `npm.cmd run check:preview` 仍失败，当前 `localhost:7456` 继续服务旧 chunks；
+  - 旧 `LobbyHeroRosterPanelRenderer.ts` chunk 缺少 `this.renderRarityGoodsBorderSpine(card, 'UR', width, height);` 和当前 `goods_1` 特效 clamp token。
+- 待复验：重启/刷新 Cocos Creator Preview 后确认 UR 是否同时显示 `UR-card-border` 序列帧和 `goods_1 K7` Spine 特效，观察是否过亮、重影或压住英雄名/星级/角标。
+- 边界不变：本阶段只调整 Cocos 英雄列表 UR 只读视觉叠层；不修改后端、SQL、`gacha_pool_item`、抽卡概率、权重、保底、消耗、奖励、重复转碎片，不开放 EX V1、exchange/reissue、背包 use/sell、英雄养成或新增经济写入口。
+
+## 2026-06-05 Stage 4DO Hero Roster Scroll, Class Filter, Power, And Gacha Visibility
+
+- User request:
+  - show all owned heroes instead of only the first visible row;
+  - add per-card hero combat power;
+  - clarify the top-right card badge as class/role rather than faction;
+  - make the left-side class tabs come from database-backed hero data;
+  - hide light/dark summon;
+  - keep limited/normal real summon on the existing reviewed draw path only.
+- Backend readonly API update:
+  - `UserHeroListItemVO` and `PlayerLobbyHeroItemVO` now include `faction` and `heroClass`;
+  - `UserHeroServiceImpl.toListItem()` reads those fields from `hero_template.faction` and `hero_template.hero_class`;
+  - `PlayerLobbyHeroServiceImpl` passes them through to `GET /api/player/lobby/heroes`;
+  - the lobby readonly hero limit is now `80`, aligned with Cocos `LobbyHeroApi` response validation.
+- Cocos hero roster update:
+  - `LobbyHeroItemVO` and `LobbyHeroApi` now read `faction` / `heroClass`;
+  - `LobbyHeroRosterState` no longer slices loaded heroes down to 60;
+  - `LobbyHeroRosterPanelRenderer` builds filter tabs from the current heroes' `heroClass`, ordered as `战士 / 辅助 / 刺客 / 法师 / 射手 / 坦克` plus database extras;
+  - clicking a class tab re-renders the current panel locally and does not call a write endpoint;
+  - the card area now uses a masked vertical `ScrollView` and renders every filtered hero card into `LobbyHeroRosterScrollContent`;
+  - each card adds `LobbyHeroRosterHeroPower` under the hero name using `战力 ${formatCompactInteger(hero.power)}`;
+  - the top-right badge remains `主` for the protagonist and otherwise shows a one-character class abbreviation, with `英` fallback when `heroClass` is missing.
+- Gacha update:
+  - local fallback `GACHA_PREVIEW_POOLS` no longer includes the sealed/light-dark pool;
+  - runtime backend pools are filtered by `poolCode !== 'SEALED_LIGHT_DARK'`, `displayType !== 'LOCKED'`, and `themeColor !== 'locked'`;
+  - draw buttons remain enabled only when backend data says `drawEnabled=true`, `previewOnly=false`, and `locked=false`;
+  - successful real draw refreshes readonly lobby profile and hero roster data, so newly granted heroes can appear in the hero list.
+- Guards updated:
+  - `scripts/check-layout.mjs` now requires the scroll nodes, class-filter helpers, per-card power label, gacha pool metadata, light/dark filtering, and post-draw readonly roster refresh;
+  - legacy SSR sequence folders, old `card_*` images, exchange/reissue, bag writes, and old visual regressions remain forbidden.
+- Verification passed:
+  - `npm.cmd run check:layout`;
+  - Cocos Creator 3.8.8 bundled TypeScript no-emit;
+  - `assets/resources/spine` `.spine/.spine.meta` scan returned `0`;
+  - backend `mvn.cmd --no-transfer-progress -pl lootchain-core "-Dtest=PlayerLobbyHeroServiceImplTest" test`;
+  - backend `mvn.cmd --no-transfer-progress -pl lootchain-admin,lootchain-game -am -DskipTests compile`.
+- Preview note:
+  - Cocos Preview visual verification still requires restarting/refreshing Preview so the current renderer chunk is served.
+- Boundary unchanged:
+  - no `gacha_pool_item` change;
+  - no probability, weight, pity, cost, reward, duplicate conversion, exchange/reissue, EX V1, bag use/sell/batch-use, hero growth, or new economy write endpoint changed.
+
+### Stage 4DO Guard Sync Addendum
+
+- `scripts/check-preview-freshness.mjs` was also updated to require the new hero-roster scroll/class/power runtime tokens and gacha light/dark filtering tokens.
+- Boundary unchanged: runtime freshness guard only; no economy, SQL data, gacha pool item, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag write, hero growth, or new economy write endpoint changed.
+
+### Stage 4DO Preview Recheck
+
+- `npm.cmd run check:preview` failed because Cocos Preview is still serving stale chunks.
+- The stale chunks are missing the new `isVisibleGachaPool(...)`, light/dark filtering tokens, `LobbyHeroRosterScrollView`, `LobbyHeroRosterScrollContent`, class-filter helpers, `LobbyHeroRosterHeroPower`, and gacha pool metadata tokens.
+- Required next visual step: restart/refresh Cocos Creator Preview and wait for current scripts/resources to rebuild before judging hero roster scrolling, power labels, class filters, and hidden light/dark summon.
+
+## 2026-06-05 Stage 4DP Hero Roster Power Placement And DB Class Options
+
+- User follow-up:
+  - combat power text on hero cards was too small;
+  - combat power should sit above the hero name;
+  - the left class rail currently only showed `全部` and must use database-backed class options, with existing classes filled when the database has no options.
+- Backend readonly API update:
+  - added `GET /api/player/lobby/heroes/filter-options`;
+  - response VO is `PlayerLobbyHeroFilterOptionsVO` with `heroClasses`;
+  - class options now read `sys_param_config.param_key='hero.class.options'` first;
+  - enabled `hero_template.hero_class` values are used only when that config is missing/empty;
+  - fallback remains the existing six classes: `战士 / 辅助 / 刺客 / 法师 / 射手 / 坦克`;
+  - fallback is readonly only and does not insert/update database rows.
+- Cocos update:
+  - `LobbyHeroApi.lobbyHeroFilterOptions()` reads `/api/player/lobby/heroes/filter-options`;
+  - `LobbyHeroRosterLoader` loads heroes and class options together, and falls back locally to an empty option list if the options endpoint is unavailable;
+  - `LobbyHeroRosterState` now stores `heroClassOptions`;
+  - `LobbyHeroRosterPanelRenderer` merges `heroClassOptions`, loaded hero `heroClass`, and the default six class order so the left rail never collapses to only `全部`;
+  - per-card `LobbyHeroRosterHeroPower` moved above the hero name with `HERO_ROSTER_CARD_POWER_Y_RATIO = 0.205`;
+  - combat power font increased to `Math.min(15 * scale, height * 0.044)` with a wider label box.
+- Guards updated:
+  - `scripts/check-layout.mjs` allowlists the new readonly endpoint and requires the class-options/power-placement tokens;
+  - `scripts/check-preview-freshness.mjs` requires the same runtime tokens.
+- Verification passed:
+  - `npm.cmd run check:layout`;
+  - Cocos Creator 3.8.8 bundled TypeScript no-emit;
+  - `assets/resources/spine` `.spine/.spine.meta` scan returned `0`;
+  - backend `mvn.cmd --no-transfer-progress -pl lootchain-core "-Dtest=PlayerLobbyHeroServiceImplTest" test`;
+  - backend `mvn.cmd --no-transfer-progress -pl lootchain-admin,lootchain-game -am -DskipTests compile`.
+- Preview note:
+  - `npm.cmd run check:preview` still fails because Cocos Preview is serving stale chunks;
+  - missing current tokens include `this.heroApi.lobbyHeroFilterOptions()`, `this.rosterState.applyLoaded(heroes, filterOptions.heroClasses)`, `state.heroClassOptions`, `HERO_ROSTER_CARD_POWER_Y_RATIO = 0.205`, and the larger combat-power label tokens;
+  - restart/refresh Cocos Creator Preview before visual acceptance.
+- Boundary unchanged:
+  - no `gacha_pool_item`, probability, weight, pity, cost, reward, duplicate conversion, exchange/reissue, EX V1, bag use/sell/batch-use, hero growth, or new economy write endpoint changed.
+
+## 2026-06-05 Stage 4DQ Hero Class Options Moved To Sys Param Config
+
+- User direction: hero class/profession options can be stored separately in a config table.
+- Backend update:
+  - `PlayerLobbyHeroServiceImpl.lobbyHeroFilterOptions()` now treats `sys_param_config.param_key='hero.class.options'` as the authoritative class option source;
+  - `param_value` accepts comma/semicolon/pipe/newline separated class names and deduplicates in configured order;
+  - if the config row is missing or empty, the service falls back to enabled `hero_template.hero_class` plus the existing six default classes;
+  - query failure still returns only the six default classes.
+- SQL update:
+  - added `D:\project\LootChain\sql\22_hero_class_options_config.sql`;
+  - synced the same default config into `D:\project\LootChain\sql\02_system_admin.sql`;
+  - `02_system_admin.sql` now starts with `SET NAMES utf8mb4;`;
+  - local DB was updated with SQL 22 and verified:
+    `hero.class.options = 战士,辅助,刺客,法师,射手,坦克`, `status=1`.
+- Cocos impact:
+  - no frontend code change required in this sub-step because Cocos already consumes `/api/player/lobby/heroes/filter-options`;
+  - the left class rail will now reflect the config-table values after backend restart.
+- Verification passed:
+  - backend `mvn.cmd --no-transfer-progress -pl lootchain-core "-Dtest=PlayerLobbyHeroServiceImplTest" test` with 3 tests;
+  - backend `mvn.cmd --no-transfer-progress -pl lootchain-admin,lootchain-game -am -DskipTests compile`.
+- Boundary unchanged:
+  - config-table display metadata only; no `gacha_pool_item`, probability, weight, pity, cost, reward, duplicate conversion, exchange/reissue, EX V1, bag use/sell/batch-use, hero growth, or new economy write endpoint changed.

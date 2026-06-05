@@ -5,8 +5,10 @@ import {
   Graphics,
   HorizontalTextAlignment,
   Label,
+  Mask,
   Node,
   resources,
+  ScrollView,
   Size,
   sp,
   Sprite,
@@ -26,7 +28,25 @@ export const LOBBY_HERO_ROSTER_CARD_ASSETS = [
   LOBBY_HERO_ROSTER_CARD_FRAME_ASSET,
 ];
 
-const HERO_FILTER_TABS = ['全部', '坦克', '近战', '远程', '物理', '法术'];
+const HERO_FILTER_ALL = '全部';
+const HERO_CLASS_FILTER_ORDER = ['战士', '辅助', '刺客', '法师', '射手', '坦克'];
+const HERO_CLASS_KEY_ALIASES: Record<string, string> = {
+  '战士': '战士',
+  '戰士': '战士',
+  '鎴樺+': '战士',
+  '辅助': '辅助',
+  '輔助': '辅助',
+  '杈呭姪': '辅助',
+  '刺客': '刺客',
+  '鍒哄': '刺客',
+  '法师': '法师',
+  '法師': '法师',
+  '娉曞笀': '法师',
+  '射手': '射手',
+  '灏勬墜': '射手',
+  '坦克': '坦克',
+  '鍧﹀厠': '坦克',
+};
 const HERO_ROSTER_CARD_ASPECT_WIDTH = 937;
 const HERO_ROSTER_CARD_ASPECT_HEIGHT = 1676;
 const HERO_ROSTER_CARD_DISPLAY_WIDTH_SCALE = 1.2;
@@ -37,6 +57,7 @@ const HERO_ROSTER_CARD_COMPACT_TARGET_HEIGHT = 310;
 const HERO_ROSTER_CARD_COMPACT_MAX_HEIGHT = 340;
 const HERO_ROSTER_CARD_LEFT_INSET = 12;
 const HERO_ROSTER_CARD_TOP_INSET = 14;
+const HERO_ROSTER_CARD_EFFECT_TOP_MASK_PADDING = 62;
 const HERO_ROSTER_CARD_LEVEL_X_RATIO = -0.38;
 const HERO_ROSTER_CARD_LEVEL_Y_RATIO = 0.38;
 const HERO_ROSTER_CARD_LEVEL_TEXT_WIDTH_RATIO = 0.29;
@@ -61,11 +82,13 @@ const HERO_ROSTER_UR_SEQUENCE_BORDER_FRAME_PATHS = Array.from(
   { length: HERO_ROSTER_UR_SEQUENCE_BORDER_FRAME_COUNT },
   (_, index) => `${HERO_ROSTER_UR_SEQUENCE_BORDER_PATH_PREFIX}/${String(index + 1).padStart(2, '0')}/spriteFrame`,
 );
-const HERO_ROSTER_GOODS_BORDER_WIDTH_PADDING = 30;
-const HERO_ROSTER_GOODS_BORDER_HEIGHT_PADDING = 54;
-const HERO_ROSTER_GOODS_BORDER_Y_RATIO = -0.01;
+const HERO_ROSTER_GOODS_BORDER_WIDTH_PADDING = 33;
+const HERO_ROSTER_GOODS_BORDER_HEIGHT_PADDING = 61;
+const HERO_ROSTER_GOODS_BORDER_Y_RATIO = -0.03;
+const HERO_ROSTER_GOODS_BORDER_WIDTH_SCALE_MAX = 2.8;
 const HERO_ROSTER_CARD_RARITY_Y_RATIO = 0.324;
 const HERO_ROSTER_CARD_NAME_Y_RATIO = 0.132;
+const HERO_ROSTER_CARD_POWER_Y_RATIO = 0.205;
 const HERO_ROSTER_CARD_STARS_Y_RATIO = 0.815;
 const HERO_ROSTER_RARITY_DISPLAY_ORDER: Record<string, number> = {
   UR: 0,
@@ -81,6 +104,7 @@ export interface LobbyHeroRosterPanelHost {
   currentLobbyHeroRosterState(): LobbyHeroRosterPanelState;
   closeLobbyHeroRosterPanel(): void;
   reloadLobbyHeroRoster(): void;
+  refreshLobbyOverlay?(): void;
   openLobbyHeroDetail(heroId: number): void;
   createUiNode(name: string): Node;
   addSprite(name: string, assetPath: string, x: number, y: number, width: number, height: number, parent?: Node): Sprite | null;
@@ -102,6 +126,7 @@ export interface LobbyHeroRosterPanelHost {
 
 /** 大厅英雄队列只读面板。参考竖卡英雄墙排版，但保持当前阶段无养成写入口。 */
 export class LobbyHeroRosterPanelRenderer {
+  private selectedHeroClass = HERO_FILTER_ALL;
   private borderEffectData: sp.SkeletonData | null = null;
   private borderEffectLoading = false;
   private readonly borderEffectCallbacks: Array<(data: sp.SkeletonData | null) => void> = [];
@@ -150,7 +175,9 @@ export class LobbyHeroRosterPanelRenderer {
     }
     this.drawSceneShade(panel, panelWidth, panelHeight, scale);
     this.renderTopBar(panel, panelWidth, panelHeight, scale, state);
-    const filterMetrics = this.renderFilterRail(panel, panelWidth, panelHeight, scale);
+    const filterTabs = this.resolveHeroFilterTabs(state.heroes, state.heroClassOptions);
+    this.ensureSelectedHeroClass(filterTabs);
+    const filterMetrics = this.renderFilterRail(panel, panelWidth, panelHeight, scale, filterTabs);
     this.renderHeroBody(panel, panelWidth, panelHeight, scale, state, filterMetrics);
     this.renderUpgradeDock(panel, panelWidth, panelHeight, scale);
     this.renderFooter(panel, panelWidth, panelHeight, scale);
@@ -230,10 +257,10 @@ export class LobbyHeroRosterPanelRenderer {
     return node;
   }
 
-  private renderFilterRail(parent: Node, width: number, height: number, scale: number): { railWidth: number; railHeight: number; horizontal: boolean } {
+  private renderFilterRail(parent: Node, width: number, height: number, scale: number, tabs: string[]): { railWidth: number; railHeight: number; horizontal: boolean } {
     const horizontal = width < 720 * scale || height < 430 * scale;
     if (horizontal) {
-      return this.renderHorizontalFilters(parent, width, height, scale);
+      return this.renderHorizontalFilters(parent, width, height, scale, tabs);
     }
     const railWidth = clamp(width * 0.14, 126 * scale, 168 * scale);
     const railHeight = Math.min(height - 138 * scale, 370 * scale);
@@ -250,27 +277,30 @@ export class LobbyHeroRosterPanelRenderer {
     graphics.lineTo(railWidth / 2, -railHeight / 2);
     graphics.stroke();
 
-    const tabHeight = Math.min(54 * scale, railHeight / HERO_FILTER_TABS.length);
+    const tabHeight = Math.min(54 * scale, railHeight / Math.max(1, tabs.length));
     const top = railHeight / 2 - tabHeight / 2;
-    HERO_FILTER_TABS.forEach((tab, index) => {
-      this.renderFilterTab(rail, index, tab, 0, top - index * tabHeight, railWidth, tabHeight, scale, index === 0, false);
+    tabs.forEach((tab, index) => {
+      this.renderFilterTab(rail, index, tab, 0, top - index * tabHeight, railWidth, tabHeight, scale, this.isHeroClassTabActive(tab), false);
     });
     return { railWidth: railWidth + 46 * scale, railHeight, horizontal: false };
   }
 
-  private renderHorizontalFilters(parent: Node, width: number, height: number, scale: number): { railWidth: number; railHeight: number; horizontal: boolean } {
+  private renderHorizontalFilters(parent: Node, width: number, height: number, scale: number, tabs: string[]): { railWidth: number; railHeight: number; horizontal: boolean } {
     const railWidth = width - 56 * scale;
     const railHeight = 46 * scale;
     const rail = this.host.addChildPlainNode(parent, 'LobbyHeroRosterFilterRail', 0, height / 2 - 92 * scale, railWidth, railHeight);
-    const tabWidth = railWidth / HERO_FILTER_TABS.length;
-    HERO_FILTER_TABS.forEach((tab, index) => {
-      this.renderFilterTab(rail, index, tab, -railWidth / 2 + tabWidth / 2 + index * tabWidth, 0, tabWidth - 4 * scale, railHeight - 4 * scale, scale, index === 0, true);
+    const tabWidth = railWidth / Math.max(1, tabs.length);
+    tabs.forEach((tab, index) => {
+      this.renderFilterTab(rail, index, tab, -railWidth / 2 + tabWidth / 2 + index * tabWidth, 0, tabWidth - 4 * scale, railHeight - 4 * scale, scale, this.isHeroClassTabActive(tab), true);
     });
     return { railWidth: 0, railHeight: railHeight + 18 * scale, horizontal: true };
   }
 
   private renderFilterTab(parent: Node, index: number, text: string, x: number, y: number, width: number, height: number, scale: number, active: boolean, horizontal: boolean): void {
     const tab = this.host.addChildPlainNode(parent, `LobbyHeroRosterFilterTab_${index}`, x, y, width, height);
+    tab.addComponent(Button);
+    tab.on(Button.EventType.CLICK, () => this.selectHeroClassFilter(text), this);
+    this.host.applyImageButtonFeedback(tab, 1.025, 0.97);
     const graphics = tab.addComponent(Graphics);
     graphics.fillColor = active ? rgba(82, 55, 31, 218) : rgba(10, 10, 13, horizontal ? 142 : 118);
     this.traceSlantRect(graphics, width, height, active ? 9 * scale : 5 * scale);
@@ -290,6 +320,18 @@ export class LobbyHeroRosterPanelRenderer {
     const label = this.host.addChildLabel(tab, 'LobbyHeroRosterFilterLabel', text, 0, 0, 17 * scale, active ? rgba(252, 226, 164) : rgba(158, 146, 125), new Size(width - 12 * scale, height));
     label.overflow = Label.Overflow.SHRINK;
     this.applyOutline(label, scale, active);
+  }
+
+  private selectHeroClassFilter(text: string): void {
+    if (this.isHeroClassTabActive(text)) {
+      return;
+    }
+    this.selectedHeroClass = text;
+    if (this.host.refreshLobbyOverlay) {
+      this.host.refreshLobbyOverlay();
+      return;
+    }
+    this.host.reloadLobbyHeroRoster();
   }
 
   private renderHeroBody(
@@ -320,8 +362,13 @@ export class LobbyHeroRosterPanelRenderer {
       return;
     }
 
-    const displayHeroes = this.sortHeroesForRosterDisplay(state.heroes);
+    const displayHeroes = this.filterHeroesBySelectedClass(this.sortHeroesForRosterDisplay(state.heroes));
+    if (displayHeroes.length === 0) {
+      this.renderEmpty(parent, bodyCenterX, bodyCenterY, bodyWidth, bodyHeight, scale, '暂无该职业英雄');
+      return;
+    }
     const gap = (filterMetrics.horizontal ? 10 : 16) * scale;
+    const rowGap = (filterMetrics.horizontal ? 14 : 20) * scale;
     const preferredCardHeight = filterMetrics.horizontal
       ? Math.min(HERO_ROSTER_CARD_COMPACT_TARGET_HEIGHT * scale, bodyHeight * 0.98)
       : Math.min(HERO_ROSTER_CARD_DESKTOP_TARGET_HEIGHT * scale, bodyHeight * 0.99);
@@ -330,29 +377,101 @@ export class LobbyHeroRosterPanelRenderer {
     const maxCardWidthForRow = Math.max(96 * scale, (bodyWidth - HERO_ROSTER_CARD_LEFT_INSET * scale * 2 - gap * Math.max(0, maxCardsInRow - 1)) / maxCardsInRow);
     const cardWidth = Math.min(cardHeight * HERO_ROSTER_CARD_ASPECT_WIDTH / HERO_ROSTER_CARD_ASPECT_HEIGHT * HERO_ROSTER_CARD_DISPLAY_WIDTH_SCALE, maxCardWidthForRow);
     const columns = Math.max(1, Math.min(maxCardsInRow, Math.floor((bodyWidth + gap) / (cardWidth + gap))));
-    const visibleCount = Math.max(1, columns);
     const cardInsetX = HERO_ROSTER_CARD_LEFT_INSET * scale;
     const cardInsetY = HERO_ROSTER_CARD_TOP_INSET * scale;
-    const startX = bodyLeft + cardInsetX + cardWidth / 2;
-    const cardY = bodyTop - cardInsetY - cardHeight / 2;
+    const scrollEffectTopPadding = HERO_ROSTER_CARD_EFFECT_TOP_MASK_PADDING * scale;
+    const viewportHeight = bodyHeight + scrollEffectTopPadding;
+    const viewportCenterY = bodyCenterY + scrollEffectTopPadding / 2;
+    const rows = Math.max(1, Math.ceil(displayHeroes.length / columns));
+    const contentHeight = Math.max(viewportHeight, rows * cardHeight + Math.max(0, rows - 1) * rowGap + cardInsetY * 2 + scrollEffectTopPadding);
+    const viewport = this.host.addChildPlainNode(parent, 'LobbyHeroRosterScrollView', bodyCenterX, viewportCenterY, bodyWidth, viewportHeight);
+    const mask = viewport.addComponent(Mask);
+    mask.type = Mask.Type.GRAPHICS_RECT;
+    const scrollView = viewport.addComponent(ScrollView);
+    scrollView.horizontal = false;
+    scrollView.vertical = true;
+    scrollView.inertia = true;
+    scrollView.elastic = true;
+    scrollView.cancelInnerEvents = true;
+    const content = this.host.addChildPlainNode(viewport, 'LobbyHeroRosterScrollContent', 0, (viewportHeight - contentHeight) / 2, bodyWidth, contentHeight);
+    scrollView.content = content;
+    const startX = -bodyWidth / 2 + cardInsetX + cardWidth / 2;
+    const startY = contentHeight / 2 - scrollEffectTopPadding - cardInsetY - cardHeight / 2;
 
-    displayHeroes.slice(0, visibleCount).forEach((hero, index) => {
-      this.renderHeroCard(parent, hero, index, startX + index * (cardWidth + gap), cardY, cardWidth, cardHeight, scale);
+    displayHeroes.forEach((hero, index) => {
+      const col = index % columns;
+      const row = Math.floor(index / columns);
+      this.renderHeroCard(content, hero, index, startX + col * (cardWidth + gap), startY - row * (cardHeight + rowGap), cardWidth, cardHeight, scale);
     });
+  }
 
-    if (displayHeroes.length > visibleCount) {
-      const more = this.host.addChildLabel(
-        parent,
-        'LobbyHeroRosterOverflowHint',
-        `已展示前 ${visibleCount} / ${displayHeroes.length}，后续接滚动列表。`,
-        bodyCenterX,
-        bodyBottom + 18 * scale,
-        14 * scale,
-        rgba(171, 154, 113),
-        new Size(bodyWidth - 16 * scale, 22 * scale),
-      );
-      more.overflow = Label.Overflow.SHRINK;
+  private resolveHeroFilterTabs(heroes: LobbyHeroItemVO[], heroClassOptions: string[] = []): string[] {
+    const available = new Map<string, string>();
+    HERO_CLASS_FILTER_ORDER.forEach((item) => this.addHeroClassTab(available, item));
+    heroClassOptions.forEach((item) => {
+      this.addHeroClassTab(available, item);
+    });
+    heroes.forEach((hero) => {
+      this.addHeroClassTab(available, this.resolveHeroClass(hero));
+    });
+    const defaultKeys = new Set(HERO_CLASS_FILTER_ORDER.map((item) => this.normalizeHeroClassKey(item)));
+    const ordered = HERO_CLASS_FILTER_ORDER
+      .map((item) => available.get(this.normalizeHeroClassKey(item)))
+      .filter((item): item is string => !!item);
+    const rest = Array.from(available.entries())
+      .filter(([key]) => !defaultKeys.has(key))
+      .map(([, text]) => text)
+      .sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
+    return [HERO_FILTER_ALL, ...ordered, ...rest];
+  }
+
+  private ensureSelectedHeroClass(tabs: string[]): void {
+    if (this.selectedHeroClass === HERO_FILTER_ALL) {
+      return;
     }
+    const selectedKey = this.normalizeHeroClassKey(this.selectedHeroClass);
+    const matched = tabs.find((tab) => this.normalizeHeroClassKey(tab) === selectedKey);
+    if (matched) {
+      this.selectedHeroClass = matched;
+    } else {
+      this.selectedHeroClass = HERO_FILTER_ALL;
+    }
+  }
+
+  private filterHeroesBySelectedClass(heroes: LobbyHeroItemVO[]): LobbyHeroItemVO[] {
+    if (this.selectedHeroClass === HERO_FILTER_ALL) {
+      return heroes;
+    }
+    const selectedKey = this.normalizeHeroClassKey(this.selectedHeroClass);
+    return heroes.filter((hero) => this.normalizeHeroClassKey(this.resolveHeroClass(hero)) === selectedKey);
+  }
+
+  private resolveHeroClass(hero: LobbyHeroItemVO): string | null {
+    const value = safeText(hero.heroClass).trim();
+    return value || null;
+  }
+
+  private addHeroClassTab(tabByKey: Map<string, string>, value: string | null | undefined): void {
+    const text = safeText(value).trim();
+    const key = this.normalizeHeroClassKey(text);
+    if (!key || tabByKey.has(key)) {
+      return;
+    }
+    tabByKey.set(key, text);
+  }
+
+  private isHeroClassTabActive(text: string): boolean {
+    if (this.selectedHeroClass === HERO_FILTER_ALL || text === HERO_FILTER_ALL) {
+      return this.selectedHeroClass === text;
+    }
+    return this.normalizeHeroClassKey(text) === this.normalizeHeroClassKey(this.selectedHeroClass);
+  }
+
+  private normalizeHeroClassKey(value: string | null | undefined): string {
+    const text = safeText(value)
+      .replace(/[\s\u00a0\u3000]/g, '')
+      .replace(/[＋]/g, '+');
+    return HERO_CLASS_KEY_ALIASES[text] ?? text;
   }
 
   private sortHeroesForRosterDisplay(heroes: LobbyHeroItemVO[]): LobbyHeroItemVO[] {
@@ -467,6 +586,7 @@ export class LobbyHeroRosterPanelRenderer {
     }
     if (rarity === 'UR') {
       this.renderUrCardSequenceBorder(card, width, height);
+      this.renderRarityGoodsBorderSpine(card, 'UR', width, height);
       return;
     }
     this.renderRarityGoodsBorderSpine(card, rarity, width, height);
@@ -485,7 +605,6 @@ export class LobbyHeroRosterPanelRenderer {
       }
       if (!frames || frames.length === 0) {
         effectNode.removeFromParent();
-        this.renderRarityGoodsBorderSpine(card, 'UR', width, height, 2);
         return;
       }
       this.startSequenceBorderAnimation(effectNode, sprite, frames, HERO_ROSTER_UR_SEQUENCE_BORDER_FRAME_DURATION_SECONDS);
@@ -516,7 +635,7 @@ export class LobbyHeroRosterPanelRenderer {
       effectNode.setSiblingIndex(siblingIndex);
     }
     effectNode.setScale(new Vec3(
-      clamp((width + HERO_ROSTER_GOODS_BORDER_WIDTH_PADDING) / 120, 1.12, 2.55),
+      clamp((width + HERO_ROSTER_GOODS_BORDER_WIDTH_PADDING) / 120, 1.12, HERO_ROSTER_GOODS_BORDER_WIDTH_SCALE_MAX),
       clamp((height + HERO_ROSTER_GOODS_BORDER_HEIGHT_PADDING) / 120, 1.75, 4.2),
       1,
     ));
@@ -623,7 +742,7 @@ export class LobbyHeroRosterPanelRenderer {
     const badgeY = height * HERO_ROSTER_CARD_BADGE_Y_RATIO;
     const topBadge = this.host.addChildPlainNode(card, 'LobbyHeroRosterClassBadge', badgeX, badgeY, badgeSize, badgeSize);
     this.drawCircleBadge(topBadge, badgeSize, this.rarityStroke(rarity), scale);
-    const topLabel = this.host.addChildLabel(topBadge, 'LobbyHeroRosterClassBadgeText', hero.protagonist ? '主' : '英', 0, 0, 15 * scale, rgba(255, 235, 181), new Size(30 * scale, 26 * scale));
+    const topLabel = this.host.addChildLabel(topBadge, 'LobbyHeroRosterClassBadgeText', this.resolveHeroClassBadgeText(hero), 0, 0, 15 * scale, rgba(255, 235, 181), new Size(30 * scale, 26 * scale));
     topLabel.overflow = Label.Overflow.SHRINK;
     this.applyOutline(topLabel, scale, false);
 
@@ -640,9 +759,32 @@ export class LobbyHeroRosterPanelRenderer {
     name.overflow = Label.Overflow.SHRINK;
     this.applyOutline(name, scale, true);
 
+    const power = this.host.addChildLabel(card, 'LobbyHeroRosterHeroPower', `战力 ${formatCompactInteger(hero.power)}`, 0, -height / 2 + height * HERO_ROSTER_CARD_POWER_Y_RATIO, Math.min(15 * scale, height * 0.044), rgba(238, 210, 132), new Size(width - 64 * scale, height * 0.058));
+    power.overflow = Label.Overflow.SHRINK;
+    this.applyOutline(power, scale, false);
+
     const level = this.host.addChildLabel(card, 'LobbyHeroRosterLevelText', formatHeroCardLevel(hero.level), width * HERO_ROSTER_CARD_LEVEL_X_RATIO, height * HERO_ROSTER_CARD_LEVEL_Y_RATIO, Math.min(14 * scale, width * 0.078), rgba(246, 225, 170), new Size(width * HERO_ROSTER_CARD_LEVEL_TEXT_WIDTH_RATIO, height * 0.058), HorizontalTextAlignment.CENTER);
     level.overflow = Label.Overflow.SHRINK;
     this.applyOutline(level, scale, false);
+  }
+
+  private resolveHeroClassBadgeText(hero: LobbyHeroItemVO): string {
+    if (hero.protagonist) {
+      return '主';
+    }
+    const heroClass = this.resolveHeroClass(hero);
+    if (!heroClass) {
+      return '英';
+    }
+    const known: Record<string, string> = {
+      战士: '战',
+      辅助: '辅',
+      刺客: '刺',
+      法师: '法',
+      射手: '射',
+      坦克: '坦',
+    };
+    return known[this.normalizeHeroClassKey(heroClass)] ?? heroClass.slice(0, 1);
   }
 
   private drawHeroReliefPortrait(parent: Node, hero: LobbyHeroItemVO, x: number, y: number, width: number, height: number, scale: number): void {

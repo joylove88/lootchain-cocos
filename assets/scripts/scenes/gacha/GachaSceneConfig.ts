@@ -5,6 +5,8 @@ export type GachaRarity = 'R' | 'SR' | 'SSR' | 'UR';
 export interface GachaPreviewPool {
   id: string;
   poolCode?: string;
+  poolType?: string | null;
+  displayType?: string | null;
   title: string;
   subline: string;
   rarity: GachaRarity;
@@ -93,7 +95,6 @@ export const GACHA_PREVIEW_POOLS: GachaPreviewPool[] = [
   { id: 'limited', title: '暗渊之主', subline: '限定召唤预览', rarity: 'SSR', active: true, locked: false },
   { id: 'hero', title: '永夜祭司', subline: '英雄召唤预览', rarity: 'SR', active: false, locked: false },
   { id: 'normal', title: '亡语者', subline: '普通召唤预览', rarity: 'R', active: false, locked: false },
-  { id: 'sealed', title: '光暗召唤', subline: '后续章节解锁', rarity: 'UR', active: false, locked: true },
 ];
 
 export const GACHA_PREVIEW_CARDS: GachaPreviewCard[] = [

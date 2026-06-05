@@ -7,6 +7,7 @@ export class LobbyHeroRosterState {
     loaded: false,
     error: '',
     heroes: [],
+    heroClassOptions: [],
   };
   private revision = 0;
 
@@ -21,6 +22,7 @@ export class LobbyHeroRosterState {
       loaded: false,
       error: '',
       heroes: [],
+      heroClassOptions: [],
     };
     this.revision += 1;
   }
@@ -34,12 +36,13 @@ export class LobbyHeroRosterState {
     this.revision += 1;
   }
 
-  applyLoaded(heroes: LobbyHeroItemVO[]): void {
+  applyLoaded(heroes: LobbyHeroItemVO[], heroClassOptions: string[] = []): void {
     this.panelState = {
       loading: false,
       loaded: true,
       error: '',
-      heroes: heroes.slice(0, 60),
+      heroes: [...heroes],
+      heroClassOptions: [...heroClassOptions],
     };
     this.revision += 1;
   }
@@ -51,6 +54,7 @@ export class LobbyHeroRosterState {
       loaded: false,
       error: message || '英雄队列读取失败',
       heroes: [],
+      heroClassOptions: [],
     };
     this.revision += 1;
   }
@@ -59,6 +63,7 @@ export class LobbyHeroRosterState {
     return {
       ...this.panelState,
       heroes: [...this.panelState.heroes],
+      heroClassOptions: [...this.panelState.heroClassOptions],
     };
   }
 }

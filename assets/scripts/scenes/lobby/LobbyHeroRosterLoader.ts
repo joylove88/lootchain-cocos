@@ -61,11 +61,17 @@ export class LobbyHeroRosterLoader {
     let loadPromise: Promise<void> | null = null;
     loadPromise = (async () => {
       try {
-        const heroes = await this.heroApi.lobbyHeroes();
+        const [heroes, filterOptions] = await Promise.all([
+          this.heroApi.lobbyHeroes(),
+          this.heroApi.lobbyHeroFilterOptions().catch((error) => {
+            console.warn('[LootChain] lobby hero class filter options load failed:', error);
+            return { heroClasses: [] };
+          }),
+        ]);
         if (!this.isCurrentRequest(ticket)) {
           return;
         }
-        this.rosterState.applyLoaded(heroes);
+        this.rosterState.applyLoaded(heroes, filterOptions.heroClasses);
       } catch (error) {
         if (!this.isCurrentRequest(ticket)) {
           return;

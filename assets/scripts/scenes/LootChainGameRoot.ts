@@ -1276,7 +1276,9 @@ export class LootChainGameRoot extends Component {
       this.renderCurrentView();
     }
     try {
-      const pools = (await this.api.gacha.pools()).map((pool) => this.toGachaPreviewPool(pool));
+      const pools = (await this.api.gacha.pools())
+        .map((pool) => this.toGachaPreviewPool(pool))
+        .filter((pool) => this.isVisibleGachaPool(pool));
       const selectedPoolCode = pools.find((pool) => pool.poolCode === this.gachaSceneState.selectedPoolCode || pool.id === this.gachaSceneState.selectedPoolCode)?.poolCode
         ?? pools.find((pool) => !pool.locked && !pool.previewOnly && pool.drawEnabled !== false)?.poolCode
         ?? pools[0]?.poolCode
@@ -1419,6 +1421,8 @@ export class LootChainGameRoot extends Component {
     return {
       id: pool.poolCode,
       poolCode: pool.poolCode,
+      poolType: pool.poolType ?? null,
+      displayType: pool.displayType ?? null,
       title,
       subline: this.trimText(pool.tabSubtitle || pool.poolType || '召唤卡池').slice(0, 40),
       rarity,
@@ -1448,6 +1452,13 @@ export class LootChainGameRoot extends Component {
       tenCost: pool.tenCost ?? null,
       costCode: pool.costCode ?? null,
     };
+  }
+
+  private isVisibleGachaPool(pool: GachaPreviewPool): boolean {
+    const poolCode = (pool.poolCode ?? pool.id).toUpperCase();
+    const theme = (pool.themeColor ?? '').toLowerCase();
+    const displayType = (pool.displayType ?? '').toUpperCase();
+    return poolCode !== 'SEALED_LIGHT_DARK' && displayType !== 'LOCKED' && theme !== 'locked';
   }
 
   private createGachaRequestId(poolCode: string, drawCount: 1 | 10): string {
@@ -1633,6 +1644,7 @@ export class LootChainGameRoot extends Component {
   private async refreshReadonlyAssetsAfterGacha(): Promise<void> {
     const userId = this.currentLobbyProfile().userId;
     await this.loadLobbyProfile(userId);
+    await this.loadLobbyHeroRoster(true);
     if (this.currentView === 'gacha' || this.currentView === 'gachaResult' || this.isGachaActionSceneView(this.currentView)) {
       this.renderCurrentView();
     }
