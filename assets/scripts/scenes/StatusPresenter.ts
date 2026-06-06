@@ -3,6 +3,7 @@ import {
   Label,
   Size,
 } from 'cc';
+import { lootChainI18n } from '../i18n/LootChainI18n';
 import { rgba, type UiLayout } from './lobby/LobbyHudTypes';
 
 export interface StatusPresenterHost {
@@ -29,10 +30,11 @@ export class StatusPresenter {
 
   add(text: string, layout?: UiLayout, y?: number): void {
     const currentLayout = layout ?? this.host.resolveLayout();
+    const translatedText = lootChainI18n.text(text);
     const statusY = y ?? currentLayout.safeBottom + Math.max(8 * currentLayout.uiScale, currentLayout.safeHeight * 0.01);
     const centerX = (currentLayout.stageLeft + currentLayout.stageRight) / 2;
     this.label = this.host.addLabel(
-      text,
+      translatedText,
       centerX,
       statusY,
       currentLayout.bodyFont,
@@ -52,6 +54,6 @@ export class StatusPresenter {
       const centerX = (currentLayout.stageLeft + currentLayout.stageRight) / 2;
       this.label.node.setPosition(centerX, statusY, 0);
     }
-    this.label.string = this.host.trimText(text);
+    this.label.string = this.host.trimText(lootChainI18n.text(text));
   }
 }

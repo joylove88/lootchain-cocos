@@ -117,6 +117,8 @@ export interface LobbyHudHost {
   openLobbyAdventurePanel(): void;
   /** 召唤入口进入独立抽奖预览页；当前只展示卡池视觉和规则入口，不触发抽卡写入。 */
   openLobbyGachaScene(): void;
+  /** 设置入口只切换本地显示语言，不连接经济、账号或系统写接口。 */
+  openLobbySettingsPanel(): void;
   /** 所有未开放大厅入口统一交给根节点弹窗处理，保持占位行为一致。 */
   openLobbyPlaceholderDialog(title: string, detail?: string): void;
   createUiNode(name: string): Node;

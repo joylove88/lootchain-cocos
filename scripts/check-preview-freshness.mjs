@@ -14,7 +14,15 @@ const REQUIRED_CHUNKS = [
   },
   {
     source: 'assets/scripts/scenes/LootChainGameRoot.ts',
-    tokens: ['selectLobbyAdventureStage', 'previewLockedLobbyAdventureStage', 'findLobbyAdventureStage', 'this.selectedLobbyStageCode = resolvedStageCode', 'LobbyFeatureSceneBackdrop', 'renderLobbyFeatureSceneBackdrop', 'LobbyPlaceholderSceneRoot', 'LobbyPlaceholderScenePanel', 'LobbyPlaceholderBackButton', 'renderSceneBackButton', 'panel.addComponent(BlockInputEvents)', 'renderLobbyScenePage', 'LOGIN_SCENE_BACKGROUND_NODE_NAMES', 'LOGIN_SCENE_LEGACY_NODE_NAMES', 'stageNode.active = false', 'setLoginSceneStageVisible', 'tryPlayLoginSceneVideo', 'resumeForLoginView', 'isLobbyScenePageView', 'returnToLobbyFromScenePage', 'renderGachaResultScene', 'renderGachaActionScene', 'openGachaActionScene(action', 'closeGachaActionScene', 'loadGachaPoolDetail(poolCode', 'loadGachaLogs(force', 'refreshReadonlyAssetsAfterGacha', 'isVisibleGachaPool(pool: GachaPreviewPool)', "poolCode !== 'SEALED_LIGHT_DARK'", "displayType !== 'LOCKED'", 'await this.loadLobbyHeroRoster(true);', 'openGachaMockResultScene', 'closeGachaMockResultScene', 'activeAction: action', 'activeAction: null', 'updateGachaConfigRefresh(deltaTime', "this.currentView = 'adventure'", "this.currentView = 'bag'", "this.currentView = 'formation'", "this.currentView = 'heroes'", "this.currentView = 'heroDetail'", "this.currentView = 'notice'", "this.currentView = 'placeholder'", "this.currentView = 'battle'", "this.currentView = 'gachaResult'", "this.currentView = 'loginAccount'", 'const gachaStatusY = layout.stageBottom + 210 * layout.uiScale;', 'this.statusPresenter.set(text, layout, gachaStatusY);', 'renderBattleScene', 'openLobbyHeroDetail', 'LobbyHeroDetailSceneContent', 'renderLobbyBagPanel', 'LobbyBagSceneContent'],
+    tokens: ['selectLobbyAdventureStage', 'previewLockedLobbyAdventureStage', 'findLobbyAdventureStage', 'this.selectedLobbyStageCode = resolvedStageCode', 'LobbyFeatureSceneBackdrop', 'renderLobbyFeatureSceneBackdrop', 'LobbyPlaceholderSceneRoot', 'LobbyPlaceholderScenePanel', 'LobbyPlaceholderBackButton', 'renderSceneBackButton', 'panel.addComponent(BlockInputEvents)', 'renderLobbyScenePage', 'LOGIN_SCENE_BACKGROUND_NODE_NAMES', 'LOGIN_SCENE_LEGACY_NODE_NAMES', 'stageNode.active = false', 'setLoginSceneStageVisible', 'tryPlayLoginSceneVideo', 'resumeForLoginView', 'isLobbyScenePageView', 'returnToLobbyFromScenePage', 'renderGachaResultScene', 'renderGachaActionScene', 'openGachaActionScene(action', 'closeGachaActionScene', 'loadGachaPoolDetail(poolCode', 'loadGachaLogs(force', 'refreshReadonlyAssetsAfterGacha', 'isVisibleGachaPool(pool: GachaPreviewPool)', "poolCode !== 'SEALED_LIGHT_DARK'", "displayType !== 'LOCKED'", 'await this.loadLobbyHeroRoster(true);', 'openGachaMockResultScene', 'closeGachaMockResultScene', 'activeAction: action', 'activeAction: null', 'updateGachaConfigRefresh(deltaTime', "this.currentView = 'adventure'", "this.currentView = 'bag'", "this.currentView = 'formation'", "this.currentView = 'heroes'", "this.currentView = 'heroDetail'", "this.currentView = 'notice'", "this.currentView = 'settings'", "this.currentView = 'placeholder'", "this.currentView = 'battle'", "this.currentView = 'gachaResult'", "this.currentView = 'loginAccount'", 'const gachaStatusY = layout.stageBottom + 210 * layout.uiScale;', 'this.statusPresenter.set(text, layout, gachaStatusY);', 'renderBattleScene', 'openLobbyHeroDetail', 'LobbyHeroDetailSceneContent', 'renderLobbyBagPanel', 'LobbyBagSceneContent', 'renderLobbySettingsPanel', 'openLobbySettingsPanel', 'setLobbyLanguage(language', 'openLoginLanguageDialog', 'renderLoginLanguageDialog', 'selectLoginLanguage(language', 'refreshLocalizedPlayerDataAfterLanguageChange', 'const languageKey = lootChainI18n.currentLanguage();'],
+  },
+  {
+    source: 'assets/scripts/i18n/LootChainI18n.ts',
+    tokens: ['export type LootChainLanguage', 'LANGUAGE_STORAGE_KEY', 'toggleLanguage(): LootChainLanguage', 'text(value: string): string', 'export const lootChainI18n = new LootChainI18n();'],
+  },
+  {
+    source: 'assets/scripts/net/HttpClient.ts',
+    tokens: ['Accept-Language', 'lootChainI18n.currentLanguage()'],
   },
   {
     source: 'assets/scripts/scenes/UiSceneBackButton.ts',
@@ -45,7 +53,15 @@ const REQUIRED_CHUNKS = [
   },
   {
     source: 'assets/scripts/scenes/login/LoginRenderer.ts',
-    tokens: ['renderLoginAccountScene', 'openLoginAccountScene', 'LoginAccountSceneRoot', 'LoginAccountScenePanel', 'scene.node.addComponent(BlockInputEvents)', 'panelGraphics.node.addComponent(BlockInputEvents)', 'drawAccountSceneChrome'],
+    tokens: ['renderLoginAccountScene', 'openLoginAccountScene', 'LoginAccountSceneRoot', 'LoginAccountScenePanel', 'scene.node.addComponent(BlockInputEvents)', 'panelGraphics.node.addComponent(BlockInputEvents)', 'drawAccountSceneChrome', 'openLoginLanguageDialog', 'login.rightRail.language', 'side_btn_prophecy'],
+  },
+  {
+    source: 'assets/scripts/scenes/lobby/LobbyTopHudRenderer.ts',
+    tokens: ['openLobbySettingsPanel', "key === 'settings'", 'lootChainI18n'],
+  },
+  {
+    source: 'assets/scripts/scenes/lobby/LobbySettingsPanelRenderer.ts',
+    tokens: ['LobbySettingsSceneContent', 'LobbySettingsSceneFrame', 'LobbySettingsBackButton', 'LobbySettingsLanguageButton_', 'setLobbyLanguage(language', 'renderSceneBackButton'],
   },
   {
     source: 'assets/resources/login-bg/scripts/login/LoginVideoBackground.ts',

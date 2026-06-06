@@ -1,4 +1,5 @@
 import { AppConfig } from '../app/AppConfig';
+import { lootChainI18n } from '../i18n/LootChainI18n';
 import type { ApiResult, QueryParams } from '../types/CommonTypes';
 import { TokenStore } from '../store/TokenStore';
 
@@ -52,6 +53,7 @@ export class HttpClient {
       xhr.open(method, url, true);
       xhr.timeout = AppConfig.requestTimeoutMs;
       xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+      xhr.setRequestHeader('Accept-Language', lootChainI18n.currentLanguage());
 
       const auth = this.tokenStore.authHeader();
       if (auth) {

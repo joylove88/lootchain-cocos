@@ -2696,3 +2696,72 @@
 - Review result:
   - `check:layout` and project TypeScript no-emit passed after the mask adjustment;
   - this remains a Cocos-only visual clipping fix and does not open hero growth, bag use/sell, gacha exchange/reissue, EX V1, or any new economy write surface.
+
+## 2026-06-06 Current Flow Closure QA Note
+
+- Backend/API acceptance:
+  - readonly `GET /api/player/lobby/heroes/filter-options` is now allowed by the current Cocos PhaseGate;
+  - current-stage smoke verifies filter-options, gacha pools GET, and bag GET as open paths;
+  - exchange/reissue, bag use/batch-use/sell, and hero growth writes remain blocked.
+- Runtime acceptance:
+  - restarted local `lootchain-game` returned class filter options with `code=0`;
+  - existing `/api/player/gacha/draw` was manually verified once on `NORMAL_HERO`;
+  - `scripts/smoke-cocos-current-flow.ps1` passed with no-reward battle settlement flags intact.
+- Visual acceptance:
+  - Cocos `check:layout`, TypeScript no-emit, and `.spine/.spine.meta` source scan passed;
+  - running Preview still serves stale chunks, so restart/refresh Cocos Creator Preview before judging hero roster scroll, class tabs, power labels, UR effects, hidden light/dark summon, readonly bag, and gacha dialogs.
+- Boundary unchanged:
+  - this QA closure does not open hero growth, bag writes, gacha exchange/reissue, EX V1, reward/stamina/progress writes, or any new economy write surface.
+
+## 2026-06-06 Login/Lobby Language Switch QA Note
+
+- Product decision:
+  - login right-side first entry changes from prophecy copy to language switching;
+  - Lobby settings gear opens the current-stage settings page instead of the generic unopened placeholder;
+  - current settings scope is language only. Audio, graphics, account, security, and other settings remain out of scope.
+- UI acceptance:
+  - login first right-rail button displays `语言` in Chinese and `Lang` in English;
+  - clicking the login language button toggles language locally, keeps the login page in place, and does not call login or backend APIs;
+  - Lobby settings page displays `设置` / `Settings`, current language, `简体中文`, `English`, and a back button;
+  - switching language in Lobby settings immediately re-renders the settings page and keeps the selected language highlighted;
+  - the language preference persists through `sys.localStorage`; if storage is unavailable, Chinese remains the default and the UI must not throw.
+- Technical acceptance:
+  - `LootChainGameRoot.makeLayoutKey()` includes current language so resize/refresh cannot reuse stale labels;
+  - `LobbyTopHudRenderer` routes only `settings` to `openLobbySettingsPanel()`;
+  - `HttpClient` sends `Accept-Language` from the local Cocos language preference without adding any new API path.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, `.spine/.spine.meta` source scan, and `git diff --check` passed;
+  - `check:preview` still fails because running Cocos Preview serves stale chunks and does not yet include the new i18n/settings modules;
+  - visual acceptance still requires refreshing/restarting Cocos Preview.
+- Boundary unchanged:
+  - this is Cocos-only local display state plus passive request metadata. It does not open hero growth, bag writes, gacha exchange/reissue, EX V1, reward/stamina/progress writes, or any new economy write surface.
+
+## 2026-06-06 Language Modal And API Text Localization QA Note
+
+- Product decision:
+  - login language is a modal selection, not a direct toggle;
+  - selecting language reloads/re-renders login content immediately;
+  - after entering Lobby, static UI and API-loaded display text must follow the selected language.
+- UI acceptance:
+  - login right-side language entry opens `LoginLanguageDialog*`;
+  - modal has two explicit language options, blank-area close, and top-right close;
+  - language selection persists through `sys.localStorage`;
+  - shared labels/buttons/status text pass through `lootChainI18n.text()` on redraw;
+  - Lobby settings language switch reloads localized player data instead of only repainting old API state.
+- API/DB acceptance:
+  - Cocos sends `Accept-Language`;
+  - backend maps it to `zh-CN` / `en-US` and overlays VO display text from `game_text_i18n`;
+  - localized surfaces include heroes, class options, gacha display/reward names, readonly bag, notices, and readonly adventure;
+  - local `lootchain` DB imported `sql/23_game_text_i18n.sql`, with `200` total rows and `200` enabled `en-US` rows, including `120` `HERO_TEMPLATE` rows;
+  - missing translations fall back to original text.
+- Verification passed:
+  - Cocos `check:layout`;
+  - Cocos TypeScript no-emit;
+  - `.spine/.spine.meta` source scan returned `0`;
+  - backend `mvn -pl lootchain-core test` passed `98` tests, `0` failures, `4` skipped live/external tests;
+  - live 8081 `Accept-Language: en-US` readonly calls returned English hero classes, hero list/detail/codex, gacha pool text, bag type labels, and adventure text;
+  - `git diff --check` passed in both repos with only LF/CRLF warnings.
+- Preview note:
+  - Cocos Preview on `7456` still serves stale chunks; restart/refresh Preview before visual language-modal and Lobby language acceptance.
+- Boundary unchanged:
+  - no `gacha_pool_item`, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag use/sell/batch-use, hero growth, reward/stamina/progress write, or new economy write endpoint changed.

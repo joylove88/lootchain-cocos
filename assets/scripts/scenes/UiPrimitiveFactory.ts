@@ -12,6 +12,7 @@ import {
   Vec3,
   VerticalTextAlignment,
 } from 'cc';
+import { lootChainI18n } from '../i18n/LootChainI18n';
 import { clamp, rgba, type UiLayout } from './lobby/LobbyHudTypes';
 import { trimText } from './UiTextFormatter';
 import { UiSpriteFrameCache, type UiSpriteFrameOverrides } from './UiSpriteFrameCache';
@@ -40,12 +41,13 @@ export class UiPrimitiveFactory {
   ) {}
 
   addLabel(text: string, x: number, y: number, size = 20, color = new Color(230, 230, 230), contentSize?: Size): Label {
+    const translatedText = this.translateText(text);
     const node = this.host.createUiNode('Label');
     node.setPosition(new Vec3(x, y, 0));
     const transform = node.addComponent(UITransform);
     transform.setContentSize(contentSize ?? new Size(this.host.resolveLayout().statusWidth, 80));
     const label = node.addComponent(Label);
-    label.string = trimText(text);
+    label.string = trimText(translatedText);
     label.fontSize = size;
     label.lineHeight = size + 8;
     label.color = color;
@@ -125,7 +127,8 @@ export class UiPrimitiveFactory {
     const currentLayout = layout ?? this.host.resolveLayout();
     const buttonWidth = width ?? 140;
     const buttonHeight = height ?? currentLayout.buttonHeight;
-    const node = this.host.createUiNode(`Button_${text || 'empty'}`);
+    const translatedText = this.translateText(text);
+    const node = this.host.createUiNode(`Button_${translatedText || text || 'empty'}`);
     node.setPosition(new Vec3(x, y, 0));
     node.addComponent(UITransform).setContentSize(new Size(buttonWidth, buttonHeight));
     this.applyButtonVisual(node, buttonWidth, buttonHeight);
@@ -138,7 +141,7 @@ export class UiPrimitiveFactory {
     labelNode.setPosition(Vec3.ZERO);
     labelNode.addComponent(UITransform).setContentSize(new Size(buttonWidth, buttonHeight));
     const label = labelNode.addComponent(Label);
-    label.string = text;
+    label.string = trimText(translatedText);
     label.fontSize = Math.max(14, Math.min(currentLayout.bodyFont + 2, buttonHeight * 0.46));
     label.lineHeight = label.fontSize + 8;
     label.horizontalAlign = HorizontalTextAlignment.CENTER;
@@ -224,7 +227,7 @@ export class UiPrimitiveFactory {
     labelNode.setPosition(new Vec3(this.resolveAlignedLabelX(x, contentSize.width, horizontalAlign), y, 0));
     labelNode.addComponent(UITransform).setContentSize(contentSize);
     const label = labelNode.addComponent(Label);
-    label.string = trimText(text);
+    label.string = trimText(this.translateText(text));
     label.fontSize = size;
     label.lineHeight = size + 8;
     label.horizontalAlign = horizontalAlign;
@@ -232,6 +235,10 @@ export class UiPrimitiveFactory {
     label.overflow = Label.Overflow.CLAMP;
     label.color = color;
     return label;
+  }
+
+  private translateText(text: string): string {
+    return lootChainI18n.text(text);
   }
 
   resolveAlignedLabelX(x: number, width: number, horizontalAlign: HorizontalTextAlignment): number {

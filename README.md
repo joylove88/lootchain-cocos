@@ -2699,3 +2699,46 @@ mysql -uroot -p lootchain < .\sql\17_gacha_pool_display_config.sql
 - Verification passed: `check:layout`; Cocos TypeScript no-emit; `.spine/.spine.meta` scan returned `0`; `git diff --check` passed with only LF/CRLF warnings.
 - Preview note: `check:preview` still fails because the running Cocos Preview serves stale chunks missing the new top-mask padding tokens. Restart/refresh Cocos Creator Preview before visual acceptance.
 - Boundary unchanged: Cocos-only visual clipping fix. No interface, SQL, economy rule, gacha pool item, probability, cost, reward, pity, EX V1, bag write, hero growth, or new write entry changed.
+
+## 2026-06-06 Current Flow PhaseGate And Smoke Closure
+
+- Backend `PlayerApiPhaseGate` now allows readonly `GET /api/player/lobby/heroes/filter-options`, so the Cocos hero roster class rail no longer depends on the stale local fallback after the game server is restarted.
+- The current smoke script now matches the current Cocos stage:
+  - open/readable: filter-options, gacha pools GET, bag GET;
+  - still blocked: gacha exchange/reissue, bag use/batch-use/sell, and hero growth writes.
+- Local DB was brought up to the current battle-smoke schema by sourcing existing SQL `13_battle_session_module.sql` and `14_battle_settlement_guard_flags.sql` with `mysql --default-character-set=utf8mb4`.
+- Runtime acceptance on the restarted local game server passed:
+  - filter-options returned `code=0` with six configured classes;
+  - a manual `NORMAL_HERO` single draw succeeded through existing `/api/player/gacha/draw` only;
+  - `scripts/smoke-cocos-current-flow.ps1 -BaseUrl http://localhost:8081 -UserId 1 -StageCode MAIN_1_1` passed with no-reward settlement flags intact.
+- Verification passed: Cocos `check:layout`; Cocos TypeScript no-emit; `.spine/.spine.meta` scan returned `0`; backend targeted tests; backend admin/game compile; backend current-flow smoke; `git diff --check`.
+- Preview note: `check:preview` still fails because the running Cocos Preview serves stale chunks. Restart/refresh Cocos Creator Preview before final visual acceptance.
+- Boundary unchanged: no `gacha_pool_item`, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag write, hero growth, reward/stamina/progress write, or new economy write endpoint changed.
+- Boundary unchanged: no `gacha_pool_item`, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag use/sell/batch-use, hero growth, reward/stamina/progress write, or new economy write endpoint changed.
+
+## 2026-06-06 Login And Lobby Language Switch
+
+- Added a Cocos-local i18n service at `assets/scripts/i18n/LootChainI18n.ts` with `zh-CN` and `en-US`, persisted through `sys.localStorage`.
+- Login right-side first entry now displays `语言` / `Lang` instead of the previous prophecy text and toggles display language locally. It does not call login, dev-login, or any backend endpoint.
+- Lobby top-right settings gear now opens a dedicated `设置` / `Settings` scene page with current language, `简体中文`, and `English` options.
+- `HttpClient` now sends `Accept-Language` from the local Cocos language preference. This is passive request metadata only; no backend contract or economy behavior changed.
+- Guards updated: `check:layout` and `check-preview-freshness` require the i18n service, login language entry, settings page, HUD routing, and language header.
+- Verification passed: `npm.cmd run check:layout`; Cocos TypeScript no-emit; `.spine/.spine.meta` scan returned `0`; `git diff --check` passed with only LF/CRLF warnings.
+- Preview note: `npm.cmd run check:preview` still fails because the running Cocos Preview serves stale chunks and does not yet include the new i18n/settings modules. Restart/refresh Cocos Creator Preview before visual acceptance of login language toggle, Lobby settings panel, language persistence, and layout overlap.
+- Boundary unchanged: no `gacha_pool_item`, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag write, hero growth, reward/stamina/progress write, or new economy write entry changed.
+
+## 2026-06-06 Language Modal And Backend I18n Read Model
+
+- Login language entry now opens an in-page modal instead of toggling directly.
+- The modal supports selecting `简体中文` / `English`, blank-area close, and a top-right close button; selection saves to local `LootChainI18n` and re-renders the login page.
+- `UiPrimitiveFactory` and `StatusPresenter` now translate shared static labels/buttons/status text through `lootChainI18n.text()`, so login and Lobby static UI follow language on redraw.
+- Lobby settings language switch now reloads localized player data after changing language: profile, notices, adventure, hero roster/filter options, codex, bag, battle recent, gacha pools, and selected pool detail/pity.
+- Backend now consumes the existing Cocos `Accept-Language` header for `/api/player/**` and overlays player-facing display text from `game_text_i18n`.
+- New backend SQL: `D:\project\LootChain\sql\23_game_text_i18n.sql`.
+  Import with `mysql --default-character-set=utf8mb4` and `source D:/project/LootChain/sql/23_game_text_i18n.sql`.
+- Local DB sync completed on `lootchain`: `game_text_i18n` has `200` rows, all `200` enabled rows are `en-US`; `HERO_TEMPLATE` contributes `120` rows for current hero/protagonist display fields.
+- Localized API surfaces include hero list/detail/codex/fragments/filter options, gacha pool display/draw reward names, readonly bag item/source/type labels, notices, and readonly adventure text.
+- Live 8081 acceptance after restarting `lootchain-game` from current source: `Accept-Language: en-US` returns English hero classes, hero list/detail/codex display fields, gacha pool text, bag type labels, and adventure text.
+- Verification passed: Cocos `check:layout`; Cocos TypeScript no-emit; `.spine/.spine.meta` scan returned `0`; backend `mvn -pl lootchain-core test` passed `98` tests with `0` failures and `4` skipped live/external tests; both repos `git diff --check` passed with only LF/CRLF warnings.
+- Preview note: running Cocos Preview on `7456` still serves stale chunks, so visual language-modal acceptance requires restarting/refreshing Preview and rerunning `npm.cmd run check:preview`.
+- Boundary unchanged: no `gacha_pool_item`, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag use/sell/batch-use, hero growth, reward/stamina/progress write, or new economy write endpoint changed.

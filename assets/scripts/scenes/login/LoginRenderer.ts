@@ -13,10 +13,15 @@ import {
   Vec3,
   VerticalTextAlignment,
 } from 'cc';
+import { lootChainI18n, type LootChainI18nKey } from '../../i18n/LootChainI18n';
 import { clamp, rgba, type UiLayout } from '../lobby/LobbyHudTypes';
+
+type LoginRightRailKey = 'language' | 'service' | 'notice' | 'repair';
 
 interface RailButtonAsset {
   label: string;
+  key?: LoginRightRailKey;
+  labelKey?: LootChainI18nKey;
   path: string;
 }
 
@@ -77,6 +82,7 @@ export interface LoginRendererHost {
   applyPointerCursor(node: Node): void;
   setLoginInputs(accountInput: EditBox | null, passwordInput: EditBox | null): void;
   openLoginAccountScene(): void;
+  openLoginLanguageDialog(): void;
   renderLogin(): void;
   submitLogin(): void;
   toggleLoginAgreement(): void;
@@ -225,18 +231,24 @@ export class LoginRenderer {
     const railWidth = 76 * layout.uiScale;
     const railHeight = 74 * layout.uiScale;
     const iconSize = 46 * layout.uiScale;
-    const node = this.host.createUiNode(`Rail_${asset.label}`);
+    const isLanguageButton = asset.path.includes('side_btn_prophecy');
+    const label = isLanguageButton ? lootChainI18n.t('login.rightRail.language') : asset.label;
+    const node = this.host.createUiNode(`Rail_${isLanguageButton ? 'language' : asset.label}`);
     node.setPosition(new Vec3(x, y, 0));
     node.addComponent(UITransform).setContentSize(new Size(railWidth, railHeight));
     const button = node.addComponent(Button);
     node.on(Button.EventType.CLICK, () => this.host.setStatus('该入口为登录页占位，当前阶段暂未开放。'));
+    if (isLanguageButton) {
+      node.off(Button.EventType.CLICK);
+      node.on(Button.EventType.CLICK, () => this.host.openLoginLanguageDialog());
+    }
     this.host.applyImageButtonFeedback(node);
 
     if (!this.host.addSprite('Icon', asset.path, 0, 15 * layout.uiScale, iconSize, iconSize, node)) {
       // 图标未加载完成时画一个菱形占位，避免按钮区域空白不可见。
       this.addDiamondButton('', x, y + 14, () => this.host.setStatus('该入口为登录页占位，当前阶段暂未开放。'), layout);
     }
-    this.host.addChildLabel(node, 'Label', asset.label, 0, -27 * layout.uiScale, Math.max(13, 18 * layout.uiScale), rgba(229, 196, 122), new Size(72 * layout.uiScale, 28 * layout.uiScale));
+    this.host.addChildLabel(node, 'Label', label, 0, -27 * layout.uiScale, Math.max(13, 18 * layout.uiScale), rgba(229, 196, 122), new Size(72 * layout.uiScale, 28 * layout.uiScale));
     return button;
   }
 

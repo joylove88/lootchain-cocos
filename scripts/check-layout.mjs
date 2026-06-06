@@ -7,6 +7,9 @@ const required = [
   'assets/main.scene.meta',
   'profiles/v2/packages/preview.json',
   'assets/scripts/app/AppConfig.ts',
+  'assets/scripts/i18n.meta',
+  'assets/scripts/i18n/LootChainI18n.ts',
+  'assets/scripts/i18n/LootChainI18n.ts.meta',
   'assets/scripts/net/HttpClient.ts',
   'assets/scripts/api/PlayerAuthApi.ts',
   'assets/scripts/api/PlayerProfileApi.ts',
@@ -136,6 +139,8 @@ const required = [
   'assets/scripts/scenes/lobby/LobbyNoticePanelRenderer.ts.meta',
   'assets/scripts/scenes/lobby/LobbyNoticeState.ts',
   'assets/scripts/scenes/lobby/LobbyNoticeState.ts.meta',
+  'assets/scripts/scenes/lobby/LobbySettingsPanelRenderer.ts',
+  'assets/scripts/scenes/lobby/LobbySettingsPanelRenderer.ts.meta',
   'assets/scripts/scenes/lobby/LobbyProfileDialogRenderer.ts',
   'assets/scripts/scenes/lobby/LobbyProfileDialogRenderer.ts.meta',
   'assets/scripts/scenes/lobby/LobbyProfileLoader.ts',
@@ -286,6 +291,8 @@ if (!ok) {
 const scenePath = 'assets/main.scene';
 const sceneMetaPath = 'assets/main.scene.meta';
 const previewProfilePath = 'profiles/v2/packages/preview.json';
+const i18nPath = 'assets/scripts/i18n/LootChainI18n.ts';
+const httpClientPath = 'assets/scripts/net/HttpClient.ts';
 const adaptiveLayoutPath = 'assets/scripts/scenes/AdaptiveStageLayoutResolver.ts';
 const gameRootPath = 'assets/scripts/scenes/LootChainGameRoot.ts';
 const statusPresenterPath = 'assets/scripts/scenes/StatusPresenter.ts';
@@ -343,6 +350,7 @@ const lobbyNoticeTypesPath = 'assets/scripts/types/LobbyNoticeTypes.ts';
 const lobbyNoticeLoaderPath = 'assets/scripts/scenes/lobby/LobbyNoticeLoader.ts';
 const lobbyNoticePanelPath = 'assets/scripts/scenes/lobby/LobbyNoticePanelRenderer.ts';
 const lobbyNoticeStatePath = 'assets/scripts/scenes/lobby/LobbyNoticeState.ts';
+const lobbySettingsPanelPath = 'assets/scripts/scenes/lobby/LobbySettingsPanelRenderer.ts';
 const lobbyProfileDialogPath = 'assets/scripts/scenes/lobby/LobbyProfileDialogRenderer.ts';
 const lobbyProfileLoaderPath = 'assets/scripts/scenes/lobby/LobbyProfileLoader.ts';
 const lobbyProfileStatePath = 'assets/scripts/scenes/lobby/LobbyProfileState.ts';
@@ -361,6 +369,8 @@ const sceneBackButtonAssetPath = 'assets/resources/ui/common/scene_back_button.p
 const sceneBackButtonMetaPath = 'assets/resources/ui/common/scene_back_button.png.meta';
 const modalCloseButtonAssetPath = 'assets/resources/ui/common/modal_close_button.png';
 const modalCloseButtonMetaPath = 'assets/resources/ui/common/modal_close_button.png.meta';
+const i18n = readFileSync(i18nPath, 'utf8');
+const httpClient = readFileSync(httpClientPath, 'utf8');
 const adaptiveLayout = readFileSync(adaptiveLayoutPath, 'utf8');
 const gameRoot = readFileSync(gameRootPath, 'utf8');
 const statusPresenter = readFileSync(statusPresenterPath, 'utf8');
@@ -418,6 +428,7 @@ const lobbyNoticeTypes = readFileSync(lobbyNoticeTypesPath, 'utf8');
 const lobbyNoticeLoader = readFileSync(lobbyNoticeLoaderPath, 'utf8');
 const lobbyNoticePanel = readFileSync(lobbyNoticePanelPath, 'utf8');
 const lobbyNoticeState = readFileSync(lobbyNoticeStatePath, 'utf8');
+const lobbySettingsPanel = readFileSync(lobbySettingsPanelPath, 'utf8');
 const lobbyProfileDialog = readFileSync(lobbyProfileDialogPath, 'utf8');
 const lobbyProfileLoader = readFileSync(lobbyProfileLoaderPath, 'utf8');
 const lobbyProfileState = readFileSync(lobbyProfileStatePath, 'utf8');
@@ -488,6 +499,8 @@ const loginAndLobbyModuleSources = [
 ];
 
 const checkedClientSources = uniqueSources([
+  { path: i18nPath, text: i18n },
+  { path: httpClientPath, text: httpClient },
   { path: adaptiveLayoutPath, text: adaptiveLayout },
   { path: gameRootPath, text: gameRoot },
   { path: statusPresenterPath, text: statusPresenter },
@@ -545,6 +558,7 @@ const checkedClientSources = uniqueSources([
   { path: lobbyNoticeLoaderPath, text: lobbyNoticeLoader },
   { path: lobbyNoticePanelPath, text: lobbyNoticePanel },
   { path: lobbyNoticeStatePath, text: lobbyNoticeState },
+  { path: lobbySettingsPanelPath, text: lobbySettingsPanel },
   { path: lobbyProfileDialogPath, text: lobbyProfileDialog },
   { path: lobbyProfileLoaderPath, text: lobbyProfileLoader },
   { path: lobbyProfileStatePath, text: lobbyProfileState },
@@ -782,10 +796,14 @@ const requiredLoginRootTokens = [
   'private currentLobbyHeroRosterState(): LobbyHeroRosterPanelState',
   'private async loadLobbyHeroRoster(force = false): Promise<void>',
   'private renderLobbyNoticePanel(layout: UiLayout): void',
+  'private renderLobbySettingsPanel(layout: UiLayout): void',
   'private openLobbyNoticePanel(): void',
   'private closeLobbyNoticePanel(): void',
   'private reloadLobbyNotices(): void',
   'private currentLobbyNoticeState(): LobbyNoticePanelState',
+  'private openLobbySettingsPanel(): void',
+  'private closeLobbySettingsPanel(): void',
+  'private setLobbyLanguage(language: LootChainLanguage): void',
   'private async loadLobbyNotices(force = false): Promise<void>',
   'this.loginRenderer.renderLogin(layout);',
   'this.loginRenderer.renderLoginAccountScene(layout, {',
@@ -796,6 +814,11 @@ const requiredLoginRootTokens = [
   'private setProtagonistNameInput(input: EditBox | null): void',
   'this.protagonistCreateFlow.setNameInput(input);',
   'private openLoginAccountScene(): void',
+  'private openLoginLanguageDialog(): void',
+  'private closeLoginLanguageDialog(): void',
+  'private selectLoginLanguage(language: LootChainLanguage): void',
+  'private renderLoginLanguageDialog(layout: UiLayout): void',
+  'this.renderLoginLanguageDialog(layout);',
   'private submitLogin(): void',
   'this.run(() => this.loginFlow.login());',
   'private toggleLoginAgreement(): void',
@@ -920,6 +943,8 @@ const requiredLoginRootTokens = [
   'LobbyHeroRosterPanel',
   'LobbyProfileDim',
   'LobbyProfilePanel',
+  'LobbySettingsDim',
+  'LobbySettingsSceneContent',
   'LobbyPlaceholderSceneRoot',
   'LobbyPlaceholderScenePanel',
   'LobbyPlaceholderBackButton',
@@ -933,16 +958,101 @@ const requiredLoginRootTokens = [
   "this.currentView = 'heroes';",
   "this.currentView = 'heroDetail';",
   "this.currentView = 'notice';",
+  "this.currentView = 'settings';",
   "this.currentView = 'gachaReveal';",
   "this.currentView = 'gachaResult';",
   "this.currentView = 'placeholder';",
   'profile-open',
+  'settings-open',
   'placeholder-open',
 ];
 
 for (const token of requiredLoginRootTokens) {
   if (!gameRoot.includes(token)) {
     console.error(`missing login-stage safeguard in ${gameRootPath}: ${token}`);
+    ok = false;
+  }
+}
+
+for (const token of [
+  'export type LootChainLanguage',
+  'LANGUAGE_STORAGE_KEY',
+  "'zh-CN'",
+  "'en-US'",
+  'currentLanguage(): LootChainLanguage',
+  'setLanguage(language: LootChainLanguage): LootChainLanguage',
+  'toggleLanguage(): LootChainLanguage',
+  'text(value: string): string',
+  'export const lootChainI18n = new LootChainI18n();',
+]) {
+  if (!i18n.includes(token)) {
+    console.error(`missing i18n safeguard in ${i18nPath}: ${token}`);
+    ok = false;
+  }
+}
+
+for (const token of [
+  "import { lootChainI18n, type LootChainLanguage } from '../i18n/LootChainI18n';",
+  "import { LobbySettingsPanelRenderer, type LobbySettingsPanelHost } from './lobby/LobbySettingsPanelRenderer';",
+  "| 'settings'",
+  'private readonly lobbySettingsPanelRenderer = new LobbySettingsPanelRenderer',
+  'private lobbySettingsPanelOpen = false;',
+  "this.currentView === 'settings'",
+  'const languageKey = lootChainI18n.currentLanguage();',
+]) {
+  if (!gameRoot.includes(token)) {
+    console.error(`missing language/settings root safeguard in ${gameRootPath}: ${token}`);
+    ok = false;
+  }
+}
+
+for (const token of [
+  "import { lootChainI18n, type LootChainI18nKey } from '../../i18n/LootChainI18n';",
+  'openLoginLanguageDialog(): void',
+  "lootChainI18n.t('login.rightRail.language')",
+  "asset.path.includes('side_btn_prophecy')",
+]) {
+  if (!loginRenderer.includes(token)) {
+    console.error(`missing login language safeguard in ${loginRendererPath}: ${token}`);
+    ok = false;
+  }
+}
+
+for (const token of [
+  "import { lootChainI18n } from '../../i18n/LootChainI18n';",
+  'private openLobbySettingsPanel(): void',
+  "key === 'settings'",
+  'this.openLobbySettingsPanel()',
+]) {
+  if (!lobbyTopHud.includes(token)) {
+    console.error(`missing top HUD settings safeguard in ${lobbyTopHudPath}: ${token}`);
+    ok = false;
+  }
+}
+
+for (const token of [
+  'export class LobbySettingsPanelRenderer',
+  'export interface LobbySettingsPanelHost',
+  'LobbySettingsSceneContent',
+  'LobbySettingsSceneFrame',
+  'LobbySettingsBackButton',
+  'LobbySettingsLanguageButton_',
+  'setLobbyLanguage(language',
+  'renderSceneBackButton',
+  'panelGroup.addComponent(BlockInputEvents)',
+]) {
+  if (!lobbySettingsPanel.includes(token)) {
+    console.error(`missing settings panel safeguard in ${lobbySettingsPanelPath}: ${token}`);
+    ok = false;
+  }
+}
+
+for (const token of [
+  "import { lootChainI18n } from '../i18n/LootChainI18n';",
+  "xhr.setRequestHeader('Accept-Language', lootChainI18n.currentLanguage());",
+]) {
+  if (!httpClient.includes(token)) {
+    console.error(`missing language header safeguard in ${httpClientPath}: ${token}`);
     ok = false;
   }
 }
@@ -1999,7 +2109,8 @@ const requiredUiPrimitiveFactoryTokens = [
   'this.spriteFrameCache.request(assetPath)',
   'this.host.ensureContentRoot()',
   'this.host.setPointerCursor(true)',
-  'trimText(text)',
+  'lootChainI18n.text(text)',
+  'trimText(translatedText)',
 ];
 
 for (const token of requiredUiPrimitiveFactoryTokens) {
@@ -2057,7 +2168,8 @@ const requiredStatusPresenterTokens = [
   'this.label.node.setPosition(centerX, statusY, 0);',
   'this.host.addLabel(',
   'this.host.resolveLayout()',
-  'this.host.trimText(text)',
+  'lootChainI18n.text(text)',
+  'this.host.trimText(lootChainI18n.text(text))',
   'this.label.node?.isValid',
 ];
 
@@ -3211,7 +3323,7 @@ function assertClickContract(sourcePath, sourceText, allowedExceptions) {
 }
 
 assertClickContract(lobbyHudPath, lobbyHud, ['activateLobbyHotspot', 'activateLobbyNextGoal', 'openLobbyNoticePanel', 'openLobbyCodexPanel', 'openLobbyHeroRosterPanel', 'openLobbyBagPanel', 'openLobbyAdventurePanel', 'openLobbyGachaScene', 'openPlayerProfileDialog']);
-assertClickContract(lobbyTopHudPath, lobbyTopHud, ['openPlayerProfileDialog']);
+assertClickContract(lobbyTopHudPath, lobbyTopHud, ['openPlayerProfileDialog', 'openLobbySettingsPanel']);
 
 function assertMethodExcludes(sourcePath, sourceText, signature, forbiddenTokens, reason) {
   const body = extractMethodBody(sourceText, signature);

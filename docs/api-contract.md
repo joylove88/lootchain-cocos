@@ -438,14 +438,15 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-cocos-cu
 
 The script verifies:
 
-- forbidden player routes for gacha, bag, and hero growth are blocked by the current Cocos phase gate;
+- current readonly/open player APIs are reachable: `GET /api/player/lobby/heroes/filter-options`, `GET /api/player/gacha/pools`, and `GET /api/player/bag`;
+- forbidden player write routes are still blocked by the current Cocos phase gate: gacha exchange/reissue, bag use/batch-use/sell, and hero growth;
 - blocked calls do not mutate tracked economy snapshots;
 - battle start `requestId` is idempotent only for the same payload;
 - no-reward settlement does not mutate tracked economy snapshots;
 - `battle_settlement` persists `settlement_mode='NO_REWARD'`, `reward_granted=0`, `readonly_economy=1`, and `economy_applied=0`.
 - recent battle readback contains the just-created settlement and keeps `rewardGranted=false`, `readonlyEconomy=true`, and `economyApplied=false`.
 
-This smoke is contract verification only. It does not open reward, stamina, progress, bag/currency, USDT, fund-pool, EX V1, or any economy write route.
+This smoke is contract verification only. It does not open reward, stamina, progress, bag/currency mutation beyond the already reviewed gacha draw path, USDT, fund-pool, EX V1, gacha exchange/reissue, bag writes, hero growth, or any new economy write route.
 
 ### 2026-05-31 Stage 4AA Locked Stage Backend Guard
 
@@ -479,3 +480,60 @@ This is a defensive battle-start guard only. It does not open rewards, stamina c
 - Cocos enables summon buttons only for pools returned by the backend with `drawEnabled=true`, `previewOnly=false`, and `locked=false`; the actual draw still goes only through the existing `POST /api/player/gacha/draw`.
 - Preview-only pools such as a limited preview must not be treated as real active pools by the client. A limited pool becomes drawable only when backend data exposes it as a real active pool under the same guard.
 - This does not add exchange/reissue, does not change `gacha_pool_item`, and does not change probability, weight, pity, cost, reward, or duplicate conversion rules.
+
+### 2026-06-06 Current Cocos PhaseGate and smoke closure
+
+- `PlayerApiPhaseGate` now allows readonly `GET /api/player/lobby/heroes/filter-options`, matching the Cocos hero roster class rail contract.
+- The current smoke script verifies the active stage boundary:
+  - open: filter-options, gacha pools GET, bag GET, battle start, no-reward battle settlement, and recent battle readback;
+  - blocked: gacha exchange/reissue, bag use/batch-use/sell, hero level-up/star-up/awaken/refine;
+  - unchanged: no-reward settlement persists `settlement_mode='NO_REWARD'`, `reward_granted=0`, `readonly_economy=1`, and `economy_applied=0`.
+- Local DB sync note: if `battle_session` or `battle_settlement` is missing, source existing SQL `13_battle_session_module.sql` and `14_battle_settlement_guard_flags.sql` with `mysql --default-character-set=utf8mb4`.
+- Manual runtime acceptance on the restarted local game server confirmed:
+  - `GET /api/player/lobby/heroes/filter-options` returned `code=0` with six configured classes;
+  - one `NORMAL_HERO` single draw succeeded through the existing `/api/player/gacha/draw` path only;
+  - current smoke passed with `rewardGranted=false`, `readonlyEconomy=true`, and `economy_applied=0`.
+- Boundary unchanged: no `gacha_pool_item`, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag use/sell/batch-use, hero growth, reward/stamina/progress write, or new economy write endpoint changed.
+
+### 2026-06-06 Cocos language preference request header
+
+- Cocos now keeps display language locally in `assets/scripts/i18n/LootChainI18n.ts`.
+- Supported current-stage values are `zh-CN` and `en-US`; default is `zh-CN`.
+- `HttpClient` sends `Accept-Language: <current Cocos language>` on API calls.
+- This header is passive metadata for future localization. No backend endpoint, response schema, economy rule, gacha rule, bag write, hero growth path, SQL, or PhaseGate rule was changed in this step.
+- Login language toggling and Lobby settings language selection are local Cocos UI actions only.
+
+### 2026-06-06 Player API localization contract
+
+- Cocos still sends `Accept-Language` from `LootChainI18n.currentLanguage()`.
+- Backend now consumes this header for `/api/player/**`.
+- Supported current-stage values:
+  - `zh-CN` (default and fallback);
+  - `en-US`.
+- Backend language parsing:
+  - accepts normal browser-style `Accept-Language` values;
+  - any unsupported/blank value falls back to `zh-CN`;
+  - language context is cleared after request completion.
+- New display-only DB table:
+  - SQL: `D:\project\LootChain\sql\23_game_text_i18n.sql`;
+  - table: `game_text_i18n(owner_type, owner_key, field_name, lang, text_value, status)`;
+  - unique key: `(owner_type, owner_key, field_name, lang)`;
+  - import must use `mysql --default-character-set=utf8mb4` to avoid corrupting Chinese seed text;
+  - local `lootchain` DB currently has `200` enabled `en-US` rows, including `120` `HERO_TEMPLATE` rows for current hero/protagonist display fields.
+- Localized response surfaces in this stage:
+  - `GET /api/player/lobby/heroes` and related hero detail/codex/fragments display fields, including hero names, factions, classes, detail story, and detail skills where translated rows exist;
+  - `GET /api/player/lobby/heroes/filter-options` class labels;
+  - `GET /api/player/gacha/pools`, pool detail display fields, and `POST /api/player/gacha/draw` reward display names;
+  - `GET /api/player/bag` and item source display fields;
+  - `GET /api/player/lobby/notices`;
+  - `GET /api/player/lobby/adventure`.
+- Runtime acceptance:
+  - after restarting local `lootchain-game` from current source on `8081`, readonly calls with `Accept-Language: en-US` returned English hero classes, hero list/detail/codex display fields, gacha pool text, bag type labels, and adventure text.
+- Fallback rule:
+  - missing translations return the original DB/hardcoded text;
+  - translation rows must never drive gacha probability, weight, pity, cost, reward, duplicate conversion, item use/sell, hero growth, progress, or any economy state.
+- Boundary unchanged:
+  - no new API route;
+  - no new economy write endpoint;
+  - no `gacha_pool_item` modification;
+  - no EX V1, exchange/reissue, bag write, hero growth, reward/stamina/progress write opened.

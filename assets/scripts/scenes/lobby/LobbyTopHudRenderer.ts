@@ -10,6 +10,7 @@ import {
   UITransform,
   Vec3,
 } from 'cc';
+import { lootChainI18n } from '../../i18n/LootChainI18n';
 import type { PlayerLobbyProfileVO } from '../../types/PlayerTypes';
 import { LOBBY_SYSTEM_ICONS } from './LobbyHudConfig';
 import { lobbyHudEdgeInset, lobbyHudScale, resolveLobbyPlayerInfoLayout } from './LobbyHudLayout';
@@ -89,6 +90,10 @@ export class LobbyTopHudRenderer {
 
   private openLobbyPlaceholderDialog(title: string, detail?: string): void {
     this.host.openLobbyPlaceholderDialog(title, detail);
+  }
+
+  private openLobbySettingsPanel(): void {
+    this.host.openLobbySettingsPanel();
   }
 
   private showUnopenedFeature(title: string, detail?: string): void {
@@ -583,6 +588,10 @@ export class LobbyTopHudRenderer {
     const node = this.addChildPlainNode(parent, `LobbySystemIcon_${key}`, x, y, size, size);
     node.addComponent(Button);
     node.on(Button.EventType.CLICK, () => this.showUnopenedFeature(this.systemIconTitle(key), '系统入口暂未开放；当前仅保留本地占位反馈，不读取或写入系统数据。'), this);
+    if (key === 'settings') {
+      node.off(Button.EventType.CLICK);
+      node.on(Button.EventType.CLICK, () => this.openLobbySettingsPanel(), this);
+    }
     this.applyImageButtonFeedback(node, 1.08, 0.94);
     const graphics = node.addComponent(Graphics);
     graphics.strokeColor = rgba(206, 171, 112, 230);
@@ -635,6 +644,16 @@ export class LobbyTopHudRenderer {
   }
 
   private systemIconTitle(key: LobbySystemIconKey): string {
+    if (key === 'friends') {
+      return lootChainI18n.t('lobby.system.friends');
+    }
+    if (key === 'mail') {
+      return lootChainI18n.t('lobby.system.mail');
+    }
+    if (key === 'settings') {
+      return lootChainI18n.t('lobby.system.settings');
+    }
+    return lootChainI18n.t('lobby.system.menu');
     if (key === 'friends') {
       return '好友';
     }
