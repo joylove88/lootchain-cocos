@@ -120,6 +120,7 @@
         "protagonist": true,
         "sourceType": "PROTAGONIST",
         "portraitAsset": "act_1001",
+    "cardBackgroundAsset": "ui/hero-roster/card_background/Nuu_Illust",
         "spineAsset": "npc_1001",
         "spineUuid": "7196cf65-7226-4546-8f38-b60935a6a97a",
         "currentForm": "attack",
@@ -132,8 +133,33 @@
 - 该接口只读，不执行英雄升级、升星、觉醒、洗练、抽卡、发奖、购买、出售或结算。
 - 主角由后端按 `protagonist=true` / `sourceType=PROTAGONIST` 置顶；前端也会再按主角标记排序。
 - EX 稀有度和 `EX_` 英雄编码会在后端和前端双重过滤。
-- `portraitAsset`、`spineAsset`、`spineUuid` 仅用于 Cocos 英雄详情资源展示；`spineUuid` 对应 Cocos `sp.SkeletonData` 资源 uuid，前端优先按 uuid 加载，失败时才按 `assets/resources/spine/hero/{spineAsset}/{spineAsset}` 路径兜底。
+- `portraitAsset`、`cardBackgroundAsset`、`spineAsset`、`spineUuid` 仅用于 Cocos 英雄列表/详情资源展示；`cardBackgroundAsset` 是 `assets/resources` 下的卡牌背景资源路径，前端会按 SpriteFrame 资源加载；`spineUuid` 对应 Cocos `sp.SkeletonData` 资源 uuid，前端优先按 uuid 加载，失败时才按 `assets/resources/spine/hero/{spineAsset}/{spineAsset}` 路径兜底。
 - 这些展示字段不代表获取来源、概率、奖励、消耗、碎片转换或任何经济语义。
+
+### 2026-06-06 Hero card background display field
+
+- `hero_template.card_background_asset` 通过玩家英雄列表、详情、图鉴和大厅只读英雄/图鉴 VO 暴露为 `cardBackgroundAsset`。
+- 当前 SQL：`D:\project\LootChain\sql\24_hero_card_background_asset.sql`。
+- 当前示例值：`UR_EVELYN -> ui/hero-roster/card_background/Nuu_Illust`。
+- 该字段只控制 Cocos 英雄界面卡牌背景展示，不改变英雄拥有状态、抽卡概率、池物品、奖励、碎片转换、EX V1、英雄养成或任何经济写入口。
+
+### 2026-06-07 Nine hero display asset mapping
+
+- 当前增量 SQL：`D:\project\LootChain\sql\33_hero_display_asset_batch_sync.sql`。
+- 本批只同步展示字段：`portrait_asset`、`card_background_asset`、`spine_asset`、`spine_uuid`。
+- 当前映射：
+  - `UR_ARTHAS -> IshmaelA / ui/hero-roster/card_background/IshmaelA_Illust`;
+  - `UR_ATLAS -> Lucrecia / ui/hero-roster/card_background/Lucrecia_Illust`;
+  - `UR_AURELIA -> Belladonna / ui/hero-roster/card_background/Belladonna_Illust`;
+  - `UR_NYX -> Sphinx / ui/hero-roster/card_background/Sphinx_Illust`;
+  - `UR_SERAPHINA -> LucienA / ui/hero-roster/card_background/LucienA_Illust`;
+  - `SSR_KANE -> Ishmael / ui/hero-roster/card_background/Ishmael_center`;
+  - `SSR_LIVIA -> Carmilla / ui/hero-roster/card_background/Carmilla_center`;
+  - `SSR_MICHAEL -> HeylelS01 / ui/hero-roster/card_background/HeylelS01_Illust`;
+  - `SSR_RON -> Eulenspigel / ui/hero-roster/card_background/Eulenspigel_Illust`。
+- Cocos 英雄详情优先使用 `spineUuid` 加载 `sp.SkeletonData`，失败再按 `assets/resources/spine/hero/{spineAsset}/{spineAsset}` 路径兜底。
+- 本批英雄详情动画统一使用 `idle`。这只是展示动画选择，不改变技能、属性、战斗或养成语义。
+- 该批同步不新增接口、不改变返回结构，不开放 EX V1、英雄养成、背包写操作、gacha exchange/reissue，也不改变抽卡概率、保底、消耗、奖励或重复转碎片规则。
 
 ### 大厅英雄职业筛选项
 

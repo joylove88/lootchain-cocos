@@ -2,12 +2,29 @@ import { HttpClient } from '../net/HttpClient';
 import type { LobbyHeroFilterOptionsVO, LobbyHeroItemVO } from '../types/LobbyHeroTypes';
 
 type UnknownRecord = Record<string, unknown>;
+interface HeroAssetFallback {
+  portraitAsset: string;
+  spineAsset: string;
+  cardBackgroundAsset?: string;
+  spineUuid?: string;
+}
 
 const MAX_HERO_COUNT = 80;
 const MAX_TEXT_LENGTH = 96;
-const HERO_ASSET_FALLBACKS: Record<string, { portraitAsset: string; spineAsset: string }> = {
+const MAX_RESOURCE_PATH_LENGTH = 192;
+const HERO_ASSET_FALLBACKS: Record<string, HeroAssetFallback> = {
   // 只读展示兜底：当前公司/家里本地服务未重启时，英雄列表可能暂时不带资源字段。
   R_PATROL_01: { portraitAsset: 'act_1001', spineAsset: 'npc_1001' },
+  UR_ARTHAS: { portraitAsset: 'IshmaelA', spineAsset: 'IshmaelA', cardBackgroundAsset: 'ui/hero-roster/card_background/IshmaelA_Illust', spineUuid: '3e12af42-2d0f-4cb0-bb36-fd12425a0407' },
+  UR_ATLAS: { portraitAsset: 'Lucrecia', spineAsset: 'Lucrecia', cardBackgroundAsset: 'ui/hero-roster/card_background/Lucrecia_Illust', spineUuid: '3af1df8e-5c10-4a4f-a8f7-2b49f5924988' },
+  UR_AURELIA: { portraitAsset: 'Belladonna', spineAsset: 'Belladonna', cardBackgroundAsset: 'ui/hero-roster/card_background/Belladonna_Illust', spineUuid: '0b593cca-d1f8-4495-b6bf-2ed043f2d765' },
+  UR_NYX: { portraitAsset: 'Sphinx', spineAsset: 'Sphinx', cardBackgroundAsset: 'ui/hero-roster/card_background/Sphinx_Illust', spineUuid: 'a25ac6d0-765c-4ac9-bc9a-3945d8ad6c79' },
+  UR_SERAPHINA: { portraitAsset: 'LucienA', spineAsset: 'LucienA', cardBackgroundAsset: 'ui/hero-roster/card_background/LucienA_Illust', spineUuid: '5c80ea13-54f2-42b2-9fd3-8757a2dde3da' },
+  SSR_KANE: { portraitAsset: 'Ishmael', spineAsset: 'Ishmael', cardBackgroundAsset: 'ui/hero-roster/card_background/Ishmael_center', spineUuid: 'a4f0537a-ff0e-4ab6-8be3-c19073c8c475' },
+  SSR_LIVIA: { portraitAsset: 'Carmilla', spineAsset: 'Carmilla', cardBackgroundAsset: 'ui/hero-roster/card_background/Carmilla_center', spineUuid: '2b7cc014-e9c5-47b4-8f45-73dbaa62f268' },
+  SSR_MICHAEL: { portraitAsset: 'HeylelS01', spineAsset: 'HeylelS01', cardBackgroundAsset: 'ui/hero-roster/card_background/HeylelS01_Illust', spineUuid: '81714937-7711-4e79-899d-f816a406f7ac' },
+  SSR_RON: { portraitAsset: 'Eulenspigel', spineAsset: 'Eulenspigel', cardBackgroundAsset: 'ui/hero-roster/card_background/Eulenspigel_Illust', spineUuid: 'e99b6a83-6849-4175-be1f-55bc1a3a4e29' },
+  UR_EVELYN: { portraitAsset: 'Nuu', spineAsset: 'Nuu', cardBackgroundAsset: 'ui/hero-roster/card_background/Nuu_Illust' },
 };
 const HERO_CLASS_FALLBACKS: Record<string, string> = {
   PROTAGONIST_MALE_ATTACK: '战士',
@@ -88,8 +105,9 @@ function normalizeHeroItem(item: unknown, index: number): LobbyHeroItemVO | null
   const fallbackAssets = resolveHeroAssetFallback(heroCode);
   const fallbackHeroClass = resolveHeroClassFallback(heroCode);
   const portraitAsset = readOptionalText(item, 'portraitAsset', 64) ?? fallbackAssets?.portraitAsset ?? null;
+  const cardBackgroundAsset = readOptionalText(item, 'cardBackgroundAsset', MAX_RESOURCE_PATH_LENGTH) ?? fallbackAssets?.cardBackgroundAsset ?? null;
   const spineAsset = readOptionalText(item, 'spineAsset', 128) ?? deriveSpineAssetFromPortrait(portraitAsset) ?? fallbackAssets?.spineAsset ?? null;
-  const spineUuid = readOptionalText(item, 'spineUuid', 64);
+  const spineUuid = readOptionalText(item, 'spineUuid', 64) ?? fallbackAssets?.spineUuid ?? null;
   return {
     id,
     heroCode,
@@ -103,6 +121,7 @@ function normalizeHeroItem(item: unknown, index: number): LobbyHeroItemVO | null
     protagonist: item.protagonist === true,
     sourceType: readText(item, 'sourceType', 32, ''),
     portraitAsset,
+    cardBackgroundAsset,
     spineAsset,
     spineUuid,
     currentForm: readOptionalText(item, 'currentForm', 32),
@@ -152,7 +171,7 @@ function deriveSpineAssetFromPortrait(portraitAsset: string | null): string | nu
   return normalized.replace(/^act/i, 'npc').slice(0, 128);
 }
 
-function resolveHeroAssetFallback(heroCode: string): { portraitAsset: string; spineAsset: string } | null {
+function resolveHeroAssetFallback(heroCode: string): HeroAssetFallback | null {
   return HERO_ASSET_FALLBACKS[heroCode.trim().toUpperCase()] ?? null;
 }
 

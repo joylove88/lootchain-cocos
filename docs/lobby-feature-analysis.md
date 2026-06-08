@@ -2765,3 +2765,148 @@
   - Cocos Preview on `7456` still serves stale chunks; restart/refresh Preview before visual language-modal and Lobby language acceptance.
 - Boundary unchanged:
   - no `gacha_pool_item`, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag use/sell/batch-use, hero growth, reward/stamina/progress write, or new economy write endpoint changed.
+
+## 2026-06-06 Hero Card Background Asset QA Note
+
+- Product decision:
+  - hero roster cards can now read a per-template card background from `hero_template.card_background_asset`;
+  - the field is only for visual card presentation and should complement the unified `hero_card_frame.png`, not replace hero ownership, rarity, star, power, or class data.
+- UI acceptance:
+  - `cardBackgroundAsset` should render inside the card frame and below border effects/text;
+  - empty or invalid paths must gracefully fall back to the existing triangle/relief card visual;
+  - Cocos should normalize resources paths that omit `/spriteFrame`.
+- API/DB acceptance:
+  - SQL `D:\project\LootChain\sql\24_hero_card_background_asset.sql` adds the field and seeds `UR_EVELYN -> ui/hero-roster/card_background/StoryCover_Nuu`;
+  - player hero list/detail/codex and lobby hero/codex VOs expose `cardBackgroundAsset`.
+- Resource acceptance:
+  - `.spine` source files must stay out of `assets/resources/spine`; `Nuu.spine` was archived under `docs/spine-source-archive/hero/Nuu/`.
+- Boundary unchanged:
+  - display metadata only; no `gacha_pool_item`, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag write, hero growth, or new economy write endpoint changed.
+
+## 2026-06-07 Hero Card Background Artwork QA Note
+
+- Product acceptance:
+  - configured `cardBackgroundAsset` should replace the old center triangle placeholder on hero roster cards;
+  - the image should stay inside the card and must not exceed the card dimensions;
+  - rarity, stars, name, power, level, and class badge must remain above the image and readable;
+  - unconfigured heroes may keep the triangle as a fallback so empty data does not create blank cards.
+- UI acceptance:
+  - `renderHeroCard()` should compute `hasCardArtwork` from `renderHeroCardBackground(...)`;
+  - `LobbyHeroRosterHeroRelief` should only be drawn when `hasCardArtwork` is false;
+  - artwork width and height should be clamped with `Math.min(...)` against the card dimensions;
+  - card background paths still normalize to `/spriteFrame`.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, `.spine` source scan, and `git diff --check` passed;
+  - `check:preview` still reports stale running Preview chunks until Cocos Preview refreshes the hero-roster bundle.
+- Boundary unchanged:
+  - readonly card presentation only; no hero data semantics, economy rule, gacha, bag write, EX V1, or hero-growth surface changed.
+
+## 2026-06-07 Hero Card Background Texture Fallback QA Note
+
+- Problem observed:
+  - Nuu's `cardBackgroundAsset` was configured, the triangle fallback disappeared, but the actual image did not show.
+- Cause:
+  - `StoryCover_Nuu.png` is imported by Cocos as `texture` only;
+  - there is no `spriteFrame` subresource at `ui/hero-roster/card_background/StoryCover_Nuu/spriteFrame`.
+- Product/UI acceptance update:
+  - hero roster should support both sprite-frame imported card art and texture-only imported card art;
+  - the configured artwork must remain inside the card, above the frame interior and below rarity/stars/name/power/level/badge/border effects;
+  - unconfigured heroes keep the triangle fallback, while configured-but-loading images should not resize or push text.
+- Technical acceptance:
+  - renderer normalizes `cardBackgroundAsset` to a safe base resources path;
+  - loading order is `${assetPath}/spriteFrame`, then `Texture2D` at the base path, then `${assetPath}/texture`;
+  - texture-only assets are wrapped in a runtime `SpriteFrame`.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, `.spine` source scan, and `git diff --check` passed;
+  - `check:preview` is currently stale and missing the new texture-fallback tokens until Cocos Preview refreshes the hero-roster chunk.
+- Boundary unchanged:
+  - readonly visual rendering only; no SQL, backend API contract, economy rule, gacha, bag write, EX V1, or hero-growth surface changed.
+
+## 2026-06-07 Hero Card Artwork Lower Placement QA Note
+
+- Product observation:
+  - Nuu card art appeared too high in the frame and left the lower composition feeling detached from the card edge.
+- UI decision:
+  - lower configured `cardBackgroundAsset` art slightly so the hero illustration visually sits closer to the lower card frame;
+  - keep text and star/rank information above the artwork layer so readability is unchanged.
+- Implementation:
+  - current artwork ratios are `HERO_ROSTER_CARD_BACKGROUND_WIDTH_RATIO = 1`, `HERO_ROSTER_CARD_BACKGROUND_HEIGHT_RATIO = 0.5`, and `HERO_ROSTER_CARD_BACKGROUND_Y_RATIO = 0.02`;
+  - width/height clamp remains unchanged, so the artwork cannot exceed the card.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, `.spine` source scan, and `git diff --check` passed.
+- Boundary unchanged:
+  - readonly card composition only; no SQL, backend API contract, economy rule, gacha, bag write, EX V1, or hero-growth surface changed.
+
+## 2026-06-07 Hero Card Stars Replace Power Line QA Note
+
+- Product observation:
+  - card bottom information is visually crowded when rarity, stars, combat power, and hero name all compete inside the same frame.
+- UI decision:
+  - remove per-card combat power from the card body;
+  - present the hero name above the star row with a smaller vertical gap so the bottom frame reads as rarity, name, stars with less overlap risk.
+- Implementation:
+  - `HERO_ROSTER_CARD_NAME_Y_RATIO = 0.18`;
+  - `HERO_ROSTER_CARD_STARS_Y_RATIO = 0.13`;
+  - `LobbyHeroRosterHeroPower`, `HERO_ROSTER_CARD_POWER_Y_RATIO`, and card text `战力 ${formatCompactInteger(hero.power)}` are removed from active renderer;
+  - total/account power surfaces outside the card are unchanged.
+- Review result:
+  - `check:layout`, project TypeScript no-emit, `.spine` source scan, and `git diff --check` passed.
+- Boundary unchanged:
+  - readonly card composition only; no SQL, backend API contract, economy rule, gacha, bag write, EX V1, hero-growth, or hero stat semantics changed.
+
+## 2026-06-07 StoryCover Nuu Card Background QA Note
+
+- Product/art update:
+  - Nuu's card presentation now uses `StoryCover_Nuu.png` instead of the previous Nuu card background.
+- UI acceptance:
+  - renderer fallback/default path should match the DB-facing value `ui/hero-roster/card_background/StoryCover_Nuu`;
+  - the image remains below rarity/name/stars/level/class badge/border effects and inside the existing card frame.
+- Technical acceptance:
+  - `StoryCover_Nuu.png.meta` imports as `texture`;
+  - the existing `${assetPath}/spriteFrame -> Texture2D base path -> ${assetPath}/texture` load order must remain in place.
+- Resource hygiene:
+  - hero `.spine/.spine.meta` source files must not remain in `assets/resources/spine`;
+  - this pass archived detected sources to `docs/spine-source-archive/hero/source-archived-20260607-storycover-sync/`.
+- Review note:
+  - local DB verification was not possible in this terminal because `mysql` is not on PATH; user confirmed DB was already updated.
+  - static Cocos checks passed; Preview is stale until the hero-roster chunk refreshes.
+- Boundary unchanged:
+  - readonly display path sync only; no SQL migration, backend API contract shape, economy rule, gacha, bag write, EX V1, hero-growth, or hero stat semantics changed.
+
+## 2026-06-07 Restore Nuu Illust Card Background QA Note
+
+- Product decision:
+  - after visual trial, revert Nuu's card background from `StoryCover_Nuu` to `Nuu_Illust`.
+- UI/DB acceptance:
+  - renderer fallback/default path is `ui/hero-roster/card_background/Nuu_Illust`;
+  - DB display field `hero_template.id=25.card_background_asset` is restored to the same path.
+- SQL:
+  - rollback script: `D:\project\LootChain\sql\32_hero_card_background_restore_nuu_illust.sql`.
+- Resource hygiene:
+  - `.spine/.spine.meta` source files remain outside `assets/resources/spine`.
+- Boundary unchanged:
+  - readonly display metadata/path rollback only; no backend API contract shape, economy rule, gacha, bag write, EX V1, hero-growth, or hero stat semantics changed.
+
+## 2026-06-07 Nine Hero Display Asset Batch QA Note
+
+- Product decision:
+  - map the selected enabled UR/SSR heroes to the new Cocos hero Spine resources and matching hero-card background art;
+  - card background art should use the existing `assets/resources/ui/hero-roster/card_background` files that match the provided character resource names, following the `Nuu_Illust` style rather than reverting to the temporary StoryCover trial.
+- UI acceptance:
+  - roster cards should receive `cardBackgroundAsset` values such as `ui/hero-roster/card_background/IshmaelA_Illust`, `Lucrecia_Illust`, `Carmilla_center`, and so on;
+  - card art remains inside the unified frame and below rarity/name/star/level/class badge/border effects;
+  - hero detail loads by `spineUuid` first to avoid same-path JSON/SKEL ambiguity;
+  - the 9 newly mapped hero details should resolve and play `idle` only.
+- API/DB acceptance:
+  - SQL `D:\project\LootChain\sql\33_hero_display_asset_batch_sync.sql` updates only `hero_template` display fields for `UR_ARTHAS`, `UR_ATLAS`, `UR_AURELIA`, `UR_NYX`, `UR_SERAPHINA`, `SSR_KANE`, `SSR_LIVIA`, `SSR_MICHAEL`, and `SSR_RON`;
+  - `D:\project\LootChain\sql\05_hero_module.sql` now reapplies the same display mapping for fresh schema imports;
+  - local DB readback confirmed the 9 rows after import.
+- Review result:
+  - `npm.cmd run check:layout`, Cocos TypeScript no-emit, `.spine/.spine.meta` source scan, and `npm.cmd run check:preview` passed;
+  - browser Preview CDP visual check confirmed the owned mapped cards show artwork in the roster;
+  - `SSR_KANE -> Ishmael` and `SSR_LIVIA -> Carmilla` details rendered real Spine and logged `animation=idle`;
+  - focused backend test `PlayerLobbyHeroServiceImplTest` passed.
+- Runtime note:
+  - the currently running 8081 game-server process still omits `cardBackgroundAsset` in live JSON, while current source maps it. Restart the game server from current source before treating API-level `cardBackgroundAsset` readback as accepted.
+- Boundary unchanged:
+  - readonly display metadata and presentation only; no backend API contract shape, economy rule, gacha pool item, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag write, hero growth, or reward/stamina/progress write changed.

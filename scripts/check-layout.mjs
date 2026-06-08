@@ -222,6 +222,13 @@ const required = [
   'assets/resources/spine/gacha/Lord of the Dark Abyss/1605.atlas',
   'assets/resources/spine/gacha/Lord of the Dark Abyss/1605.atlas.meta',
   'assets/resources/spine/hero.meta',
+  'assets/resources/spine/hero/Nuu.meta',
+  'assets/resources/spine/hero/Nuu/Nuu.json',
+  'assets/resources/spine/hero/Nuu/Nuu.json.meta',
+  'assets/resources/spine/hero/Nuu/Nuu.atlas',
+  'assets/resources/spine/hero/Nuu/Nuu.atlas.meta',
+  'assets/resources/spine/hero/Nuu/Nuu.png',
+  'assets/resources/spine/hero/Nuu/Nuu.png.meta',
   'assets/resources/spine/hero/npc_1001.meta',
   'assets/resources/spine/hero/npc_1001/npc_1001.skel',
   'assets/resources/spine/hero/npc_1001/npc_1001.skel.meta',
@@ -268,6 +275,10 @@ const forbiddenResourceSpineFiles = [
   'assets/resources/spine/hero/npc_1001/npc_1001.spine.meta',
   'assets/resources/spine/hero/act_1001/act_1001.spine',
   'assets/resources/spine/hero/act_1001/act_1001.spine.meta',
+  'assets/resources/spine/hero/Nuu/Nuu.skel',
+  'assets/resources/spine/hero/Nuu/Nuu.skel.meta',
+  'assets/resources/spine/hero/Nuu/Nuu.spine',
+  'assets/resources/spine/hero/Nuu/Nuu.spine.meta',
 ];
 
 for (const file of forbiddenResourceSpineFiles) {
@@ -280,6 +291,67 @@ for (const file of forbiddenResourceSpineFiles) {
 for (const file of collectFiles('assets/resources/spine')) {
   if (file.endsWith('.spine') || file.endsWith('.spine.meta')) {
     console.error(`spine source file must stay outside assets/resources: ${file}`);
+    ok = false;
+  }
+}
+
+const nuuAtlasPath = 'assets/resources/spine/hero/Nuu/Nuu.atlas';
+const nuuAtlasText = existsSync(nuuAtlasPath) ? readFileSync(nuuAtlasPath, 'utf8') : '';
+if (/rotate:\s*(180|270)\b/.test(nuuAtlasText)) {
+  console.error(`${nuuAtlasPath} must be packed without 180/270 degree atlas rotations for the Cocos Spine 3.8 runtime baseline`);
+  ok = false;
+}
+if (/^\s*bounds\s*:/m.test(nuuAtlasText) || !/^\s*xy\s*:/m.test(nuuAtlasText)) {
+  console.error(`${nuuAtlasPath} must use Cocos-compatible xy/size/orig/offset atlas entries, not compact bounds entries`);
+  ok = false;
+}
+const nuuAtlasRegions = parseSpineAtlasRegions(nuuAtlasText);
+if (nuuAtlasRegions.length !== 46) {
+  console.error(`${nuuAtlasPath} must contain 46 Nuu atlas regions, got ${nuuAtlasRegions.length}`);
+  ok = false;
+}
+
+const nuuJsonPath = 'assets/resources/spine/hero/Nuu/Nuu.json';
+const nuuJsonText = existsSync(nuuJsonPath) ? readFileSync(nuuJsonPath, 'utf8') : '';
+const nuuJsonVersion = nuuJsonText ? readSpineJsonVersion(nuuJsonText) : null;
+if (!nuuJsonVersion?.startsWith('3.8.')) {
+  console.error(`${nuuJsonPath} must be exported as Spine 3.8.x JSON to match the project's 3.8 runtime baseline, got ${nuuJsonVersion ?? 'missing'}`);
+  ok = false;
+}
+if (/"rgba"\s*:/.test(nuuJsonText)) {
+  console.error(`${nuuJsonPath} must not contain Spine 4.x rgba timelines while the project uses the 3.8 runtime baseline`);
+  ok = false;
+}
+for (const animationName of ['intro', 'idle', 'idle_intro', 'skill2']) {
+  if (!nuuJsonText.includes(`"${animationName}":`)) {
+    console.error(`${nuuJsonPath} must keep Nuu animation ${animationName} available in the complete Spine 3.8 JSON export`);
+    ok = false;
+  }
+}
+const nuuJsonMetaPath = 'assets/resources/spine/hero/Nuu/Nuu.json.meta';
+const nuuJsonMetaText = existsSync(nuuJsonMetaPath) ? readFileSync(nuuJsonMetaPath, 'utf8') : '';
+if (!nuuJsonMetaText.includes('"uuid": "a47845b1-08e7-4ffc-a0e6-4557b0ad5d8a"')) {
+  console.error(`${nuuJsonMetaPath} must point to the Nuu JSON SkeletonData uuid`);
+  ok = false;
+}
+
+for (const engineProfilePath of ['settings/v2/packages/engine.json', 'profiles/v2/packages/engine.json']) {
+  const engineProfileText = existsSync(engineProfilePath) ? readFileSync(engineProfilePath, 'utf8') : '';
+  let includeModules = [];
+  try {
+    const engineProfile = JSON.parse(engineProfileText);
+    const modules = engineProfile.modules ?? {};
+    const selectedConfig = modules.globalConfigKey ?? 'defaultConfig';
+    includeModules = modules.configs?.[selectedConfig]?.includeModules ?? [];
+  } catch {
+    includeModules = [];
+  }
+  if (!includeModules.includes('spine-3.8')) {
+    console.error(`${engineProfilePath} must include spine-3.8 because the current project Spine baseline is 3.8.x`);
+    ok = false;
+  }
+  if (includeModules.includes('spine-4.2')) {
+    console.error(`${engineProfilePath} must not enable spine-4.2 while existing hero/UI Spine assets remain 3.8.x`);
     ok = false;
   }
 }
@@ -1353,11 +1425,15 @@ for (const token of [
   'function validateLobbyCodex(data: unknown): LobbyCodexItemVO[]',
   'const HERO_ASSET_FALLBACKS',
   'R_PATROL_01',
+  'UR_EVELYN',
+  "UR_EVELYN: { portraitAsset: 'Nuu', spineAsset: 'Nuu'",
   'resolveHeroAssetFallback(heroCode)',
   "const portraitAsset = readOptionalText(item, 'portraitAsset', 64) ?? fallbackAssets?.portraitAsset ?? null;",
+  "const cardBackgroundAsset = readOptionalText(item, 'cardBackgroundAsset', MAX_RESOURCE_PATH_LENGTH) ?? fallbackAssets?.cardBackgroundAsset ?? null;",
   "const spineAsset = readOptionalText(item, 'spineAsset', 128) ?? deriveSpineAssetFromPortrait(portraitAsset) ?? fallbackAssets?.spineAsset ?? null;",
+  'cardBackgroundAsset,',
   'function deriveSpineAssetFromPortrait(portraitAsset: string | null): string | null',
-  'function resolveHeroAssetFallback(heroCode: string): { portraitAsset: string; spineAsset: string } | null',
+  'function resolveHeroAssetFallback(heroCode: string): { portraitAsset: string; spineAsset: string; cardBackgroundAsset?: string } | null',
   "rarity.toUpperCase() === 'EX'",
   "heroCode.toUpperCase().startsWith('EX_')",
 ]) {
@@ -1386,11 +1462,20 @@ for (const token of [
   'function resolveHeroClassFallback(heroCode: string): string | null',
   'const HERO_ASSET_FALLBACKS',
   'R_PATROL_01',
+  "UR_EVELYN: { portraitAsset: 'Nuu', spineAsset: 'Nuu'",
+  'UR_ARTHAS: { portraitAsset: \'IshmaelA\', spineAsset: \'IshmaelA\'',
+  "SSR_LIVIA: { portraitAsset: 'Carmilla', spineAsset: 'Carmilla'",
+  "cardBackgroundAsset: 'ui/hero-roster/card_background/IshmaelA_Illust'",
+  "spineUuid: '3e12af42-2d0f-4cb0-bb36-fd12425a0407'",
   'resolveHeroAssetFallback(heroCode)',
   "const portraitAsset = readOptionalText(item, 'portraitAsset', 64) ?? fallbackAssets?.portraitAsset ?? null;",
+  "const cardBackgroundAsset = readOptionalText(item, 'cardBackgroundAsset', MAX_RESOURCE_PATH_LENGTH) ?? fallbackAssets?.cardBackgroundAsset ?? null;",
   "const spineAsset = readOptionalText(item, 'spineAsset', 128) ?? deriveSpineAssetFromPortrait(portraitAsset) ?? fallbackAssets?.spineAsset ?? null;",
+  "const spineUuid = readOptionalText(item, 'spineUuid', 64) ?? fallbackAssets?.spineUuid ?? null;",
+  'cardBackgroundAsset,',
   'function deriveSpineAssetFromPortrait(portraitAsset: string | null): string | null',
-  'function resolveHeroAssetFallback(heroCode: string): { portraitAsset: string; spineAsset: string } | null',
+  'interface HeroAssetFallback',
+  'function resolveHeroAssetFallback(heroCode: string): HeroAssetFallback | null',
   "rarity.toUpperCase() === 'EX'",
   "heroCode.toUpperCase().startsWith('EX_')",
   'if (id <= 0)',
@@ -1531,24 +1616,67 @@ for (const token of [
   'resolveHeroSpineResource(hero)',
   'spine/hero/${asset}/${asset}',
   'resources.load(path, sp.SkeletonData',
+  'const cacheKey = path',
+  'loadHeroSpineUuidData',
+  'const cacheKey = `uuid:${uuid}`',
+  'loadResourcePathFallback',
+  'hero spine uuid failed, fallback resource path',
+  'hero spine resource path load failed or returned non-SkeletonData',
   'AudioSource',
   'AudioClip',
   'applyHeroSpineData',
+  'applyHeroSpineDataWithRetry',
+  'HERO_DETAIL_SPINE_RUNTIME_RETRY_DELAYS_MS',
+  'hero spine runtime retry',
+  'isRetryableHeroSpineFailure',
+  'formatHeroSpineError',
   'getRuntimeData(true)',
+  'textures=${textureCount}',
+  'atlas=${textureNames}',
+  '资源应用异常：${this.formatHeroSpineError(error)}',
   'hero spine asset missing',
   'hero spine load start',
+  'isHeroSpineDataAsset',
+  'retryHeroSpineUuidData',
+  'hero spine uuid load failed or returned non-SkeletonData',
+  'hero spine resource data failed to apply, retry uuid',
+  'renderHeroSpineFailureHint',
+  'resolveHeroSpineVersion',
+  'isSupportedHeroSpineVersion',
+  'hero spine unsupported version',
+  '请导出 4.2.x 或 3.8.x',
   'bindHeroSpineAudioEvents',
   'playHeroSpineAudioEvent',
   'event.data?.audioPath',
   'resources.load(path, AudioClip',
   'hero spine audio missing',
   'resolveHeroSpineAnimationNames',
-  'startHeroSpineSecondaryCycle',
-  'const secondaryAnimation = animationNames.secondary',
-  'skeleton.setAnimation(0, secondaryAnimation, false)',
-  'skeleton.addAnimation(0, animationName, true, 0)',
-  '.delay(15)',
-  'skeleton.addAnimation(0, primaryAnimation, true, 0)',
+  'const idleAnimation = animationNames.idle',
+  'const introAnimation = animationNames.intro',
+  'skeleton.setAnimation(0, introAnimation, false)',
+  'skeleton.addAnimation(0, idleAnimation, true, 0)',
+  'patchHeroSpineRuntimeEnums',
+  'getSkinsEnum =',
+  'getAnimsEnum =',
+  'createHeroSpineEnumMap',
+  'HERO_DETAIL_IDLE_ONLY_PROFILE',
+  'HERO_DETAIL_SPINE_DISPLAY_PROFILES',
+  'IshmaelA: HERO_DETAIL_IDLE_ONLY_PROFILE',
+  'Sphinx: HERO_DETAIL_IDLE_ONLY_PROFILE',
+  "loopAnimation: 'idle'",
+  "introAnimation: 'intro'",
+  'displayProfile.loopAnimation',
+  'displayProfile.introAnimation',
+  'maxScale: 0.52',
+  'yRatio: 0.012',
+  'resolveHeroSpineDisplayProfile',
+  'resolveHeroSpineJsonSkinNames',
+  'resolveHeroSpineJsonAnimationNames',
+  'resolveHeroSpineRuntimeSkinNames',
+  'resolveHeroSpineRuntimeAnimationNames',
+  'resolveHeroSpineAnimationNameList',
+  'resolvePreferredSpineName',
+  "skinName && skinName !== 'default'",
   'resolveHeroDetailGroundY(height)',
   'graphics.ellipse(0, groundY',
   'resolveHeroSpineScale',
@@ -1604,8 +1732,15 @@ for (const token of [
   'LOBBY_HERO_ROSTER_CARD_FRAME_ASSET',
   'ui/hero-roster/hero_card_frame/spriteFrame',
   'LOBBY_HERO_ROSTER_CARD_ASSETS',
+  'LOBBY_HERO_ROSTER_CARD_BACKGROUND_NUU_ASSET',
+  'ui/hero-roster/card_background/Nuu_Illust',
   'LobbyHeroRosterFilterRail',
   'LobbyHeroRosterCardSkin',
+  'LobbyHeroRosterCardBackgroundSprite',
+  'Texture2D',
+  'private readonly cardBackgroundFrames',
+  'private readonly cardBackgroundLoadCallbacks',
+  'private readonly missingCardBackgroundLogs',
   'HERO_ROSTER_CARD_ASPECT_WIDTH = 937',
   'HERO_ROSTER_CARD_ASPECT_HEIGHT = 1676',
   'HERO_ROSTER_CARD_DISPLAY_WIDTH_SCALE = 1.2',
@@ -1618,6 +1753,12 @@ for (const token of [
   'HERO_FILTER_ALL',
   'HERO_CLASS_FILTER_ORDER',
   'HERO_CLASS_KEY_ALIASES',
+  "Warrior: '战士'",
+  "Support: '辅助'",
+  "Assassin: '刺客'",
+  "Mage: '法师'",
+  "Marksman: '射手'",
+  "Tank: '坦克'",
   'selectHeroClassFilter',
   'resolveHeroFilterTabs',
   'state.heroClassOptions',
@@ -1653,19 +1794,18 @@ for (const token of [
   'HERO_ROSTER_CARD_BADGE_X_RATIO = 0.37',
   'HERO_ROSTER_CARD_BADGE_Y_RATIO = 0.38',
   'HERO_ROSTER_CARD_BADGE_SIZE_RATIO = 0.17',
+  'HERO_ROSTER_CARD_BACKGROUND_WIDTH_RATIO = 1',
+  'HERO_ROSTER_CARD_BACKGROUND_HEIGHT_RATIO = 0.5',
+  'HERO_ROSTER_CARD_BACKGROUND_Y_RATIO = 0.02',
   'HERO_ROSTER_CARD_RARITY_Y_RATIO = 0.324',
-  'HERO_ROSTER_CARD_NAME_Y_RATIO = 0.132',
-  'HERO_ROSTER_CARD_POWER_Y_RATIO = 0.205',
-  'HERO_ROSTER_CARD_STARS_Y_RATIO = 0.815',
+  'HERO_ROSTER_CARD_NAME_Y_RATIO = 0.18',
+  'HERO_ROSTER_CARD_STARS_Y_RATIO = 0.13',
   'Math.min(16 * scale, height * 0.048)',
   'new Size(width - 54 * scale, height * 0.06)',
+  'LobbyHeroRosterStars',
   'formatHeroCardLevel(hero.level)',
   'safeLevel >= 100 ? `Lv${safeLevel}` : `Lv.${safeLevel}`',
   'LobbyHeroRosterHeroName',
-  'LobbyHeroRosterHeroPower',
-  'Math.min(15 * scale, height * 0.044)',
-  'new Size(width - 64 * scale, height * 0.058)',
-  '战力 ${formatCompactInteger(hero.power)}',
   'resolveHeroClassBadgeText',
   'safeText(hero.heroName)',
   'const maxCardsInRow = Math.max(1, Math.min(displayHeroes.length, HERO_ROSTER_CARD_MAX_COLUMNS))',
@@ -1682,6 +1822,21 @@ for (const token of [
   'const badgeX = width * HERO_ROSTER_CARD_BADGE_X_RATIO',
   'const badgeY = height * HERO_ROSTER_CARD_BADGE_Y_RATIO',
   'USE_HERO_ROSTER_EXTERNAL_PORTRAITS = false',
+  'renderHeroCardBackground',
+  'const hasCardArtwork = this.renderHeroCardBackground(card, hero, width, height, scale);',
+  'if (!hasCardArtwork) {',
+  'resolveHeroCardBackgroundAssetPath',
+  'hero.cardBackgroundAsset',
+  'const artworkWidth = Math.min(width * HERO_ROSTER_CARD_BACKGROUND_WIDTH_RATIO, width - 34 * scale);',
+  'const artworkHeight = Math.min(height * HERO_ROSTER_CARD_BACKGROUND_HEIGHT_RATIO, height - 96 * scale);',
+  'loadHeroCardBackgroundFrame',
+  'loadHeroCardBackgroundTexture',
+  'resources.load(assetPath, Texture2D',
+  'resources.load(`${assetPath}/texture`, Texture2D',
+  'const frame = new SpriteFrame();',
+  'frame.texture = texture;',
+  'frame.texture = subTexture;',
+  '.replace(/\\/(spriteFrame|texture)$/i,',
   'LobbyHeroRosterHeroRelief',
   'HERO_ROSTER_BORDER_EFFECT_RESOURCE',
   'HERO_ROSTER_BORDER_ANIMATION_BY_RARITY',
@@ -1768,6 +1923,9 @@ for (const token of [
   'renderSsrCardSequenceBorder',
   'LobbyHeroRosterSsrSequenceBorderSprite',
   'loadSsrSequenceBorderFrames',
+  'HERO_ROSTER_CARD_POWER_Y_RATIO',
+  'LobbyHeroRosterHeroPower',
+  '战力 ${formatCompactInteger(hero.power)}',
   'ui/hero-roster/01',
   'ui/hero-roster/02',
   'ui/hero-roster/03',
@@ -2896,7 +3054,14 @@ const requiredGachaRendererTokens = [
   'closeGachaMockRevealScene()',
   'GachaAbyssSpineStage',
   'GachaAbyssSpineNode',
-  'const spineGroundY = -stageHeight * 0.55',
+  'GACHA_SPINE_GROUND_Y_RATIO = -0.55',
+  'GACHA_HERO_POOL_SPINE_GROUND_Y_EXTRA_RATIO = -0.075',
+  'resolveGachaSpineGroundY(stageHeight, selectedPool)',
+  'isHeroGachaPool(selectedPool)',
+  "displayType === 'LIMITED'",
+  "poolCode.includes('LIMITED')",
+  "poolCode === 'NORMAL_HERO'",
+  "displayType === 'HERO'",
   'graphics.ellipse(0, spineGroundY - 22 * scale',
   "addChildPlainNode(stage, 'GachaAbyssSpineNode', 0, spineGroundY",
   'return 0.43 * scale * stageFactor',
@@ -4892,6 +5057,58 @@ function assertBattlePresentationInternalBounds(name, panelWidth, panelHeight, s
     assertNoOverlap(`${name}:LobbyBattleField vs footer ${index}`, fieldRect, button);
     assertNoOverlap(`${name}:LobbyBattleBoundary vs footer ${index}`, boundaryRect, button);
   }
+}
+
+function readSpineJsonVersion(text) {
+  try {
+    const data = JSON.parse(text);
+    return typeof data?.skeleton?.spine === 'string' ? data.skeleton.spine : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseSpineAtlasRegions(text) {
+  const lines = text.split(/\r?\n/);
+  const regions = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const name = lines[index].trim();
+    if (!name || name.endsWith('.png') || /^\w+\s*:/.test(name)) {
+      continue;
+    }
+    const rotate = parseAtlasField(lines, index + 1, 'rotate');
+    const size = parseAtlasPair(parseAtlasField(lines, index + 3, 'size'));
+    const orig = parseAtlasPair(parseAtlasField(lines, index + 4, 'orig'));
+    const offset = parseAtlasPair(parseAtlasField(lines, index + 5, 'offset'));
+    if (!rotate || !size || !orig || !offset) {
+      continue;
+    }
+    regions.push({
+      name,
+      rotate,
+      width: size[0],
+      height: size[1],
+      origWidth: orig[0],
+      origHeight: orig[1],
+      offsetX: offset[0],
+      offsetY: offset[1],
+    });
+  }
+  return regions;
+}
+
+function parseAtlasField(lines, index, field) {
+  const line = lines[index]?.trim() ?? '';
+  const prefix = `${field}:`;
+  return line.startsWith(prefix) ? line.slice(prefix.length).trim() : null;
+}
+
+function parseAtlasPair(value) {
+  if (!value) {
+    return null;
+  }
+  const match = /^(-?\d+)\s*,\s*(-?\d+)$/.exec(value);
+  return match ? [Number(match[1]), Number(match[2])] : null;
 }
 
 if (scene) {

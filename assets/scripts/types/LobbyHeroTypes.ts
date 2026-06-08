@@ -12,6 +12,7 @@ export interface LobbyHeroItemVO {
   protagonist: boolean;
   sourceType: string;
   portraitAsset?: string | null;
+  cardBackgroundAsset?: string | null;
   spineAsset?: string | null;
   spineUuid?: string | null;
   currentForm?: string | null;

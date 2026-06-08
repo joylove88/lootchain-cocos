@@ -5,9 +5,11 @@ type UnknownRecord = Record<string, unknown>;
 
 const MAX_CODEX_COUNT = 96;
 const MAX_TEXT_LENGTH = 96;
-const HERO_ASSET_FALLBACKS: Record<string, { portraitAsset: string; spineAsset: string }> = {
+const MAX_RESOURCE_PATH_LENGTH = 192;
+const HERO_ASSET_FALLBACKS: Record<string, { portraitAsset: string; spineAsset: string; cardBackgroundAsset?: string }> = {
   // 只读展示兜底：当前公司/家里本地服务未重启时，图鉴列表可能暂时不带资源字段。
   R_PATROL_01: { portraitAsset: 'act_1001', spineAsset: 'npc_1001' },
+  UR_EVELYN: { portraitAsset: 'Nuu', spineAsset: 'Nuu', cardBackgroundAsset: 'ui/hero-roster/card_background/Nuu_Illust' },
 };
 
 /** 大厅图鉴只读 API；只允许读取窄口径大厅门面，不能调用英雄养成 Controller。 */
@@ -44,6 +46,7 @@ function normalizeCodexItem(item: unknown, index: number): LobbyCodexItemVO | nu
   }
   const fallbackAssets = resolveHeroAssetFallback(heroCode);
   const portraitAsset = readOptionalText(item, 'portraitAsset', 64) ?? fallbackAssets?.portraitAsset ?? null;
+  const cardBackgroundAsset = readOptionalText(item, 'cardBackgroundAsset', MAX_RESOURCE_PATH_LENGTH) ?? fallbackAssets?.cardBackgroundAsset ?? null;
   const spineAsset = readOptionalText(item, 'spineAsset', 128) ?? deriveSpineAssetFromPortrait(portraitAsset) ?? fallbackAssets?.spineAsset ?? null;
   const spineUuid = readOptionalText(item, 'spineUuid', 64);
   return {
@@ -54,6 +57,7 @@ function normalizeCodexItem(item: unknown, index: number): LobbyCodexItemVO | nu
     heroClass: readText(item, 'heroClass', 32, '未知职业'),
     roleDesc: readOptionalText(item, 'roleDesc', MAX_TEXT_LENGTH),
     portraitAsset,
+    cardBackgroundAsset,
     spineAsset,
     spineUuid,
     owned: item.owned === true,
@@ -94,7 +98,7 @@ function deriveSpineAssetFromPortrait(portraitAsset: string | null): string | nu
   return normalized.replace(/^act/i, 'npc').slice(0, 128);
 }
 
-function resolveHeroAssetFallback(heroCode: string): { portraitAsset: string; spineAsset: string } | null {
+function resolveHeroAssetFallback(heroCode: string): { portraitAsset: string; spineAsset: string; cardBackgroundAsset?: string } | null {
   return HERO_ASSET_FALLBACKS[heroCode.trim().toUpperCase()] ?? null;
 }
 

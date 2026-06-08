@@ -13,17 +13,20 @@ import {
   sp,
   Sprite,
   SpriteFrame,
+  Texture2D,
   tween,
   UITransform,
   Vec3,
 } from 'cc';
 import type { LobbyHeroItemVO, LobbyHeroRosterPanelState } from '../../types/LobbyHeroTypes';
+import { lootChainI18n } from '../../i18n/LootChainI18n';
 import { safeText } from '../UiTextFormatter';
 import { renderSceneBackButton } from '../UiSceneBackButton';
 import { clamp, rgba, type UiLayout } from './LobbyHudTypes';
 
 export const LOBBY_HERO_ROSTER_BACKDROP_ASSET = 'ui/hero-detail/hero_detail_backdrop/spriteFrame';
 export const LOBBY_HERO_ROSTER_CARD_FRAME_ASSET = 'ui/hero-roster/hero_card_frame/spriteFrame';
+export const LOBBY_HERO_ROSTER_CARD_BACKGROUND_NUU_ASSET = 'ui/hero-roster/card_background/Nuu_Illust';
 export const LOBBY_HERO_ROSTER_CARD_ASSETS = [
   LOBBY_HERO_ROSTER_CARD_FRAME_ASSET,
 ];
@@ -34,18 +37,30 @@ const HERO_CLASS_KEY_ALIASES: Record<string, string> = {
   '战士': '战士',
   '戰士': '战士',
   '鎴樺+': '战士',
+  Warrior: '战士',
+  warrior: '战士',
   '辅助': '辅助',
   '輔助': '辅助',
   '杈呭姪': '辅助',
+  Support: '辅助',
+  support: '辅助',
   '刺客': '刺客',
   '鍒哄': '刺客',
+  Assassin: '刺客',
+  assassin: '刺客',
   '法师': '法师',
   '法師': '法师',
   '娉曞笀': '法师',
+  Mage: '法师',
+  mage: '法师',
   '射手': '射手',
   '灏勬墜': '射手',
+  Marksman: '射手',
+  marksman: '射手',
   '坦克': '坦克',
   '鍧﹀厠': '坦克',
+  Tank: '坦克',
+  tank: '坦克',
 };
 const HERO_ROSTER_CARD_ASPECT_WIDTH = 937;
 const HERO_ROSTER_CARD_ASPECT_HEIGHT = 1676;
@@ -64,6 +79,9 @@ const HERO_ROSTER_CARD_LEVEL_TEXT_WIDTH_RATIO = 0.29;
 const HERO_ROSTER_CARD_BADGE_X_RATIO = 0.37;
 const HERO_ROSTER_CARD_BADGE_Y_RATIO = 0.38;
 const HERO_ROSTER_CARD_BADGE_SIZE_RATIO = 0.17;
+const HERO_ROSTER_CARD_BACKGROUND_WIDTH_RATIO = 1;
+const HERO_ROSTER_CARD_BACKGROUND_HEIGHT_RATIO = 0.5;
+const HERO_ROSTER_CARD_BACKGROUND_Y_RATIO = 0.02;
 const HERO_ROSTER_BORDER_EFFECT_RESOURCE = 'spine/ui/hero-roster/goods_1_border/goods_1';
 const HERO_ROSTER_BORDER_ANIMATION_BY_RARITY: Record<string, string> = {
   R: 'K3',
@@ -87,9 +105,8 @@ const HERO_ROSTER_GOODS_BORDER_HEIGHT_PADDING = 61;
 const HERO_ROSTER_GOODS_BORDER_Y_RATIO = -0.03;
 const HERO_ROSTER_GOODS_BORDER_WIDTH_SCALE_MAX = 2.8;
 const HERO_ROSTER_CARD_RARITY_Y_RATIO = 0.324;
-const HERO_ROSTER_CARD_NAME_Y_RATIO = 0.132;
-const HERO_ROSTER_CARD_POWER_Y_RATIO = 0.205;
-const HERO_ROSTER_CARD_STARS_Y_RATIO = 0.815;
+const HERO_ROSTER_CARD_NAME_Y_RATIO = 0.18;
+const HERO_ROSTER_CARD_STARS_Y_RATIO = 0.13;
 const HERO_ROSTER_RARITY_DISPLAY_ORDER: Record<string, number> = {
   UR: 0,
   SSR: 1,
@@ -134,6 +151,9 @@ export class LobbyHeroRosterPanelRenderer {
   private urSequenceBorderLoading = false;
   private urSequenceBorderLoadFailed = false;
   private readonly urSequenceBorderCallbacks: Array<(frames: SpriteFrame[] | null) => void> = [];
+  private readonly cardBackgroundFrames = new Map<string, SpriteFrame>();
+  private readonly cardBackgroundLoadCallbacks = new Map<string, Array<(frame: SpriteFrame | null) => void>>();
+  private readonly missingCardBackgroundLogs = new Set<string>();
 
   constructor(private readonly host: LobbyHeroRosterPanelHost) {}
 
@@ -552,8 +572,11 @@ export class LobbyHeroRosterPanelRenderer {
     if (!this.host.addSprite('LobbyHeroRosterCardSkin', cardAsset, 0, 0, width, height, card)) {
       this.drawHeroCardFallback(card, width, height, scale, hero);
     }
+    const hasCardArtwork = this.renderHeroCardBackground(card, hero, width, height, scale);
     this.renderHeroCardBorderEffect(card, hero, width, height);
-    this.renderHeroPortrait(card, hero, width, height, scale);
+    if (!hasCardArtwork) {
+      this.renderHeroPortrait(card, hero, width, height, scale);
+    }
     this.renderHeroCardChrome(card, hero, width, height, scale);
   }
 
@@ -563,6 +586,92 @@ export class LobbyHeroRosterPanelRenderer {
     graphics.fillColor = rgba(0, 0, 0, 88);
     this.traceSlantRect(graphics, width * 1.02, height * 1.02, 18 * scale);
     graphics.fill();
+  }
+
+  private renderHeroCardBackground(card: Node, hero: LobbyHeroItemVO, width: number, height: number, scale: number): boolean {
+    const assetPath = this.resolveHeroCardBackgroundAssetPath(hero);
+    if (!assetPath) {
+      return false;
+    }
+    const artworkWidth = Math.min(width * HERO_ROSTER_CARD_BACKGROUND_WIDTH_RATIO, width - 34 * scale);
+    const artworkHeight = Math.min(height * HERO_ROSTER_CARD_BACKGROUND_HEIGHT_RATIO, height - 96 * scale);
+    const node = this.host.addChildPlainNode(
+      card,
+      'LobbyHeroRosterCardBackgroundSprite',
+      0,
+      height * HERO_ROSTER_CARD_BACKGROUND_Y_RATIO,
+      artworkWidth,
+      artworkHeight,
+    );
+    const sprite = node.addComponent(Sprite);
+    sprite.type = Sprite.Type.SIMPLE;
+    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    sprite.color = rgba(255, 255, 255, 255);
+    this.loadHeroCardBackgroundFrame(assetPath, (frame) => {
+      if (!node.isValid) {
+        return;
+      }
+      if (!frame) {
+        node.removeFromParent();
+        return;
+      }
+      sprite.spriteFrame = frame;
+    });
+    return true;
+  }
+
+  private loadHeroCardBackgroundFrame(assetPath: string, callback: (frame: SpriteFrame | null) => void): void {
+    const cached = this.cardBackgroundFrames.get(assetPath);
+    if (cached) {
+      callback(cached);
+      return;
+    }
+    const queuedCallbacks = this.cardBackgroundLoadCallbacks.get(assetPath);
+    if (queuedCallbacks) {
+      queuedCallbacks.push(callback);
+      return;
+    }
+    this.cardBackgroundLoadCallbacks.set(assetPath, [callback]);
+    const finish = (frame: SpriteFrame | null) => {
+      if (frame) {
+        this.cardBackgroundFrames.set(assetPath, frame);
+      }
+      const callbacks = this.cardBackgroundLoadCallbacks.get(assetPath) ?? [];
+      Map.prototype.delete.call(this.cardBackgroundLoadCallbacks, assetPath);
+      callbacks.forEach((queued) => queued(frame));
+    };
+    const spriteFramePath = `${assetPath}/spriteFrame`;
+    resources.load(spriteFramePath, SpriteFrame, (spriteFrameError, spriteFrame) => {
+      if (!spriteFrameError && spriteFrame) {
+        finish(spriteFrame);
+        return;
+      }
+      this.loadHeroCardBackgroundTexture(assetPath, finish);
+    });
+  }
+
+  private loadHeroCardBackgroundTexture(assetPath: string, callback: (frame: SpriteFrame | null) => void): void {
+    resources.load(assetPath, Texture2D, (textureError, texture) => {
+      if (!textureError && texture) {
+        const frame = new SpriteFrame();
+        frame.texture = texture;
+        callback(frame);
+        return;
+      }
+      resources.load(`${assetPath}/texture`, Texture2D, (subTextureError, subTexture) => {
+        if (!subTextureError && subTexture) {
+          const frame = new SpriteFrame();
+          frame.texture = subTexture;
+          callback(frame);
+          return;
+        }
+        if (!this.missingCardBackgroundLogs.has(assetPath)) {
+          this.missingCardBackgroundLogs.add(assetPath);
+          console.warn(`[HeroRoster] card background asset missing or not imported as texture/spriteFrame: ${assetPath}`);
+        }
+        callback(null);
+      });
+    });
   }
 
   private drawHeroCardFallback(card: Node, width: number, height: number, scale: number, hero: LobbyHeroItemVO): void {
@@ -759,10 +868,6 @@ export class LobbyHeroRosterPanelRenderer {
     name.overflow = Label.Overflow.SHRINK;
     this.applyOutline(name, scale, true);
 
-    const power = this.host.addChildLabel(card, 'LobbyHeroRosterHeroPower', `战力 ${formatCompactInteger(hero.power)}`, 0, -height / 2 + height * HERO_ROSTER_CARD_POWER_Y_RATIO, Math.min(15 * scale, height * 0.044), rgba(238, 210, 132), new Size(width - 64 * scale, height * 0.058));
-    power.overflow = Label.Overflow.SHRINK;
-    this.applyOutline(power, scale, false);
-
     const level = this.host.addChildLabel(card, 'LobbyHeroRosterLevelText', formatHeroCardLevel(hero.level), width * HERO_ROSTER_CARD_LEVEL_X_RATIO, height * HERO_ROSTER_CARD_LEVEL_Y_RATIO, Math.min(14 * scale, width * 0.078), rgba(246, 225, 170), new Size(width * HERO_ROSTER_CARD_LEVEL_TEXT_WIDTH_RATIO, height * 0.058), HorizontalTextAlignment.CENTER);
     level.overflow = Label.Overflow.SHRINK;
     this.applyOutline(level, scale, false);
@@ -885,6 +990,22 @@ export class LobbyHeroRosterPanelRenderer {
     return LOBBY_HERO_ROSTER_CARD_FRAME_ASSET;
   }
 
+  private resolveHeroCardBackgroundAssetPath(hero: LobbyHeroItemVO): string | null {
+    const rawPath = safeText(hero.cardBackgroundAsset || '').trim();
+    if (!rawPath) {
+      return null;
+    }
+    const normalized = rawPath
+      .replace(/\\/g, '/')
+      .replace(/\.(png|jpg|jpeg|webp)$/i, '')
+      .replace(/\/(spriteFrame|texture)$/i, '')
+      .replace(/\/+$/g, '');
+    if (!/^[A-Za-z0-9_./-]+$/.test(normalized) || normalized.includes('..')) {
+      return null;
+    }
+    return normalized;
+  }
+
   private resolveHeroRosterPortraitAsset(hero: LobbyHeroItemVO): string | null {
     if (!USE_HERO_ROSTER_EXTERNAL_PORTRAITS) {
       return null;
@@ -966,6 +1087,9 @@ function formatCompactInteger(value: number): string {
     return `${(safe / 1000000).toFixed(safe >= 10000000 ? 0 : 1)}M`;
   }
   if (safe >= 10000) {
+    if (lootChainI18n.currentLanguage() === 'en-US') {
+      return `${(safe / 1000).toFixed(safe >= 100000 ? 0 : 1)}K`;
+    }
     return `${(safe / 10000).toFixed(safe >= 100000 ? 0 : 1)}万`;
   }
   return safe.toLocaleString('en-US');

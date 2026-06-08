@@ -1,0 +1,181 @@
+
+HeylelS01.png
+size: 1737,805
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+L_foot01
+  rotate: false
+  xy: 742, 460
+  size: 106, 123
+  orig: 106, 125
+  offset: 0, 0
+  index: -1
+L_foreleg01
+  rotate: false
+  xy: 1630, 353
+  size: 105, 259
+  orig: 111, 261
+  offset: 0, 2
+  index: -1
+L_hand01
+  rotate: false
+  xy: 1602, 8
+  size: 76, 65
+  orig: 89, 65
+  offset: 13, 0
+  index: -1
+L_hand02
+  rotate: false
+  xy: 782, 9
+  size: 92, 89
+  orig: 92, 89
+  offset: 0, 0
+  index: -1
+L_upperarm01
+  rotate: true
+  xy: 611, 19
+  size: 79, 169
+  orig: 88, 178
+  offset: 1, 0
+  index: -1
+L_upperleg01
+  rotate: true
+  xy: 2, 7
+  size: 139, 327
+  orig: 146, 330
+  offset: 0, 3
+  index: -1
+L_wing01
+  rotate: true
+  xy: 957, 579
+  size: 224, 616
+  orig: 234, 618
+  offset: 7, 0
+  index: -1
+R_foot01
+  rotate: false
+  xy: 1529, 252
+  size: 85, 117
+  orig: 85, 118
+  offset: 0, 0
+  index: -1
+R_foreleg01
+  rotate: true
+  xy: 331, 29
+  size: 117, 278
+  orig: 123, 290
+  offset: 0, 12
+  index: -1
+R_forerarm01
+  rotate: false
+  xy: 1312, 91
+  size: 183, 140
+  orig: 185, 142
+  offset: 0, 0
+  index: -1
+R_hand01
+  rotate: true
+  xy: 1490, 15
+  size: 58, 110
+  orig: 60, 110
+  offset: 0, 0
+  index: -1
+R_hand02
+  rotate: true
+  xy: 1658, 171
+  size: 95, 61
+  orig: 95, 61
+  offset: 0, 0
+  index: -1
+R_upperarm01
+  rotate: false
+  xy: 1575, 614
+  size: 143, 189
+  orig: 144, 190
+  offset: 0, 1
+  index: -1
+R_upperleg01
+  rotate: true
+  xy: 1205, 233
+  size: 102, 322
+  orig: 106, 322
+  offset: 0, 0
+  index: -1
+R_uppoerarm01
+  rotate: false
+  xy: 1513, 371
+  size: 115, 206
+  orig: 120, 209
+  offset: 0, 0
+  index: -1
+R_wing01
+  rotate: true
+  xy: 2, 148
+  size: 278, 611
+  orig: 285, 614
+  offset: 0, 0
+  index: -1
+Shadow
+  rotate: false
+  xy: 2, 428
+  size: 738, 155
+  orig: 738, 155
+  offset: 0, 0
+  index: -1
+blur_eff01
+  rotate: false
+  xy: 615, 100
+  size: 263, 326
+  orig: 270, 360
+  offset: 7, 14
+  index: -1
+body01
+  rotate: true
+  xy: 880, 2
+  size: 209, 430
+  orig: 210, 468
+  offset: 0, 27
+  index: -1
+body_acc01
+  rotate: false
+  xy: 1205, 337
+  size: 306, 240
+  orig: 306, 240
+  offset: 0, 0
+  index: -1
+face01
+  rotate: false
+  xy: 1497, 75
+  size: 159, 156
+  orig: 163, 166
+  offset: 0, 0
+  index: -1
+hair01
+  rotate: false
+  xy: 1616, 268
+  size: 74, 83
+  orig: 84, 91
+  offset: 5, 0
+  index: -1
+hair02
+  rotate: false
+  xy: 880, 213
+  size: 323, 364
+  orig: 331, 364
+  offset: 0, 0
+  index: -1
+pelvis01
+  rotate: false
+  xy: 1312, 7
+  size: 176, 82
+  orig: 176, 82
+  offset: 0, 0
+  index: -1
+weapon01
+  rotate: true
+  xy: 2, 585
+  size: 218, 953
+  orig: 218, 953
+  offset: 0, 0
+  index: -1

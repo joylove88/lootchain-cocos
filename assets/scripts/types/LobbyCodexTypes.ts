@@ -7,6 +7,7 @@ export interface LobbyCodexItemVO {
   heroClass: string;
   roleDesc?: string | null;
   portraitAsset?: string | null;
+  cardBackgroundAsset?: string | null;
   spineAsset?: string | null;
   spineUuid?: string | null;
   owned: boolean;

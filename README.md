@@ -2742,3 +2742,575 @@ mysql -uroot -p lootchain < .\sql\17_gacha_pool_display_config.sql
 - Verification passed: Cocos `check:layout`; Cocos TypeScript no-emit; `.spine/.spine.meta` scan returned `0`; backend `mvn -pl lootchain-core test` passed `98` tests with `0` failures and `4` skipped live/external tests; both repos `git diff --check` passed with only LF/CRLF warnings.
 - Preview note: running Cocos Preview on `7456` still serves stale chunks, so visual language-modal acceptance requires restarting/refreshing Preview and rerunning `npm.cmd run check:preview`.
 - Boundary unchanged: no `gacha_pool_item`, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag use/sell/batch-use, hero growth, reward/stamina/progress write, or new economy write endpoint changed.
+
+## 2026-06-06 New Window Handoff Recheck And SQL Resync
+
+- Re-executed the handoff checklist in this window after rereading the Cocos README, lobby analysis, and API contract.
+- Verification passed:
+  - `npm.cmd run check:layout`;
+  - Cocos Creator 3.8.8 TypeScript no-emit;
+  - `assets/resources/spine` `.spine/.spine.meta` scan returned `0`;
+  - backend `mvn.cmd --no-transfer-progress -pl lootchain-core test` passed `98` tests, `0` failures, `4` skipped live/external tests.
+- Local SQL state on this machine was behind the handoff note: `game_text_i18n` did not exist at first.
+- Synced `D:\project\LootChain\sql\23_game_text_i18n.sql` into local `lootchain`.
+- Important Windows note repeated for this machine: do not import UTF-8 Chinese SQL through a plain PowerShell pipe. The first pipe import corrupted Chinese `HERO_CLASS` keys and produced `191` enabled English rows; the just-created display table was dropped and reimported with the MySQL client reading the SQL file directly using `--default-character-set=utf8mb4`.
+- Final DB verification passed: `enabled_en_us=200`, `hero_template_en_us=120`, `hero_class_en_us=10`.
+- `npm.cmd run check:preview` still reports stale Preview chunks on `7456`; refresh/restart Cocos Creator Preview before visual acceptance of the login language modal and localized Lobby flows.
+- Boundary unchanged: local display-text SQL sync and verification only. No `gacha_pool_item`, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag use/sell/batch-use, hero growth, reward/stamina/progress write, or new economy write endpoint changed.
+
+## 2026-06-06 Lobby English Leak Audit
+
+- Audited English-mode text after switching to `en-US`.
+- Backend/API check:
+  - current player GET surfaces were called with `Accept-Language: en-US`;
+  - checked lobby profile/notices/codex/heroes/filter-options/adventure, gacha pools/detail/pity/logs, heroes/detail/codex/fragments, bag/source, recent battles, and protagonist state;
+  - final result `ZH_COUNT=0`, so no backend API change was needed.
+- Cocos frontend fix:
+  - expanded `LootChainI18n` static, fragment, and dynamic translations for Lobby/Gacha local UI/status text;
+  - covered Adventure, Bag, Notice, Codex, Hero Roster, Hero Detail, Formation, Battle Preview, Root status, and local Gacha preview strings;
+  - hero roster compact power values now use `K` in English instead of the Chinese `万` unit.
+- Verification passed:
+  - custom static text audit in `en-US`: `MISS_COUNT=0`;
+  - Cocos TypeScript no-emit;
+  - `npm.cmd run check:layout`;
+  - `.spine/.spine.meta` scan returned `0`;
+  - both repos `git diff --check` passed with only LF/CRLF warnings.
+- Preview still stale on `7456`; restart/refresh Cocos Creator Preview before visual acceptance.
+- Boundary unchanged: frontend localization only. No `gacha_pool_item`, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag use/sell/batch-use, hero growth, reward/stamina/progress write, or new economy write endpoint changed.
+
+## 2026-06-06 Hero Roster English Class Tab Dedupe
+
+- Fixed duplicated hero roster class tabs in English mode.
+- Root cause: backend English class labels (`Warrior`, `Support`, `Assassin`, `Mage`, `Marksman`, `Tank`) and the Cocos default Chinese class tabs were merged before English aliases existed in `normalizeHeroClassKey()`.
+- `HERO_CLASS_KEY_ALIASES` now maps the English labels and lowercase variants back to the existing canonical class keys.
+- The visible labels still flow through `LootChainI18n`, so English mode displays English labels while filtering/deduping by one canonical key.
+- Guards updated in `check-layout` and `check-preview-freshness`.
+- Verification passed: `npm.cmd run check:layout`, Cocos TypeScript no-emit, and a custom mixed Chinese/default plus English/API tab dedupe check.
+- Boundary unchanged: Cocos readonly display fix only. No `gacha_pool_item`, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag use/sell/batch-use, hero growth, reward/stamina/progress write, or new economy write endpoint changed.
+
+## 2026-06-06 Gacha Hero Pool Spine Ground Offset
+
+- The summon-page center Spine ground position is now pool-aware.
+- Normal hero summon pools (`NORMAL_HERO`, local `id='hero'`, or `displayType/poolType='HERO'`) render the center Spine slightly lower through `GACHA_HERO_POOL_SPINE_GROUND_Y_EXTRA_RATIO = -0.075`.
+- Limited summon pools are explicitly excluded with `displayType === 'LIMITED'`, `poolType === 'LIMITED'`, and `poolCode.includes('LIMITED')`, so their Spine position stays unchanged.
+- Guards updated in `check-layout` and `check-preview-freshness`.
+- Verification passed: `npm.cmd run check:layout`, Cocos TypeScript no-emit, `.spine/.spine.meta` scan returned `0`, and `git diff --check` passed with only LF/CRLF warnings.
+- `npm.cmd run check:preview` still fails because the running Preview serves stale chunks; the gacha renderer chunk is missing the new hero-pool offset and `LIMITED` exclusion tokens. Restart/refresh Cocos Creator Preview before judging the visual position.
+- Boundary unchanged: Cocos visual positioning only. No `gacha_pool_item`, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag use/sell/batch-use, hero growth, reward/stamina/progress write, or new economy write endpoint changed.
+
+## 2026-06-06 Hero Card Background Asset
+
+- Backend `hero_template` now exposes display-only `card_background_asset` through `cardBackgroundAsset`.
+- New SQL: `D:\project\LootChain\sql\24_hero_card_background_asset.sql`.
+- Local DB was synced with MySQL direct `source`; current seed binds `UR_EVELYN` to `ui/hero-roster/card_background/StoryCover_Nuu`.
+- Cocos hero roster cards now render `cardBackgroundAsset` under the unified `hero_card_frame.png`; invalid paths are ignored, and paths without `/spriteFrame` are normalized automatically.
+- `assets/resources/spine/hero/Nuu/Nuu.spine` has been archived to `docs/spine-source-archive/hero/Nuu/Nuu.spine`; resources runtime scan remains `0` `.spine/.spine.meta`.
+- Verification passed: Cocos `check:layout`, Cocos TypeScript no-emit, backend `PlayerLobbyHeroServiceImplTest`, and local SQL field verification.
+- Preview note: `npm.cmd run check:preview` still reports stale running Preview chunks; the hero roster chunk is missing `LOBBY_HERO_ROSTER_CARD_BACKGROUND_NUU_ASSET`, `renderHeroCardBackground`, and `hero.cardBackgroundAsset`. Restart/refresh Cocos Creator Preview before visual acceptance.
+- Boundary unchanged: display metadata only. No `gacha_pool_item`, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag use/sell/batch-use, hero growth, or new economy write endpoint changed.
+
+## 2026-06-06 Hero Id 25 Nuu Spine UUID Sync
+
+- `hero_template.id=25` (`UR_EVELYN`) now uses `portrait_asset=Nuu` and `spine_asset=Nuu`.
+- Added Cocos runtime meta files for `assets/resources/spine/hero/Nuu/`.
+- `Nuu.skel.meta` uses `spine-data` uuid `f0efa4e7-3338-4a1c-bafd-b8b18788a712`.
+- Backend SQL `D:\project\LootChain\sql\25_hero_spine_uuid_id25_sync.sql` was added and sourced locally.
+- Local DB now has `spine_uuid=f0efa4e7-3338-4a1c-bafd-b8b18788a712` for `id=25`.
+- `.spine/.spine.meta` scan under `assets/resources/spine` remains `0`.
+- Boundary unchanged: display resource metadata only; no economy rule or write entry changed.
+
+## 2026-06-06 External Nuu idel_front Work Copy
+
+- Created a non-destructive work copy for the external Nuu Spine source at `C:\Users\Ethan\Desktop\C1812\Spine\Nuu_idel_front_work`; the original `C:\Users\Ethan\Desktop\C1812\Spine\Nuu` files were not modified.
+- Existing runtime animations detected from `Nuu.skel`: `idle`, `idle_intro`, `intro`, `skill1`, `skill2`, `skill3`; the requested `idel_front` should duplicate from the actual source animation name `idle`.
+- Added `IDEL_FRONT_WORK.md` in the work copy with the Spine-editor workflow. A real front-facing animation still needs manual pose/key adjustment in Spine; binary `.spine`/`.skel` files should not be patched directly.
+- Boundary unchanged: external source-asset preparation only; no Cocos runtime resource, backend API, SQL, economy rule, bag write, hero growth, or EX V1 behavior changed.
+
+## 2026-06-07 External Nuu idel_front JSON Pass
+
+- Generated `C:\Users\Ethan\Desktop\C1812\Spine\Nuu_idel_front_work\Nuu_idel_front.json` from the exported work-copy `Nuu.json`.
+- The original exported `Nuu.json` remains untouched.
+- `Nuu_idel_front.json` keeps all original animations and adds `animations.idel_front` immediately after `animations.idle`.
+- The new animation clones `idle`, then reduces side-sway and rebalances torso/head/pelvis/arms/legs/hair timelines toward a centered front-idle pose.
+- The atlas does not contain a full painted front-facing head/body set, so this is a rig-pose approximation. Open the generated JSON in Spine and preview `idel_front` for final visual polish.
+- Boundary unchanged: external source JSON preparation only; no Cocos runtime resource, backend API, SQL, economy rule, bag write, hero growth, or EX V1 behavior changed.
+
+## 2026-06-07 External Nuu JSON Import Correction
+
+- `Nuu_idel_front.spine` is still the untouched copied binary project and will not show `idel_front`.
+- The work-copy `Nuu.json` now includes `animations.idel_front`; the original JSON export is preserved as `Nuu.original_export.json`.
+- To preview the new animation in Spine, open/import `C:\Users\Ethan\Desktop\C1812\Spine\Nuu_idel_front_work\Nuu.json`, then save a new `.spine` project from Spine if needed.
+- Verification passed: `Nuu.json` parses and contains `idel_front`; `.spine/.spine.meta` scan under Cocos runtime resources remains `0`.
+
+## 2026-06-07 Hero Detail Nuu Spine Intro To Idle
+
+- Hero detail playback for the Abyss Witch / `UR_EVELYN` Spine now plays `intro` once and then queues `idle` as the looping animation.
+- Fallback intro names are `idle_intro`, `appear`, `enter`, `show`, `born`, and `入场`; heroes without intro still loop idle directly.
+- Removed the old hero-detail behavior that played `skill2` first and repeated a secondary animation every 15 seconds.
+- Cocos readonly fallback assets for `UR_EVELYN` now use `portraitAsset=Nuu` and `spineAsset=Nuu` in both hero roster and codex APIs, matching the current DB/API resource fields.
+- Verification passed: `npm.cmd run check:layout`, Cocos TypeScript no-emit, `.spine/.spine.meta` scan `0`, and `git diff --check` with only LF/CRLF warnings.
+- Boundary unchanged: hero-detail visual playback only; no backend API, SQL, economy rule, bag write, hero growth, gacha rule, or EX V1 behavior changed.
+
+## 2026-06-07 Hero Detail Nuu Spine Load Retry
+
+- Hero detail Spine loading now validates UUID results before treating them as `sp.SkeletonData`.
+- If `spineUuid` loading fails, returns a non-SkeletonData asset, or applies unsuccessfully, the renderer retries the `resources.load(path, sp.SkeletonData)` resource path.
+- If the Nuu runtime still cannot be parsed, the detail page now shows a visible `Spine 资源解析失败：spine/hero/Nuu/Nuu` hint instead of silently leaving only the abstract fallback.
+- Current resource state: `assets/resources/spine/hero/Nuu` contains the old `Nuu.skel` runtime set and no `Nuu.json`; if the failure hint appears after Preview refresh, re-export a Cocos-compatible JSON/skel set into this folder.
+- Verification passed: `check:layout`, Cocos TypeScript no-emit, `.spine/.spine.meta` scan `0`, and `git diff --check` with only LF/CRLF warnings.
+
+## 2026-06-07 Hero Detail Nuu JSON Runtime Sync
+
+- `assets/resources/spine/hero/Nuu` now contains the freshly exported JSON runtime set: `Nuu.json`, `Nuu.atlas`, and `Nuu.png`.
+- `Nuu.json.meta` is the active Cocos `spine-data` resource with uuid `b20d194a-da4c-4868-b25a-1cb98c25d3e8`.
+- The old `Nuu.skel` and `Nuu.skel.meta` were moved out of `assets/resources` into `docs/spine-source-archive/hero/Nuu/runtime-skel-archived-20260607/`, removing the duplicate dynamic load URL conflict for `spine/hero/Nuu/Nuu`.
+- Backend SQL `D:\project\LootChain\sql\26_hero_spine_uuid_nuu_json_sync.sql` was added and sourced locally; `hero_template.id=25 / UR_EVELYN` now stores the JSON uuid above.
+- `Nuu.json` parses and contains `intro`, `idle`, `idle_intro`, `skill1`, `skill2`, and `skill3`, so the detail page can run the current `intro -> idle` playback path once Preview imports the new resource.
+- Verification passed: `check:layout`, Cocos TypeScript no-emit, `.spine/.spine.meta` scan `0`, DB uuid readback, live lobby hero API uuid readback, and both repos `git diff --check` with only LF/CRLF warnings.
+- Preview note: `check:preview` still sees stale running Preview chunks; restart/refresh Cocos Creator Preview before judging the Nuu hero detail visually.
+- Compatibility note: the exported file reports Spine `4.3.10`; if Cocos Creator 3.8.8 still cannot parse it after Preview refresh, re-export Nuu as Spine 4.2.x.
+- Boundary unchanged: display resource metadata only. No economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Hero Detail Nuu Spine 4.1.24 UUID Sync
+
+- Nuu has been replaced again with a lower-version JSON runtime export. Current `assets/resources/spine/hero/Nuu/Nuu.json` reports Spine `4.1.24`.
+- Active `Nuu.json.meta` uuid is now `d6f527d7-2988-42f3-8ad3-9c96636ea79d`.
+- The replacement also restored `Nuu.skel`; it was archived out of `assets/resources` into `docs/spine-source-archive/hero/Nuu/runtime-skel-archived-20260607-0118/` because `Nuu.skel` and `Nuu.json` share the same dynamic resources URL.
+- Backend SQL `D:\project\LootChain\sql\27_hero_spine_uuid_nuu_4124_sync.sql` was added and sourced locally.
+- DB and live lobby hero API now return `UR_EVELYN` with `spineUuid=d6f527d7-2988-42f3-8ad3-9c96636ea79d`.
+- Next visual step is to let Cocos finish importing the resource, then restart/refresh Preview and open Abyss Witch detail again.
+- Boundary unchanged: display resource metadata only. No economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Hero Detail Spine Failure Visibility
+
+- Hero detail now emits the Spine load-start line as `console.warn`, not `console.info`.
+- If UUID loading fails and resource-path retry also fails, the page shows a visible `Spine UUID 与路径资源均解析失败` hint instead of silently leaving only the fallback portrait.
+- Atlas text containing `pma:true` now drives `skeleton.premultipliedAlpha=true`, matching the current Nuu export.
+- Cocos restart had reset `profiles/v2/packages/preview.json` to `current_scene`; it is fixed back to `623f777a-eb33-4d74-ae88-eb79e749fcfe`.
+- Verification passed: `check:layout`, Cocos TypeScript no-emit, `.spine/.spine.meta` scan `0`, and `git diff --check` with only LF/CRLF warnings.
+- Boundary unchanged: Cocos readonly hero-detail diagnostics/visual loading only. No economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Hero Detail Nuu Spine Version Diagnosis
+
+- The visible detail-page hint confirmed the active Nuu resource reaches the hero-detail Spine path but fails to parse/apply.
+- Imported resource check: `Nuu` is `sp.SkeletonData`, has texture `Nuu.png`, `pma:true` atlas text, and the expected `intro` / `idle` animations.
+- Root cause is version compatibility: current `Nuu.json` reports Spine `4.1.24`, while Cocos Creator 3.8.8 local engine compatibility files support the `3.8` and `4.2` runtime lines. The `4.2` checker requires `4.2.*`, and the `3.8` checker requires `3.8.*`.
+- Hero detail now detects unsupported Spine versions and displays `Spine 4.1.24 不兼容，请导出 4.2.x 或 3.8.x`.
+- Required asset fix: re-export Nuu as Spine `4.2.x` or `3.8.x`, replace `Nuu.json / Nuu.atlas / Nuu.png`, keep `Nuu.skel` out of the same folder, then sync `hero_template.id=25.spine_uuid` to the new `Nuu.json.meta` uuid.
+- Verification passed: `check:layout`, Cocos TypeScript no-emit, `.spine/.spine.meta` scan `0`, and `git diff --check` with only LF/CRLF warnings.
+
+## 2026-06-07 Hero Detail Nuu Spine 4.2.43 Runtime Sync
+
+- Nuu has been re-exported as Spine `4.2.43`, which matches the Cocos Creator 3.8.8 Spine 4.2 runtime line.
+- Current active runtime set is `assets/resources/spine/hero/Nuu/Nuu.json`, `Nuu.atlas`, and `Nuu.png`.
+- `Nuu.json` parses successfully and contains `default` skin plus `intro`, `idle`, `idle_intro`, `skill1`, `skill2`, `skill3`, `ult`, and `victory`.
+- `Nuu.json.meta` uuid stayed `d6f527d7-2988-42f3-8ad3-9c96636ea79d`, so `hero_template.id=25 / UR_EVELYN` did not require a new SQL migration.
+- Local DB verification confirmed `portrait_asset=Nuu`, `spine_asset=Nuu`, and the same `spine_uuid` for `id=25`.
+- The old `Nuu.skel` and `Nuu.skel.meta` restored by export were archived to `docs/spine-source-archive/hero/Nuu/runtime-skel-archived-20260607-0145/` to avoid the duplicate dynamic resource URL conflict.
+- Verification passed: `check:layout`, Cocos TypeScript no-emit, `.spine/.spine.meta` scan `0`, and Nuu-folder `.skel/.skel.meta` scan `0`.
+- Preview acceptance still requires restarting/refreshing Cocos Creator Preview after import, then opening Abyss Witch detail to confirm `intro -> idle` playback.
+- Boundary unchanged: display runtime resource sync only. No economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Hero Detail Spine Runtime Retry
+
+- Abyss Witch detail still fell back after the 4.2.43 export, so the active failure point moved from version compatibility to `SkeletonData.getRuntimeData(true)`.
+- `LobbyHeroDetailPanelRenderer` now retries runtime application for hero Spine data at `180ms`, `420ms`, and `900ms` before showing the fallback hint.
+- Retry is limited to runtime parse/application failures; unsupported versions and invalid animations still fail closed.
+- UUID data is retried first, then the resource-path fallback is retried with the same logic.
+- The visible failure hint is moved upward and now includes runtime diagnostics such as Spine version, texture count, and atlas texture names.
+- `assets/resources/spine/hero/Nuu/Nuu.png.meta` now uses `clamp-to-edge` wrapping instead of `repeat`, avoiding browser WebGL issues with the current non-power-of-two `2031x817` atlas.
+- Guards were added to `check-layout` and `check-preview-freshness`.
+- Verification passed: `check:layout`, Cocos TypeScript no-emit, `.spine/.spine.meta` scan `0`, and `git diff --check` with only LF/CRLF warnings.
+- Current browser Preview still serves an older `LobbyHeroDetailPanelRenderer` chunk missing the new retry tokens; stop/restart Preview or hard-refresh after Cocos finishes script compilation before visual acceptance.
+- Boundary unchanged: Cocos readonly hero-detail runtime resilience only. No SQL, economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Hero Detail Spine Apply Exception Diagnostics
+
+- The latest visible hint reached `Spine 资源应用异常：spine/hero/Nuu/Nuu`, confirming that `SkeletonData` loads but application into `sp.Skeleton` still throws.
+- Hero detail now resolves runtime data before assigning `skeleton.skeletonData`, so the Cocos setter is no longer the first parse point.
+- The visible failure hint now includes the actual exception message through `formatHeroSpineError(error)`.
+- Guards were updated in `check-layout` and `check-preview-freshness`.
+- Verification passed: `check:layout`, Cocos TypeScript no-emit, and `.spine/.spine.meta` scan `0`.
+- Boundary unchanged: Cocos readonly diagnostics only. No SQL, economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Hero Detail Spine Safe Runtime Enum Patch
+
+- The visible failure hint advanced to `Cannot read properties of null (reading 'name')`, which matches Cocos Creator 3.8.8 Spine enum helpers reading `skins[i].name` / `anims[i].name`.
+- Nuu remains a valid Spine `4.2.43` JSON export with `default` skin and `intro` / `idle` animations.
+- Hero detail now patches loaded `SkeletonData` with safe runtime skin/animation enum providers built from `_skeletonJson`, avoiding Cocos enum helper crashes during `skeleton.skeletonData = data`.
+- Default skin is not actively applied through `setSkin('default')`; only non-default skins are set.
+- Guards were updated in `check-layout` and `check-preview-freshness`.
+- Verification passed: `check:layout`, Cocos TypeScript no-emit, `.spine/.spine.meta` scan `0`, and `git diff --check` with only LF/CRLF warnings.
+- `check:preview` still reports stale browser Preview chunks; the active hero-detail chunk is missing `patchHeroSpineRuntimeEnums` and related safe-enum tokens, so refresh/restart Preview after Cocos script compilation before visual acceptance.
+- Boundary unchanged: Cocos readonly hero-detail runtime compatibility only. No SQL, economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Hero Detail Nuu Full Idle Presentation
+
+- Nuu's `intro` animation can show only partial red hair/entry meshes in the first frames, which is not suitable as the hero-detail first read.
+- Added `HERO_DETAIL_SPINE_DISPLAY_PROFILES`; Nuu now uses `preferIdleFirst: true`, so detail view starts on the complete `idle` silhouette.
+- Nuu detail presentation also caps max Spine scale at `0.88` and applies a small x/y offset to keep the long hair/body inside the gothic stage.
+- Other heroes keep the generic `intro -> idle` behavior.
+- Verification passed: `check:layout`, Cocos TypeScript no-emit, `.spine/.spine.meta` scan `0`, and `git diff --check` with only LF/CRLF warnings.
+- Boundary unchanged: Cocos readonly hero-detail presentation only. No SQL, economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Hero Detail Skel-First Asset Pipeline
+
+- Hero detail now supports the original Spine runtime pipeline directly: `<asset>.skel + <asset>.atlas + texture(s)`.
+- The renderer loads `resources.load('spine/hero/${asset}/${asset}', sp.SkeletonData)` first and uses `spineUuid` only as fallback, so visual asset replacement under the same folder does not require SQL uuid sync every time.
+- The loaded data cache is keyed by resource path rather than uuid.
+- Safe skin/animation enum handling now works for both JSON and `.skel`: JSON names come from `_skeletonJson`, binary `.skel` names come from `runtimeData.skins` / `runtimeData.animations` with null entries filtered out.
+- Asset rule: never keep same-basename `.skel` and `.json` together in one runtime folder, because both resolve to the same Cocos `resources` URL.
+- Verification passed: `check:layout`, Cocos TypeScript no-emit, and `.spine/.spine.meta` scan `0`.
+- `check:preview` still reports stale browser Preview chunks; refresh/restart Preview after Cocos script compilation before validating `.skel` loading visually.
+- Boundary unchanged: Cocos readonly hero-detail asset pipeline only. No SQL, economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Nuu Original Skel Runtime Restore
+
+- Nuu has been restored to the original runtime assets under `assets/resources/spine/hero/Nuu/`: `Nuu.skel`, `Nuu.atlas`, and `Nuu.png`.
+- `Nuu.json` / `Nuu.json.meta` are absent, so the folder no longer has a same-basename `.skel` / `.json` Cocos resource conflict.
+- `Nuu.skel.meta` uuid is `aa51fc97-c90c-40aa-90d9-2e6f6949482e`, but no SQL sync is required because hero detail now loads the resource path first and treats `spineUuid` only as fallback.
+- `Nuu.spine` / `Nuu.spine.meta` were archived to `docs/spine-source-archive/hero/Nuu/source-spine-archived-20260607-1225/`.
+- Verification passed: `check:layout`, Cocos TypeScript no-emit, and `.spine/.spine.meta` scan `0`.
+- Boundary unchanged: Cocos readonly resource restore only. No SQL, economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Nuu Skel UUID Fallback Sync
+
+- After restoring the original skel, DB still pointed `hero_template.id=25.spine_uuid` to the removed JSON uuid `d6f527d7-2988-42f3-8ad3-9c96636ea79d`.
+- Added and locally executed backend SQL `D:\project\LootChain\sql\28_hero_spine_uuid_nuu_skel_restore.sql`.
+- `hero_template.id=25 / UR_EVELYN` now stores `spine_uuid=aa51fc97-c90c-40aa-90d9-2e6f6949482e`, matching `assets/resources/spine/hero/Nuu/Nuu.skel.meta`.
+- `Nuu.skel` reports Spine `3.8.97`; Cocos Creator 3.8.8 accepts the `3.8.*` runtime line except `3.8.75`.
+- `check:preview` still reports stale browser Preview chunks, so visual validation still requires Cocos script compilation and a hard refresh/restart of Preview.
+- Boundary unchanged: display resource metadata only. No economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Hero Detail Nuu UUID Apply Fallback
+
+- The restored original Nuu runtime set is valid in Cocos library: `Nuu.skel` imports as `sp.SkeletonData`, depends on `Nuu.png`, and uses atlas `pma:true`.
+- `hero_template.id=25 / UR_EVELYN` is synced to `spine_uuid=aa51fc97-c90c-40aa-90d9-2e6f6949482e`.
+- Hero detail still loads by resource path first for the batch `.skel` workflow, but if path loading/applying fails it now retries with the exact `spine_uuid` through `loadHeroSpineUuidData()`.
+- UUID-loaded data is cached separately as `uuid:${uuid}`, avoiding collision with path cache and same-path resource residue from earlier JSON/skel swaps.
+- `check-preview-freshness` now inspects both the transpiled Preview chunk and sourcemap `sourcesContent`, avoiding false stale reports for TypeScript-only tokens.
+- Verification passed: `check:layout`, Cocos Creator 3.8.8 TypeScript no-emit, and `.spine/.spine.meta` scan `0`.
+- Current Preview still needs Cocos script recompilation: `check:preview` only reports the hero-detail chunk missing the newly added uuid fallback tokens. Stop/reload Preview in Cocos Creator, then rerun `npm.cmd run check:preview` before visual acceptance.
+- Boundary unchanged: Cocos readonly hero-detail loading resilience only. No economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Nuu Skel-Only Restore After JSON Abort
+
+- The accidental Nuu JSON runtime re-add was reverted out of `assets/resources`.
+- Active runtime set for `UR_EVELYN / Nuu` is again skel-only:
+  - `assets/resources/spine/hero/Nuu/Nuu.skel`;
+  - `assets/resources/spine/hero/Nuu/Nuu.atlas`;
+  - `assets/resources/spine/hero/Nuu/Nuu.png`.
+- The JSON pair was archived to `docs/spine-source-archive/hero/Nuu/runtime-json-archived-20260607-restore-skel/`.
+- `scripts/check-layout.mjs` now requires the Nuu skel runtime set and forbids `Nuu.json(.meta)` in the same runtime folder for this stage.
+- Local DB was restored with backend SQL `sql/28_hero_spine_uuid_nuu_skel_restore.sql`; `hero_template.id=25` now points to `spine_uuid=aa51fc97-c90c-40aa-90d9-2e6f6949482e`.
+- Diagnosis remains: Nuu `.skel` reports Spine `3.8.97`, but the prior Preview failure was Cocos Spine WASM `memory access out of bounds` while applying this specific binary export.
+- Next visual step: let Cocos Creator reimport `assets/resources/spine/hero/Nuu/`, then restart/refresh Preview and re-open Abyss Witch detail.
+- Boundary unchanged: readonly display resource metadata only. No economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Nuu No-Rotation Atlas Repack
+
+- The visible hero-detail error is now a Cocos Spine WASM binary apply failure: `memory access out of bounds`.
+- DB uuid, resource path, Cocos library import, and Preview script freshness are all correct; the failure is no longer a SQL/path/stale-chunk issue.
+- Kept the original `Nuu.skel` and rebuilt only `Nuu.atlas` / `Nuu.png` from the 46 original images under `assets/resources/spine/hero/Nuu/images/`.
+- The original rotated atlas was archived to `docs/spine-source-archive/hero/Nuu/atlas-rotated-archived-20260607-1330/`.
+- New atlas details:
+  - page `2048x2048`;
+  - `pma:false`;
+  - all 46 regions use `rotate:false`;
+  - no `rotate: 180` or `rotate: 270` remains.
+- Synced Cocos `library` cache for the current Preview:
+  - `library/23/23fa6f1b-60b3-422d-89b6-1a4d09087bf8.atlas`;
+  - `library/24/2488bcbc-471a-4d6e-b9c9-7f0ef3274f08.png`;
+  - `library/aa/aa51fc97-c90c-40aa-90d9-2e6f6949482e.json` `_atlasText`.
+- `scripts/check-layout.mjs` now rejects Nuu atlas `rotate: 180/270`.
+- Verification passed: `check:layout`, Cocos TypeScript no-emit, `.spine/.spine.meta` scan `0`, `check:preview`, and no-rotation atlas validation.
+- Next visual step: hard-refresh browser Preview and reopen Abyss Witch detail. If the same WASM error remains, the remaining cause is the skel binary payload itself rather than atlas rotation.
+- Boundary unchanged: readonly resource compatibility only. No economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Nuu 3.8.99 Binary Version Tag Test
+
+- After the no-rotation atlas repack, Abyss Witch still failed with Cocos Spine WASM `memory access out of bounds`.
+- Kept the skel-only direction and did not add JSON.
+- Archived the pre-test `3.8.97` binary under `docs/spine-source-archive/hero/Nuu/runtime-skel-3897-before-version-tag-test-20260607-1340/`.
+- Patched only the single same-length binary header version string:
+  - `assets/resources/spine/hero/Nuu/Nuu.skel`: `3.8.97 -> 3.8.99`;
+  - `library/aa/aa51fc97-c90c-40aa-90d9-2e6f6949482e.bin`: `3.8.97 -> 3.8.99`.
+- Binary size remains `277716` bytes; `Nuu.skel.meta` uuid and DB `spine_uuid` remain `aa51fc97-c90c-40aa-90d9-2e6f6949482e`.
+- Verification passed: `check:layout`, `.spine/.spine.meta` scan `0`, `check:preview`, and both active/library binaries parse as `3.8.99`.
+- Next visual step: hard-refresh browser Preview with cache bypass and reopen Abyss Witch detail. If the same WASM error remains, the non-JSON fix is a fresh Spine `3.8.99` binary export of the same project.
+- Boundary unchanged: readonly runtime compatibility experiment only. No economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Nuu Real 3.8.99 Binary Export Sync
+
+- User re-exported Nuu as a real Spine `3.8.99` binary runtime after the header-only version test still failed.
+- Active runtime:
+  - `assets/resources/spine/hero/Nuu/Nuu.skel`;
+  - size `276937` bytes;
+  - parsed version `3.8.99`;
+  - SHA256 `E45F2E631FE34FF4E6D9BC6AA03FF8399EE9E51D824D9B996F571F41BD50E0BF`.
+- Cocos Preview cache:
+  - `library/aa/aa51fc97-c90c-40aa-90d9-2e6f6949482e.bin` matches the active skel byte-for-byte;
+  - `Nuu.skel.meta` uuid remains `aa51fc97-c90c-40aa-90d9-2e6f6949482e`;
+  - DB already points `UR_EVELYN` to that uuid, so no SQL change was required.
+- Atlas remains the no-rotation pack from the previous step: 46 regions, all `rotate:false`, no `rotate:180/270`, `pma:false`.
+- `scripts/check-layout.mjs` now verifies Nuu is exported as Spine `3.8.99` binary and keeps the no-JSON/no-180/270 guards.
+- Verification passed: `check:layout`, Cocos TypeScript no-emit, `.spine/.spine.meta` scan `0`, `check:preview`, and active/library skel hash match.
+- Next visual step: hard-refresh browser Preview and reopen Abyss Witch detail.
+- Boundary unchanged: readonly runtime resource sync only. No economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Nuu Fresh UUID For 3.8.99 Re-Export
+
+- After the true 3.8.99 export still showed the same WASM error, Nuu was moved to a fresh SkeletonData uuid to rule out browser/Cocos/WASM cache reuse of the old binary identity.
+- `assets/resources/spine/hero/Nuu/Nuu.skel.meta` now uses:
+  - `76bea053-8d55-4925-a0e8-278b50701154`.
+- Cocos Preview cache was copied to:
+  - `library/76/76bea053-8d55-4925-a0e8-278b50701154.bin`;
+  - `library/76/76bea053-8d55-4925-a0e8-278b50701154.json`.
+- Active skel and new library bin SHA256 both equal:
+  - `E45F2E631FE34FF4E6D9BC6AA03FF8399EE9E51D824D9B996F571F41BD50E0BF`.
+- Added and locally sourced backend SQL:
+  - `D:\project\LootChain\sql\30_hero_spine_uuid_nuu_3899_reexport.sql`.
+- Local DB now returns `UR_EVELYN.spine_uuid=76bea053-8d55-4925-a0e8-278b50701154`.
+- `scripts/check-layout.mjs` now verifies Nuu is the fresh 3.8.99 re-export uuid.
+- Verification passed: `check:layout`, Cocos TypeScript no-emit, `.spine/.spine.meta` scan `0`, `check:preview`, DB readback, and active/library hash match.
+- Next visual step: fully refresh Preview/reload lobby data so the hero API returns the new uuid, then reopen Abyss Witch detail.
+- Boundary unchanged: readonly resource identity/cache-bust plus display metadata SQL only. No economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Nuu Nonessential Binary Export Diagnosis
+
+- Nuu still plays correctly in the Spine editor, but Cocos Preview still fails with `memory access out of bounds`.
+- This is now a Cocos Spine WASM runtime compatibility problem, not a path, SQL, uuid, Preview stale, or atlas rotation problem.
+- The active Nuu `.skel` still contains `./images/` and an absolute `D:/...` path.
+- Known working current skels (`npc_1001`, `goods_1`) do not contain those paths.
+- Most likely next test: re-export the same Nuu binary with `非必要的数据 / Nonessential data` unchecked.
+- Recommended export settings:
+  - data format `二进制`;
+  - extension `.skel`;
+  - `非必要的数据` unchecked;
+  - `动画清理` can remain checked;
+  - `纹理图集 打包` unchecked so the current no-rotation `Nuu.atlas` / `Nuu.png` stays in place.
+- Boundary unchanged: diagnosis and export guidance only. No economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Nuu 4.2.43 JSON Runtime Sync
+
+- User chose to switch Nuu to JSON after repeated Cocos Spine binary WASM failures.
+- Active Nuu runtime is now JSON-only:
+  - `assets/resources/spine/hero/Nuu/Nuu.json`;
+  - `assets/resources/spine/hero/Nuu/Nuu.atlas`;
+  - `assets/resources/spine/hero/Nuu/Nuu.png`.
+- `Nuu.skel` and `Nuu.skel.meta` are absent from the runtime folder.
+- `Nuu.json` parses as Spine `4.2.43`.
+- `Nuu.json.meta` uuid is `a47845b1-08e7-4ffc-a0e6-4557b0ad5d8a`, and Cocos library has `library/a4/a47845b1-08e7-4ffc-a0e6-4557b0ad5d8a.json`.
+- Added and locally sourced backend SQL:
+  - `D:\project\LootChain\sql\31_hero_spine_uuid_nuu_json_4243_sync.sql`.
+- Local DB now returns `UR_EVELYN.spine_uuid=a47845b1-08e7-4ffc-a0e6-4557b0ad5d8a`.
+- `scripts/check-layout.mjs` now requires Nuu Spine `4.2.x` JSON and rejects `Nuu.skel(.meta)` in the runtime folder.
+- Verification passed: `check:layout`, Cocos TypeScript no-emit, `.spine/.spine.meta` scan `0`, `check:preview`, and active JSON-only folder check.
+- Next visual step: hard-refresh Preview/reload lobby data and reopen Abyss Witch detail.
+- Boundary unchanged: readonly runtime resource sync plus display metadata SQL only. No economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Nuu Atlas Format Compatibility Fix
+
+- Abyss Witch/Nuu began rendering only a tiny fragment after the JSON switch.
+- Root cause was the Spine 4.2 compact atlas format:
+  - source atlas used `bounds:` / `offsets:`;
+  - working project Spine atlases use `xy/size/orig/offset/index`;
+  - Cocos library cache also embedded the compact atlas in `_atlasText`.
+- Converted `assets/resources/spine/hero/Nuu/Nuu.atlas` to Cocos-compatible atlas entries for all `46` regions.
+- Synchronized the converted atlas into Cocos library cache:
+  - `library/23/23fa6f1b-60b3-422d-89b6-1a4d09087bf8.atlas`;
+  - `_atlasText` in `library/a4/a47845b1-08e7-4ffc-a0e6-4557b0ad5d8a.json`.
+- `scripts/check-layout.mjs` now rejects `bounds:` in Nuu atlas and requires `xy:` entries.
+- Next visual step: hard-refresh browser Preview and reopen Abyss Witch detail.
+- Boundary unchanged: readonly runtime resource/cache format fix only. No economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Nuu No-Rotation Atlas Repack
+
+- After the atlas format fix, Nuu rendered but hair/feet/posture looked wrong versus the Spine editor reference.
+- User confirmed the Spine 4.2 export had atlas rotation disabled; the issue is therefore compact `bounds/offsets` atlas semantics plus trim/offset interpretation in the Cocos import/cache path, not a user-enabled rotation setting.
+- Repacked `assets/resources/spine/hero/Nuu/images/*.png` into a fresh no-trim `Nuu.png` to remove offset ambiguity.
+- Rebuilt `Nuu.atlas` as Cocos-compatible `xy/size/orig/offset/index` entries for all `46` regions.
+- New atlas page is `2048x2048`, with source-image crops verified for key hair/foot/head regions.
+- Synchronized the repacked page/atlas into Cocos library cache:
+  - `library/24/2488bcbc-471a-4d6e-b9c9-7f0ef3274f08.png`;
+  - `library/23/23fa6f1b-60b3-422d-89b6-1a4d09087bf8.atlas`;
+  - `_atlasText` in `library/a4/a47845b1-08e7-4ffc-a0e6-4557b0ad5d8a.json`.
+- Next visual step: hard-refresh browser Preview and reopen Abyss Witch detail; if only the motion posture is still off, tune Nuu's hero-detail animation selection separately.
+- Boundary unchanged: readonly texture atlas repack/cache sync only. No economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Nuu Export Settings Clarification
+
+- User confirmed Spine packer `旋转 / Rotate` was already unchecked, so do not enable it for the next test.
+- Recommended next Spine export/repack settings for Cocos:
+  - Data: JSON, Spine 4.2.x.
+  - Texture atlas: packed.
+  - `旧格式输出 / Legacy output`: enabled.
+  - `旋转 / Rotate`: disabled.
+  - `去除X轴空白区` and `去除Y轴空白区`: disabled for this Nuu mesh test.
+  - `别名 / Alias`: disabled.
+  - `预乘Alpha / Premultiply alpha`: disabled unless the atlas writes `pma:true` and the Cocos renderer is configured for it.
+- If that clean export still looks wrong after a full Preview reload, compare the Cocos-selected detail animation with the exact animation shown in Spine; current Nuu profile prefers `idle`.
+- Boundary unchanged: export guidance only. No economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Nuu Clean 4.2.43 Export Sync
+
+- User re-exported Nuu with Cocos-friendly packer settings.
+- Active runtime remains JSON-only:
+  - `assets/resources/spine/hero/Nuu/Nuu.json`, Spine `4.2.43`;
+  - `assets/resources/spine/hero/Nuu/Nuu.atlas`;
+  - `assets/resources/spine/hero/Nuu/Nuu.png`, `2048x1024`.
+- Import UUIDs stayed stable:
+  - SkeletonData uuid `a47845b1-08e7-4ffc-a0e6-4557b0ad5d8a`;
+  - atlas uuid `23fa6f1b-60b3-422d-89b6-1a4d09087bf8`;
+  - texture uuid `2488bcbc-471a-4d6e-b9c9-7f0ef3274f08`.
+- No SQL change is required because `hero_template.id=25` already points to the same `spine_uuid`.
+- Atlas validation now confirms `46` regions, `xy` legacy entries, `rotate:false`, `offset:0,0`, `orig == size`, no `bounds:`, no `rotate:180/270`, and no `pma:true`.
+- Cocos library cache is in sync through Creator import: `library/a4`, `library/23`, and `library/24` all have the fresh 15:03 resource data.
+- Verification passed: `check:layout`, Cocos TypeScript no-emit, `.spine/.spine.meta` scan `0`, and `check:preview`.
+- Next visual step: hard-refresh Preview and reopen Abyss Witch detail; if it is still wrong, compare the exact Spine editor animation with the Cocos-selected `idle` animation instead of changing atlas settings again.
+- Boundary unchanged: readonly runtime resource sync and guard update only. No economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Nuu Hero Detail Animation Profile
+
+- After the clean export, Nuu still looked like the old standing pose in Preview.
+- Resource/import state is clean, so the remaining mismatch is now treated as animation selection rather than atlas packing.
+- `LobbyHeroDetailPanelRenderer` now supports per-hero display profile animation overrides:
+  - `loopAnimation`;
+  - `loopFallbackHints`;
+  - `skipIntro`;
+  - `introAnimation`;
+  - `introFallbackHints`.
+- Nuu is now configured to loop `run` and skip intro in hero detail, matching the user's Spine editor reference pose more closely than `idle`.
+- `scripts/check-layout.mjs` and `scripts/check-preview-freshness.mjs` now require the new Nuu animation profile tokens.
+- Verification passed: `check:layout`, Cocos TypeScript no-emit, and `.spine/.spine.meta` scan `0`.
+- Current Preview caveat: `check:preview` fails because the running browser Preview still serves old chunk `chunks/a7/a7fb55c8dfd684d9aeec34c18872af625688bf8e.js`, missing `loopAnimation: 'run'`, `skipIntro: true`, `displayProfile.loopAnimation`, and `displayProfile.skipIntro`.
+- Next visual step: restart/refresh Cocos Preview, rerun `check:preview`, then reopen Abyss Witch detail.
+- Boundary unchanged: readonly hero-detail animation selection only. No economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Nuu RGBA Timeline Runtime Fix And Intro Idle Profile
+
+- Browser Preview testing showed Nuu was loading as `sp.SkeletonData`, but the forced `run` profile still looked wrong for the hero detail page.
+- Runtime diagnosis found Cocos warning `[Spine] Invalid timeline type for a slot: rgba`; the affected Nuu JSON animations were `idle_intro`, `intro`, and `skill2`, which were present in JSON but not playable in Cocos runtime.
+- Converted Nuu runtime JSON slot timelines from `rgba` to Cocos-compatible `color` in:
+  - `assets/resources/spine/hero/Nuu/Nuu.json`;
+  - `library/a4/a47845b1-08e7-4ffc-a0e6-4557b0ad5d8a.json`.
+- After conversion, runtime animation names include `intro`, `idle_intro`, and `skill2`, and `setAnimation()` succeeds for them.
+- Nuu hero detail profile now uses `intro -> idle` instead of the temporary `run` loop:
+  - `loopAnimation: 'idle'`;
+  - `introAnimation: 'intro'`;
+  - `maxScale: 0.52`;
+  - `xRatio: -0.035`;
+  - `yRatio: 0.012`.
+- `idle_intro -> idle` was tested but rejected because it can leave the character invisible after the queue; `intro -> idle` is the accepted current-stage behavior.
+- Verification passed: `check:layout`, Cocos TypeScript no-emit with local `cc` declarations, `.spine/.spine.meta` scan `0`, and source/library `rgba` scan `0`.
+- Preview verification: after Cocos Creator recompiled the Preview chunk, `npm.cmd run check:preview` passed.
+- Real-code browser automation reopened Abyss Witch detail and logged `animation=intro -> idle`, node scale `0.52`, and the new y placement.
+- Final screenshots:
+  - `D:\project\lootchain-cocos\temp\codex-nuu-final-intro-0700ms.png`;
+  - `D:\project\lootchain-cocos\temp\codex-nuu-final-idle.png`.
+- Extra visual trial: hiding `R_hair01 + hair03` removes the large hair/cloth loop but cuts away too much hair, so that slot-hiding hack was not committed.
+- Boundary unchanged: readonly display/resource compatibility only. No economy rule, gacha probability, pool item, reward, pity, EX V1, exchange/reissue, bag write, hero growth, or new economy endpoint changed.
+
+## 2026-06-07 Nuu Raw 4.2 Runtime Lock
+
+- User chose the complete-export path and asked not to mutate Nuu Spine asset content.
+- Active Nuu files in `assets/resources/spine/hero/Nuu/` now match the latest external complete export under `C:\Users\Ethan\Desktop\C1812\Spine\Nuu\2` byte-for-byte.
+- Nuu remains raw Spine `4.2.43` JSON, including its original `rgba` slot timelines. The old `rgba -> color` compatibility guard was removed because that belonged to the temporary 3.8-runtime workaround.
+- Project engine config now selects `spine-4.2` in both:
+  - `settings/v2/packages/engine.json`;
+  - `profiles/v2/packages/engine.json`.
+- Browser automation proved the root cause:
+  - ordinary current Preview still serves Spine 3.8 engine import-map and logs `Invalid timeline type for a slot: rgba`;
+  - temporary 4.2 import-map Preview loads all 14 Nuu animations and plays `intro -> idle` correctly.
+- `scripts/check-preview-freshness.mjs` now fails when Preview still serves Spine 3.8, so stale engine runtime will no longer be mistaken for a valid Preview.
+- Current local caveat: the generated Cocos engine cache under `D:\Program Files\cocos\editors\Creator\3.8.8\...\.cache\dev\preview\import-map.json` is read-only for normal users, so Cocos Creator must rebuild it with sufficient permission or from a user-writable install before ordinary Preview can pass the new runtime check.
+- Boundary unchanged: this is display/runtime configuration only; no Spine asset content rewrite, backend API, SQL, economy rule, gacha item/probability/pity/cost/reward, EX V1, exchange/reissue, bag write, or hero growth path was opened.
+
+## 2026-06-07 Nuu Runtime Baseline Correction
+
+- User clarified that the rest of the project Spine assets are still `3.x`, so the final project baseline must stay Spine `3.8`.
+- The 4.2 browser override was only diagnostic: it proved raw Nuu `4.2.43` works under Spine 4.2, but Cocos uses one global Spine runtime and cannot safely mix Nuu 4.2 with existing 3.8 hero/UI Spine assets.
+- Restored project runtime expectation to `spine-3.8`:
+  - `profiles/v2/packages/engine.json`;
+  - `settings/v2/packages/engine.json`;
+  - `scripts/check-preview-freshness.mjs`.
+- Current accepted Nuu path is now: re-export Nuu as a complete Spine `3.8.x` JSON package, preferably from Spine `3.8.99`, producing `Nuu.json`, `Nuu.atlas`, and `Nuu.png`.
+- `scripts/check-layout.mjs` now rejects Nuu `4.2.x` JSON and 4.x `rgba` timelines while the project baseline is 3.8. Until Nuu is re-exported as 3.8 JSON, `check:layout` should fail with a targeted Nuu version message.
+- Boundary unchanged: this is a readonly runtime/export correction only; no economy, SQL, backend API, gacha, bag, EX V1, or hero-growth surface changed.
+
+## 2026-06-07 Hero Card Background Replaces Triangle
+
+- Hero roster cards now use `cardBackgroundAsset` as the center card artwork instead of drawing the triangle relief whenever the field is configured.
+- The artwork is rendered inside the card, above `hero_card_frame.png`'s interior and below border effects, rarity, stars, name, power, level, and the class badge.
+- Artwork size is clamped to the card interior, so the image node cannot exceed the card dimensions.
+- Heroes without a valid `cardBackgroundAsset` still fall back to the old triangle relief.
+- Verification passed: `check:layout`, TypeScript no-emit, `.spine` source scan `0`, and `git diff --check` with only LF/CRLF warnings. Current `check:preview` reports the running Preview still has an old hero-roster chunk; refresh/restart Preview for visual acceptance.
+- Boundary unchanged: Cocos readonly rendering only; no economy, SQL, backend API, gacha, bag, EX V1, hero-growth, ownership, rarity, level, star, or power semantics changed.
+
+## 2026-06-07 Hero Card Background Texture Fallback
+
+- `cardBackgroundAsset` now stores/normalizes a base resources path such as `ui/hero-roster/card_background/StoryCover_Nuu`.
+- Hero roster card art first tries `${assetPath}/spriteFrame`, then falls back to texture-only imports via `Texture2D` and creates a runtime `SpriteFrame`.
+- This fixes images like `StoryCover_Nuu.png`, whose Cocos meta is imported as `texture` without a `spriteFrame` subresource.
+- Verification passed: `check:layout`, TypeScript no-emit, `.spine` source scan `0`, and `git diff --check` with only LF/CRLF warnings.
+- Current `check:preview` still reports stale hero-roster chunk `chunks/16/169f5a75e3947698e88b496965aee7b3c8ca24ab.js`; refresh/restart Cocos Preview before visual acceptance.
+- Boundary unchanged: readonly card presentation only; no SQL, backend API, economy, gacha, bag, EX V1, or hero-growth surface changed.
+
+## 2026-06-07 Hero Card Artwork Lower Placement
+
+- Hero roster `cardBackgroundAsset` artwork uses the current card ratios `width=1`, `height=0.5`, and `y=0.02`.
+- The image remains clamped to the card interior and stays below rarity, stars, name, power, level, class badge, and border effects.
+- Verification passed: `check:layout`, TypeScript no-emit, `.spine` source scan `0`, and `git diff --check` with only LF/CRLF warnings.
+- Boundary unchanged: readonly card composition only; no SQL, backend API, economy, gacha, bag, EX V1, or hero-growth surface changed.
+
+## 2026-06-07 Hero Card Stars Replace Power Line
+
+- Hero roster cards no longer render the per-card combat-power line.
+- The hero name now sits above the star row with tighter spacing: `HERO_ROSTER_CARD_NAME_Y_RATIO = 0.18`, `HERO_ROSTER_CARD_STARS_Y_RATIO = 0.13`.
+- The top HUD/profile power displays are unchanged; this only affects the card body presentation.
+- Verification passed: `check:layout`, TypeScript no-emit, `.spine` source scan `0`, and `git diff --check` with only LF/CRLF warnings.
+- Boundary unchanged: readonly card presentation only; no SQL, backend API, economy, gacha, bag, EX V1, hero-growth, or hero stat semantics changed.
+
+## 2026-06-07 StoryCover Nuu Card Background Sync
+
+- Nuu's hero roster card background fallback path now uses `ui/hero-roster/card_background/StoryCover_Nuu`.
+- `StoryCover_Nuu.png` is present under `assets/resources/ui/hero-roster/card_background/` and imports as `texture`, so the existing Texture2D card-art fallback remains the intended load path.
+- API contract and current Cocos docs now show `UR_EVELYN -> ui/hero-roster/card_background/StoryCover_Nuu`.
+- Newly detected hero `.spine/.spine.meta` sources were moved out of `assets/resources/spine` into `docs/spine-source-archive/hero/source-archived-20260607-storycover-sync/`; the runtime source scan is back to `0`.
+- Local DB readback was not run because `mysql` is not available on the current terminal PATH; user confirmed DB was already updated.
+- Verification passed: `check:layout`, TypeScript no-emit, `.spine` source scan `0`, and `git diff --check` with only LF/CRLF warnings. Current `check:preview` is stale and missing `StoryCover_Nuu`; refresh/restart Preview for visual acceptance.
+- Boundary unchanged: readonly display path sync only; no SQL migration, backend API shape, economy, gacha, bag, EX V1, hero-growth, or hero stat semantics changed.
+
+## 2026-06-07 Restore Nuu Illust Card Background
+
+- Restored Nuu's hero roster card background to `ui/hero-roster/card_background/Nuu_Illust`.
+- Added and locally sourced backend SQL `D:\project\LootChain\sql\32_hero_card_background_restore_nuu_illust.sql`.
+- Local DB readback: `hero_template.id=25 / UR_EVELYN -> ui/hero-roster/card_background/Nuu_Illust`.
+- `assets/resources/spine` `.spine/.spine.meta` scan remains `0`; archived source files were not moved back into runtime resources.
+- Boundary unchanged: readonly display metadata/path rollback only; no backend API shape, economy, gacha, bag, EX V1, hero-growth, or hero stat semantics changed.
+
+## 2026-06-07 Nine Hero Display Asset Batch Sync
+
+- Added and locally sourced backend SQL `D:\project\LootChain\sql\33_hero_display_asset_batch_sync.sql`.
+- `hero_template` display assets are now synced for:
+  - `UR_ARTHAS -> IshmaelA / IshmaelA_Illust`;
+  - `UR_ATLAS -> Lucrecia / Lucrecia_Illust`;
+  - `UR_AURELIA -> Belladonna / Belladonna_Illust`;
+  - `UR_NYX -> Sphinx / Sphinx_Illust`;
+  - `UR_SERAPHINA -> LucienA / LucienA_Illust`;
+  - `SSR_KANE -> Ishmael / Ishmael_center`;
+  - `SSR_LIVIA -> Carmilla / Carmilla_center`;
+  - `SSR_MICHAEL -> HeylelS01 / HeylelS01_Illust`;
+  - `SSR_RON -> Eulenspigel / Eulenspigel_Illust`.
+- Cocos hero detail now loads SkeletonData by `spineUuid` first, then falls back to `spine/hero/{spineAsset}/{spineAsset}`. This keeps folders with both JSON and SKEL from picking the wrong runtime asset.
+- The 9 newly mapped hero detail profiles use `idle` only; Nuu keeps its current `intro -> idle` profile.
+- `LobbyHeroApi` includes readonly fallback display metadata for the same 9 hero codes for old-backend local preview resilience.
+- Verification:
+  - `npm.cmd run check:layout` passed;
+  - Cocos Creator 3.8.8 TypeScript no-emit passed;
+  - `assets/resources/spine` `.spine/.spine.meta` scan returned `0`;
+  - `npm.cmd run check:preview` passed;
+  - local MySQL readback confirmed all 9 rows;
+  - browser Preview CDP screenshots confirmed owned mapped cards/details render, including `SSR_KANE -> Ishmael / idle` and `SSR_LIVIA -> Carmilla / idle`.
+- Runtime note: the currently running 8081 game-server process still omits `cardBackgroundAsset` in live JSON, while current backend source maps it. Restart `lootchain-game` from current source before API-level card-background readback acceptance; Cocos readonly fallback already displays the owned mapped cards.
+- Boundary unchanged: display metadata and readonly Cocos presentation only; no economy, gacha, bag, EX V1, hero-growth, reward/stamina/progress write, or new economy endpoint changed.

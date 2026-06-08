@@ -97,6 +97,9 @@ export interface GachaSceneHost {
   currentLobbyProfile(): PlayerLobbyProfileVO;
 }
 
+const GACHA_SPINE_GROUND_Y_RATIO = -0.55;
+const GACHA_HERO_POOL_SPINE_GROUND_Y_EXTRA_RATIO = -0.075;
+
 /** 抽奖全屏预览页。
  * 当前阶段只做视觉、布局和只读规则入口，不触发真实扣费、发奖、保底或兑换写入。 */
 export class GachaSceneRenderer {
@@ -565,7 +568,7 @@ export class GachaSceneRenderer {
     const centerY = (layout.stageTop + layout.stageBottom) / 2 - 18 * scale;
     const stage = this.host.addChildPlainNode(parent, 'GachaAbyssSpineStage', 0, centerY, stageWidth, stageHeight);
     const graphics = stage.addComponent(Graphics);
-    const spineGroundY = -stageHeight * 0.55;
+    const spineGroundY = this.resolveGachaSpineGroundY(stageHeight, selectedPool);
     graphics.fillColor = rgba(0, 0, 0, 70);
     graphics.ellipse(0, spineGroundY - 22 * scale, stageWidth * 0.34, stageHeight * 0.09);
     graphics.fill();
@@ -605,6 +608,25 @@ export class GachaSceneRenderer {
         }
       });
     });
+  }
+
+  private resolveGachaSpineGroundY(stageHeight: number, selectedPool: GachaPreviewPool): number {
+    const poolOffset = this.isHeroGachaPool(selectedPool) ? GACHA_HERO_POOL_SPINE_GROUND_Y_EXTRA_RATIO : 0;
+    return stageHeight * (GACHA_SPINE_GROUND_Y_RATIO + poolOffset);
+  }
+
+  private isHeroGachaPool(selectedPool: GachaPreviewPool): boolean {
+    const poolCode = (selectedPool.poolCode ?? selectedPool.id ?? '').toUpperCase();
+    const poolType = (selectedPool.poolType ?? '').toUpperCase();
+    const displayType = (selectedPool.displayType ?? '').toUpperCase();
+    if (displayType === 'LIMITED' || poolType === 'LIMITED' || poolCode.includes('LIMITED')) {
+      return false;
+    }
+    return poolCode === 'NORMAL_HERO'
+      || poolCode === 'HERO'
+      || selectedPool.id === 'hero'
+      || poolType === 'HERO'
+      || displayType === 'HERO';
   }
 
   private renderAbyssSpineFallback(parent: Node, width: number, height: number, scale: number): Node {

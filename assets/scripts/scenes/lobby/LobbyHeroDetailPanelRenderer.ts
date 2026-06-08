@@ -14,7 +14,6 @@ import {
   Sprite,
   UITransform,
   Vec3,
-  tween,
 } from 'cc';
 import type { LobbyHeroItemVO } from '../../types/LobbyHeroTypes';
 import { safeText } from '../UiTextFormatter';
@@ -23,6 +22,8 @@ import { clamp, rgba, type UiLayout } from './LobbyHudTypes';
 
 export const LOBBY_HERO_DETAIL_BACKDROP_ASSET = 'ui/hero-detail/hero_detail_backdrop/spriteFrame';
 export const LOBBY_HERO_DETAIL_PROTAGONIST_ASSET = 'ui/hero-detail/hero_detail_protagonist/spriteFrame';
+
+const HERO_DETAIL_SPINE_RUNTIME_RETRY_DELAYS_MS = [180, 420, 900];
 
 interface HeroDetailAttribute {
   label: string;
@@ -34,6 +35,52 @@ interface HeroDetailSkill {
   tag: string;
   description: string;
 }
+
+type HeroSpineEnumMap = { [key: string]: number | string };
+
+type HeroSpineRuntimeData = {
+  width?: number;
+  height?: number;
+  skins?: Array<{ name?: string } | null>;
+  animations?: Array<{ name?: string } | null>;
+};
+
+interface HeroSpineDisplayProfile {
+  /** Some combat intro animations begin with partial FX/hair meshes; detail view should show the complete hero silhouette first. */
+  preferIdleFirst?: boolean;
+  loopAnimation?: string;
+  loopFallbackHints?: string[];
+  skipIntro?: boolean;
+  introAnimation?: string;
+  introFallbackHints?: string[];
+  maxScale?: number;
+  xRatio?: number;
+  yRatio?: number;
+}
+
+const HERO_DETAIL_IDLE_ONLY_PROFILE: HeroSpineDisplayProfile = {
+  preferIdleFirst: true,
+  loopAnimation: 'idle',
+};
+
+const HERO_DETAIL_SPINE_DISPLAY_PROFILES: Record<string, HeroSpineDisplayProfile> = {
+  Belladonna: HERO_DETAIL_IDLE_ONLY_PROFILE,
+  Carmilla: HERO_DETAIL_IDLE_ONLY_PROFILE,
+  Eulenspigel: HERO_DETAIL_IDLE_ONLY_PROFILE,
+  HeylelS01: HERO_DETAIL_IDLE_ONLY_PROFILE,
+  Ishmael: HERO_DETAIL_IDLE_ONLY_PROFILE,
+  IshmaelA: HERO_DETAIL_IDLE_ONLY_PROFILE,
+  LucienA: HERO_DETAIL_IDLE_ONLY_PROFILE,
+  Lucrecia: HERO_DETAIL_IDLE_ONLY_PROFILE,
+  Nuu: {
+    loopAnimation: 'idle',
+    introAnimation: 'intro',
+    maxScale: 0.52,
+    xRatio: -0.035,
+    yRatio: 0.012,
+  },
+  Sphinx: HERO_DETAIL_IDLE_ONLY_PROFILE,
+};
 
 export interface LobbyHeroDetailPanelHost {
   node: Node;
@@ -65,6 +112,7 @@ export class LobbyHeroDetailPanelRenderer {
   private readonly heroSpineAudioClips = new Map<string, AudioClip>();
   private readonly heroSpineAudioLoadCallbacks = new Map<string, Array<(clip: AudioClip | null) => void>>();
   private readonly missingHeroSpineAudioLogs = new Set<string>();
+  private lastHeroSpineFailureReason = '资源解析失败';
 
   constructor(private readonly host: LobbyHeroDetailPanelHost) {}
 
@@ -197,24 +245,119 @@ export class LobbyHeroDetailPanelRenderer {
       return;
     }
     const spineUuid = this.resolveHeroSpineUuid(hero);
-    console.info(`[HeroDetail] hero spine load start: hero=${safeText(hero.heroCode)}, resource=${resourcePath}, uuid=${safeText(spineUuid || '<empty>')}`);
+    console.warn(`[HeroDetail] hero spine load start: hero=${safeText(hero.heroCode)}, resource=${resourcePath}, uuid=${safeText(spineUuid || '<empty>')}`);
+    this.lastHeroSpineFailureReason = '资源解析失败';
     const spineNode = this.host.addChildPlainNode(parent, 'LobbyHeroDetailSpineNode', 0, this.resolveHeroDetailGroundY(height), width, height);
     const skeleton = spineNode.addComponent(sp.Skeleton);
     const audioSource = spineNode.addComponent(AudioSource);
     skeleton.premultipliedAlpha = false;
     skeleton.timeScale = 0.86;
-    this.loadHeroSpineData(resourcePath, spineUuid, (data) => {
+
+    const showFailureHint = (): void => {
+      spineNode.destroy();
+      if (fallbackPortrait.isValid) {
+        this.renderHeroSpineFailureHint(parent, resourcePath, width, height, scale, this.lastHeroSpineFailureReason || '资源加载失败');
+      }
+    };
+
+    const applyLoadedData = (data: sp.SkeletonData | null, onFailed: () => void): void => {
       if (!parent.isValid || !spineNode.isValid) {
         return;
       }
-      if (!data || !this.applyHeroSpineData(skeleton, data, hero, width, height, scale, resourcePath, audioSource)) {
-        spineNode.destroy();
+      if (data) {
+        this.applyHeroSpineDataWithRetry(skeleton, data, hero, width, height, scale, resourcePath, audioSource, (applied) => {
+          if (!parent.isValid || !spineNode.isValid) {
+            return;
+          }
+          if (applied) {
+            if (fallbackPortrait.isValid) {
+              fallbackPortrait.destroy();
+            }
+            return;
+          }
+          onFailed();
+        });
         return;
       }
-      if (fallbackPortrait.isValid) {
-        fallbackPortrait.destroy();
+      onFailed();
+    };
+
+    const loadResourcePathFallback = (): void => {
+      this.loadHeroSpineData(resourcePath, (data) => {
+        applyLoadedData(data, showFailureHint);
+      });
+    };
+
+    if (spineUuid) {
+      this.loadHeroSpineUuidData(spineUuid, (uuidData) => {
+        applyLoadedData(uuidData, () => {
+          if (!parent.isValid || !spineNode.isValid) {
+            return;
+          }
+          console.warn(`[HeroDetail] hero spine uuid failed, fallback resource path: uuid=${spineUuid}, resource=${resourcePath}`);
+          loadResourcePathFallback();
+        });
+      });
+      return;
+    }
+    loadResourcePathFallback();
+  }
+
+  private retryHeroSpineUuidData(
+    parent: Node,
+    spineNode: Node,
+    skeleton: sp.Skeleton,
+    fallbackPortrait: Node,
+    hero: LobbyHeroItemVO,
+    width: number,
+    height: number,
+    scale: number,
+    resourcePath: string,
+    uuid: string,
+    audioSource: AudioSource,
+  ): void {
+    console.warn(`[HeroDetail] hero spine resource data failed to apply, retry uuid: ${uuid}, resource=${resourcePath}`);
+    this.loadHeroSpineUuidData(uuid, (uuidData) => {
+      if (!parent.isValid || !spineNode.isValid) {
+        return;
       }
+      if (!uuidData) {
+        spineNode.destroy();
+        if (fallbackPortrait.isValid) {
+          this.renderHeroSpineFailureHint(parent, resourcePath, width, height, scale, this.lastHeroSpineFailureReason);
+        }
+        return;
+      }
+      this.applyHeroSpineDataWithRetry(skeleton, uuidData, hero, width, height, scale, resourcePath, audioSource, (applied) => {
+        if (!parent.isValid || !spineNode.isValid) {
+          return;
+        }
+        if (!applied) {
+          spineNode.destroy();
+          if (fallbackPortrait.isValid) {
+            this.renderHeroSpineFailureHint(parent, resourcePath, width, height, scale, this.lastHeroSpineFailureReason);
+          }
+          return;
+        }
+        if (fallbackPortrait.isValid) {
+          fallbackPortrait.destroy();
+        }
+      });
     });
+  }
+
+  private renderHeroSpineFailureHint(parent: Node, resourcePath: string, width: number, height: number, scale: number, reason = '资源解析失败'): void {
+    const hint = this.host.addChildLabel(
+      parent,
+      'LobbyHeroDetailSpineFailureHint',
+      `Spine ${reason}：${resourcePath}`,
+      0,
+      -height / 2 + 164 * scale,
+      13 * scale,
+      rgba(231, 174, 104),
+      new Size(width * 0.82, 28 * scale),
+    );
+    hint.overflow = Label.Overflow.SHRINK;
   }
 
   private resolveHeroSpineResource(hero: LobbyHeroItemVO): string | null {
@@ -230,8 +373,8 @@ export class LobbyHeroDetailPanelRenderer {
     return /^[0-9a-fA-F-]{36}$/.test(uuid) ? uuid : null;
   }
 
-  private loadHeroSpineData(path: string, uuid: string | null, onLoaded: (data: sp.SkeletonData | null) => void): void {
-    const cacheKey = uuid || path;
+  private loadHeroSpineData(path: string, onLoaded: (data: sp.SkeletonData | null) => void): void {
+    const cacheKey = path;
     const cached = this.heroSpineData.get(cacheKey);
     if (cached) {
       onLoaded(cached);
@@ -251,28 +394,96 @@ export class LobbyHeroDetailPanelRenderer {
       }
       callbacks.forEach((callback) => callback(data));
     };
-    const loadByPath = (): void => {
-      resources.load(path, sp.SkeletonData, (error: Error | null, data: sp.SkeletonData | null) => {
-        if (error || !data) {
-          console.warn(`[HeroDetail] hero spine load failed: ${path}`, error);
-          finish(null);
-          return;
-        }
-        finish(data);
-      });
-    };
-    if (uuid) {
-      assetManager.loadAny({ uuid }, (error: Error | null, asset: unknown) => {
-        if (!error && asset) {
-          finish(asset as sp.SkeletonData);
-          return;
-        }
-        console.warn(`[HeroDetail] hero spine uuid load failed, fallback to resource path: ${uuid}`, error);
-        loadByPath();
-      });
+    resources.load(path, sp.SkeletonData, (error: Error | null, data: sp.SkeletonData | null) => {
+      if (error || !this.isHeroSpineDataAsset(data)) {
+        console.warn(`[HeroDetail] hero spine resource path load failed or returned non-SkeletonData: ${path}`, error);
+        finish(null);
+        return;
+      }
+      finish(data);
+    });
+  }
+
+  private loadHeroSpineUuidData(uuid: string, onLoaded: (data: sp.SkeletonData | null) => void): void {
+    const cacheKey = `uuid:${uuid}`;
+    const cached = this.heroSpineData.get(cacheKey);
+    if (cached) {
+      onLoaded(cached);
       return;
     }
-    loadByPath();
+    const pending = this.heroSpineLoadCallbacks.get(cacheKey);
+    if (pending) {
+      pending.push(onLoaded);
+      return;
+    }
+    this.heroSpineLoadCallbacks.set(cacheKey, [onLoaded]);
+    const finish = (data: sp.SkeletonData | null): void => {
+      const callbacks = this.heroSpineLoadCallbacks.get(cacheKey) ?? [];
+      this.heroSpineLoadCallbacks['delete'](cacheKey);
+      if (data) {
+        this.heroSpineData.set(cacheKey, data);
+      }
+      callbacks.forEach((callback) => callback(data));
+    };
+    assetManager.loadAny({ uuid, type: sp.SkeletonData }, (error: Error | null, asset: unknown) => {
+      if (!error && this.isHeroSpineDataAsset(asset)) {
+        finish(asset);
+        return;
+      }
+      console.warn(`[HeroDetail] hero spine uuid load failed or returned non-SkeletonData: ${uuid}`, error);
+      finish(null);
+    });
+  }
+
+  private isHeroSpineDataAsset(asset: unknown): asset is sp.SkeletonData {
+    return asset instanceof sp.SkeletonData || (typeof asset === 'object' && asset !== null && typeof (asset as sp.SkeletonData).getRuntimeData === 'function');
+  }
+
+  private resolveHeroSpinePremultipliedAlpha(data: sp.SkeletonData): boolean {
+    const atlasText = safeText((data as unknown as { _atlasText?: string })._atlasText || '');
+    return /(?:^|\n)\s*pma\s*:\s*true/i.test(atlasText);
+  }
+
+  private resolveHeroSpineVersion(data: sp.SkeletonData): string {
+    return safeText((data as unknown as { _skeletonJson?: { skeleton?: { spine?: string } } })._skeletonJson?.skeleton?.spine || '');
+  }
+
+  private isSupportedHeroSpineVersion(version: string): boolean {
+    return version.startsWith('3.8.') || version.startsWith('4.2.');
+  }
+
+  private applyHeroSpineDataWithRetry(
+    skeleton: sp.Skeleton,
+    data: sp.SkeletonData,
+    hero: LobbyHeroItemVO,
+    width: number,
+    height: number,
+    scale: number,
+    resourcePath: string,
+    audioSource: AudioSource,
+    onDone: (applied: boolean) => void,
+    attempt = 0,
+  ): void {
+    if (!skeleton.node.isValid) {
+      return;
+    }
+    if (this.applyHeroSpineData(skeleton, data, hero, width, height, scale, resourcePath, audioSource)) {
+      onDone(true);
+      return;
+    }
+    const retryDelay = HERO_DETAIL_SPINE_RUNTIME_RETRY_DELAYS_MS[attempt];
+    if (retryDelay !== undefined && this.isRetryableHeroSpineFailure(this.lastHeroSpineFailureReason)) {
+      console.warn(`[HeroDetail] hero spine runtime retry ${attempt + 1}/${HERO_DETAIL_SPINE_RUNTIME_RETRY_DELAYS_MS.length}: ${resourcePath}, reason=${this.lastHeroSpineFailureReason}`);
+      setTimeout(() => {
+        this.applyHeroSpineDataWithRetry(skeleton, data, hero, width, height, scale, resourcePath, audioSource, onDone, attempt + 1);
+      }, retryDelay);
+      return;
+    }
+    onDone(false);
+  }
+
+  private isRetryableHeroSpineFailure(reason: string): boolean {
+    return reason.includes('运行时解析失败') || reason.includes('资源应用异常');
   }
 
   private applyHeroSpineData(
@@ -286,98 +497,206 @@ export class LobbyHeroDetailPanelRenderer {
     audioSource: AudioSource,
   ): boolean {
     try {
-      skeleton.skeletonData = data;
-      const runtimeData = data.getRuntimeData(true);
+      const spineVersion = this.resolveHeroSpineVersion(data);
+      if (spineVersion && !this.isSupportedHeroSpineVersion(spineVersion)) {
+        this.lastHeroSpineFailureReason = `Spine ${spineVersion} 不兼容，请导出 4.2.x 或 3.8.x`;
+        console.warn(`[HeroDetail] hero spine unsupported version: ${resourcePath}, version=${spineVersion}`);
+        return false;
+      }
+      const runtimeData = data.getRuntimeData(true) as HeroSpineRuntimeData | null;
       if (!runtimeData) {
+        const textureCount = data.textures?.length ?? 0;
+        const textureNames = (data.textureNames ?? []).join('|') || '<empty>';
+        this.lastHeroSpineFailureReason = `运行时解析失败${spineVersion ? `，Spine ${spineVersion}` : ''}，textures=${textureCount}，atlas=${textureNames}`;
         console.warn(`[HeroDetail] hero spine runtime data missing: ${resourcePath}`);
         return false;
       }
-      const skinName = this.resolveHeroSpineSkinName(data);
-      if (skinName) {
+      this.patchHeroSpineRuntimeEnums(data, runtimeData);
+      skeleton.premultipliedAlpha = this.resolveHeroSpinePremultipliedAlpha(data);
+      skeleton.skeletonData = data;
+      const skinName = this.resolveHeroSpineSkinName(data, runtimeData);
+      if (skinName && skinName !== 'default') {
         skeleton.setSkin(skinName);
         skeleton.setSlotsToSetupPose();
       }
       this.bindHeroSpineAudioEvents(skeleton, audioSource, resourcePath);
-      const animationNames = this.resolveHeroSpineAnimationNames(data);
-      const animationName = animationNames.primary;
-      const spineScale = this.resolveHeroSpineScale(runtimeData.width, runtimeData.height, width, height, scale);
+      const displayProfile = this.resolveHeroSpineDisplayProfile(hero);
+      const animationNames = this.resolveHeroSpineAnimationNames(data, runtimeData, displayProfile);
+      const spineScale = this.resolveHeroSpineScale(runtimeData.width, runtimeData.height, width, height, scale, displayProfile);
       skeleton.node.setScale(new Vec3(spineScale, spineScale, 1));
-      skeleton.node.setPosition(new Vec3(0, this.resolveHeroDetailGroundY(height), 0));
-      if (!animationName) {
+      skeleton.node.setPosition(new Vec3(width * (displayProfile.xRatio ?? 0), this.resolveHeroDetailGroundY(height) + height * (displayProfile.yRatio ?? 0), 0));
+      const idleAnimation = animationNames.idle;
+      const introAnimation = animationNames.intro;
+      if (!idleAnimation && !introAnimation) {
         skeleton.setToSetupPose();
         this.logHeroSpineResolved(data, skinName, '<setup-pose>', hero, resourcePath);
         return true;
       }
-      const secondaryAnimation = animationNames.secondary;
-      if (secondaryAnimation) {
-        const initialSecondaryTrack = skeleton.setAnimation(0, secondaryAnimation, false);
-        if (initialSecondaryTrack) {
-          skeleton.addAnimation(0, animationName, true, 0);
-          this.startHeroSpineSecondaryCycle(skeleton, animationName, secondaryAnimation, resourcePath);
-          this.logHeroSpineResolved(data, skinName, `${secondaryAnimation} -> ${animationName}`, hero, resourcePath);
+      if (introAnimation && idleAnimation) {
+        const introTrack = skeleton.setAnimation(0, introAnimation, false);
+        if (introTrack) {
+          skeleton.addAnimation(0, idleAnimation, true, 0);
+          this.logHeroSpineResolved(data, skinName, `${introAnimation} -> ${idleAnimation}`, hero, resourcePath);
           return true;
         }
-        console.warn(`[HeroDetail] hero spine initial secondary animation failed: ${resourcePath}/${secondaryAnimation}`);
+        console.warn(`[HeroDetail] hero spine intro animation failed, fallback to idle: ${resourcePath}/${introAnimation}`);
       }
-      const track = skeleton.setAnimation(0, animationName, true);
+      const loopAnimation = idleAnimation || introAnimation;
+      if (!loopAnimation) {
+        skeleton.setToSetupPose();
+        this.logHeroSpineResolved(data, skinName, '<setup-pose>', hero, resourcePath);
+        return true;
+      }
+      const track = skeleton.setAnimation(0, loopAnimation, true);
       if (!track) {
-        console.warn(`[HeroDetail] hero spine animation play failed: ${resourcePath}/${animationName}`);
+        this.lastHeroSpineFailureReason = `动画播放失败：${loopAnimation}`;
+        console.warn(`[HeroDetail] hero spine animation play failed: ${resourcePath}/${loopAnimation}`);
         return false;
       }
-      this.logHeroSpineResolved(data, skinName, animationName, hero, resourcePath);
+      this.logHeroSpineResolved(data, skinName, loopAnimation, hero, resourcePath);
       return true;
     } catch (error) {
+      this.lastHeroSpineFailureReason = `资源应用异常：${this.formatHeroSpineError(error)}`;
       console.warn(`[HeroDetail] hero spine apply failed: ${resourcePath}`, error);
       return false;
     }
   }
 
-  private resolveHeroSpineScale(rawWidth: number, rawHeight: number, stageWidth: number, stageHeight: number, scale: number): number {
+  private formatHeroSpineError(error: unknown): string {
+    if (error instanceof Error) {
+      const message = safeText(error.message || error.name || 'unknown');
+      const stackLine = safeText(error.stack || '')
+        .split('\n')
+        .map((line) => line.trim())
+        .find((line) => line.includes('cocos/spine') || line.includes('LobbyHeroDetailPanelRenderer'));
+      return safeText(stackLine ? `${message} @ ${stackLine}` : message).slice(0, 140);
+    }
+    return safeText(String(error || 'unknown')).slice(0, 96);
+  }
+
+  private resolveHeroSpineScale(rawWidth: number | undefined, rawHeight: number | undefined, stageWidth: number, stageHeight: number, scale: number, displayProfile: HeroSpineDisplayProfile): number {
     const safeWidth = Math.max(1, rawWidth || 1);
     const safeHeight = Math.max(1, rawHeight || 1);
     const targetWidth = stageWidth * 0.76;
     const targetHeight = stageHeight * 0.86;
     const fit = Math.min(targetWidth / safeWidth, targetHeight / safeHeight);
-    return clamp(fit, 0.18 * scale, 1.45 * scale);
+    return clamp(fit, 0.18 * scale, (displayProfile.maxScale ?? 1.45) * scale);
   }
 
-  private resolveHeroSpineSkinName(data: sp.SkeletonData): string | null {
-    return this.resolveSpineEnumName(data.getSkinsEnum(), 'default', []);
+  private resolveHeroSpineSkinName(data: sp.SkeletonData, runtimeData: HeroSpineRuntimeData): string | null {
+    const names = this.resolveHeroSpineSkinNames(data, runtimeData);
+    return this.resolvePreferredSpineName(names, 'default', []) ?? names[0] ?? null;
   }
 
-  private resolveHeroSpineAnimationNames(data: sp.SkeletonData): { primary: string | null; secondary: string | null } {
-    const enumMap = data.getAnimsEnum();
-    const names = enumMap ? Object.keys(enumMap).filter((name) => name !== '<None>' && typeof enumMap[name] === 'number') : [];
-    const primary = this.resolveSpineEnumName(enumMap, 'idle', ['stand', 'loop', 'animation', 'daiji', 'wait', 'run']);
-    const secondaryEnum = names
-      .filter((name) => name !== primary)
-      .reduce<{ [key: string]: number }>((result, name, index) => {
-        result[name] = index;
-        return result;
-      }, {});
-    const secondary = this.resolveSpineEnumName(secondaryEnum, 'skill2', ['skill4', 'skill', 'attack', 'gongji', 'cast']);
-    return { primary, secondary };
+  private resolveHeroSpineAnimationNames(data: sp.SkeletonData, runtimeData: HeroSpineRuntimeData, displayProfile: HeroSpineDisplayProfile): { idle: string | null; intro: string | null } {
+    const names = this.resolveHeroSpineAnimationNameList(data, runtimeData);
+    const idle = this.resolvePreferredSpineName(
+      names,
+      displayProfile.loopAnimation ?? 'idle',
+      displayProfile.loopFallbackHints ?? ['stand', 'loop', 'animation', 'daiji', 'wait', 'run', '待机'],
+    );
+    if (displayProfile.preferIdleFirst || displayProfile.skipIntro) {
+      return { idle, intro: null };
+    }
+    const intro = this.resolvePreferredSpineName(
+      names.filter((name) => name !== idle),
+      displayProfile.introAnimation ?? 'intro',
+      displayProfile.introFallbackHints ?? ['idle_intro', 'appear', 'enter', 'show', 'born', '入场'],
+    );
+    return { idle, intro };
   }
 
-  private startHeroSpineSecondaryCycle(skeleton: sp.Skeleton, primaryAnimation: string, secondaryAnimation: string, resourcePath: string): void {
-    tween(skeleton.node)
-      .repeatForever(
-        tween()
-          .delay(15)
-          .call(() => {
-            if (!skeleton.node.isValid) {
-              return;
-            }
-            const secondaryTrack = skeleton.setAnimation(0, secondaryAnimation, false);
-            if (!secondaryTrack) {
-              console.warn(`[HeroDetail] hero spine secondary animation failed: ${resourcePath}/${secondaryAnimation}`);
-              skeleton.setAnimation(0, primaryAnimation, true);
-              return;
-            }
-            skeleton.addAnimation(0, primaryAnimation, true, 0);
-          }),
-      )
-      .start();
+  private resolveHeroSpineDisplayProfile(hero: LobbyHeroItemVO): HeroSpineDisplayProfile {
+    const asset = safeText(hero.spineAsset || hero.portraitAsset || '').trim();
+    return HERO_DETAIL_SPINE_DISPLAY_PROFILES[asset] ?? {};
+  }
+
+  private patchHeroSpineRuntimeEnums(data: sp.SkeletonData, runtimeData: HeroSpineRuntimeData): void {
+    const skinNames = this.resolveHeroSpineSkinNames(data, runtimeData);
+    const animationNames = this.resolveHeroSpineAnimationNameList(data, runtimeData);
+    const mutableData = data as unknown as {
+      getSkinsEnum?: () => { [key: string]: number } | null;
+      getAnimsEnum?: () => { [key: string]: number } | null;
+    };
+    mutableData.getSkinsEnum = () => this.createHeroSpineEnumMap(skinNames.length > 0 ? skinNames : ['default'], 0) as { [key: string]: number };
+    mutableData.getAnimsEnum = () => {
+      const enumMap = this.createHeroSpineEnumMap(animationNames, 1);
+      enumMap['<None>'] = 0;
+      enumMap[0] = '<None>';
+      return enumMap as { [key: string]: number };
+    };
+  }
+
+  private createHeroSpineEnumMap(names: string[], startIndex: number): HeroSpineEnumMap {
+    const enumMap: HeroSpineEnumMap = {};
+    names.filter(Boolean).forEach((name, index) => {
+      const value = startIndex + index;
+      enumMap[name] = value;
+      enumMap[value] = name;
+    });
+    return enumMap;
+  }
+
+  private resolveHeroSpineSkinNames(data: sp.SkeletonData, runtimeData: HeroSpineRuntimeData): string[] {
+    const jsonNames = this.resolveHeroSpineJsonSkinNames(data);
+    const runtimeNames = this.resolveHeroSpineRuntimeSkinNames(runtimeData);
+    return Array.from(new Set([...jsonNames, ...runtimeNames].filter(Boolean)));
+  }
+
+  private resolveHeroSpineAnimationNameList(data: sp.SkeletonData, runtimeData: HeroSpineRuntimeData): string[] {
+    const jsonNames = this.resolveHeroSpineJsonAnimationNames(data);
+    const runtimeNames = this.resolveHeroSpineRuntimeAnimationNames(runtimeData);
+    return Array.from(new Set([...jsonNames, ...runtimeNames].filter(Boolean)));
+  }
+
+  private resolveHeroSpineJsonSkinNames(data: sp.SkeletonData): string[] {
+    const skins = (data as unknown as { _skeletonJson?: { skins?: unknown } })._skeletonJson?.skins;
+    if (Array.isArray(skins)) {
+      return skins.map((skin) => safeText((skin as { name?: string } | null)?.name || '')).filter(Boolean);
+    }
+    if (skins && typeof skins === 'object') {
+      return Object.keys(skins);
+    }
+    return [];
+  }
+
+  private resolveHeroSpineJsonAnimationNames(data: sp.SkeletonData): string[] {
+    const animations = (data as unknown as { _skeletonJson?: { animations?: unknown } })._skeletonJson?.animations;
+    if (animations && typeof animations === 'object' && !Array.isArray(animations)) {
+      return Object.keys(animations);
+    }
+    if (Array.isArray(animations)) {
+      return animations.map((animation) => safeText((animation as { name?: string } | null)?.name || '')).filter(Boolean);
+    }
+    return [];
+  }
+
+  private resolveHeroSpineRuntimeSkinNames(runtimeData: HeroSpineRuntimeData): string[] {
+    return (runtimeData.skins ?? []).map((skin) => safeText(skin?.name || '')).filter(Boolean);
+  }
+
+  private resolveHeroSpineRuntimeAnimationNames(runtimeData: HeroSpineRuntimeData): string[] {
+    return (runtimeData.animations ?? []).map((animation) => safeText(animation?.name || '')).filter(Boolean);
+  }
+
+  private resolvePreferredSpineName(names: string[], preferred: string, fallbackHints: string[]): string | null {
+    if (preferred && names.includes(preferred)) {
+      return preferred;
+    }
+    const preferredLower = preferred.toLowerCase();
+    if (preferredLower) {
+      const loosePreferred = names.find((name) => name.toLowerCase().includes(preferredLower));
+      if (loosePreferred) {
+        return loosePreferred;
+      }
+    }
+    for (const hint of fallbackHints) {
+      const resolved = names.find((name) => name.toLowerCase().includes(hint.toLowerCase()));
+      if (resolved) {
+        return resolved;
+      }
+    }
+    return names[0] ?? null;
   }
 
   private bindHeroSpineAudioEvents(skeleton: sp.Skeleton, audioSource: AudioSource, resourcePath: string): void {
@@ -468,10 +787,6 @@ export class LobbyHeroDetailPanelRenderer {
       this.heroSpineAudioClips.set(path, clip);
       callbacks.forEach((callback) => callback(clip));
     });
-  }
-
-  private resolveHeroSpineAnimationName(data: sp.SkeletonData): string | null {
-    return this.resolveSpineEnumName(data.getAnimsEnum(), 'idle', ['stand', 'loop', 'animation', 'daiji', 'wait', 'run', '待机']);
   }
 
   private resolveSpineEnumName(enumMap: { [key: string]: number } | null, preferred: string, fallbackHints: string[]): string | null {

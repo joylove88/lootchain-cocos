@@ -2,6 +2,7 @@ import http from 'node:http';
 
 const PREVIEW_ORIGIN = process.env.COCOS_PREVIEW_ORIGIN || 'http://localhost:7456';
 const IMPORT_MAP_URL = `${PREVIEW_ORIGIN}/scripting/x/import-map.json`;
+const ENGINE_IMPORT_MAP_URL = `${PREVIEW_ORIGIN}/scripting/engine/bin/.cache/dev/preview/import-map.json`;
 
 const REQUIRED_CHUNKS = [
   {
@@ -89,11 +90,15 @@ const REQUIRED_CHUNKS = [
   },
   {
     source: 'assets/scripts/scenes/lobby/LobbyHeroRosterPanelRenderer.ts',
-    tokens: ['LobbyHeroRosterSceneContent', 'LobbyHeroRosterSceneFrame', 'layout.stageWidth', 'dim.addComponent(BlockInputEvents)', 'panelGroup.addComponent(BlockInputEvents)', 'openLobbyHeroDetail(hero.id)', 'LobbyHeroRosterBackButton', 'renderSceneBackButton(this.host, panelGroup, layout', 'LOBBY_HERO_ROSTER_CARD_FRAME_ASSET', 'ui/hero-roster/hero_card_frame/spriteFrame', 'LOBBY_HERO_ROSTER_CARD_ASSETS', 'LobbyHeroRosterFilterRail', 'HERO_FILTER_ALL', 'HERO_CLASS_FILTER_ORDER', 'HERO_CLASS_KEY_ALIASES', 'selectHeroClassFilter', 'resolveHeroFilterTabs', 'state.heroClassOptions', 'new Map<string, string>()', 'heroClassOptions.forEach', 'filterHeroesBySelectedClass', 'resolveHeroClass', 'addHeroClassTab', 'isHeroClassTabActive', 'normalizeHeroClassKey', 'const selectedKey = this.normalizeHeroClassKey(this.selectedHeroClass);', 'return heroes.filter((hero) => this.normalizeHeroClassKey(this.resolveHeroClass(hero)) === selectedKey);', 'LobbyHeroRosterScrollView', 'LobbyHeroRosterScrollContent', 'scrollView.content = content;', 'const scrollEffectTopPadding = HERO_ROSTER_CARD_EFFECT_TOP_MASK_PADDING * scale;', 'const viewportHeight = bodyHeight + scrollEffectTopPadding;', 'const viewportCenterY = bodyCenterY + scrollEffectTopPadding / 2;', 'const contentHeight = Math.max(viewportHeight', 'const startX = -bodyWidth / 2 + cardInsetX + cardWidth / 2', 'const startY = contentHeight / 2 - scrollEffectTopPadding - cardInsetY - cardHeight / 2', 'HERO_ROSTER_CARD_ASPECT_WIDTH = 937', 'HERO_ROSTER_CARD_ASPECT_HEIGHT = 1676', 'HERO_ROSTER_CARD_DISPLAY_WIDTH_SCALE = 1.2', 'HERO_ROSTER_CARD_MAX_COLUMNS = 5', 'const HERO_ROSTER_CARD_DESKTOP_TARGET_HEIGHT = 468;', 'const HERO_ROSTER_CARD_DESKTOP_MAX_HEIGHT = 492;', 'const HERO_ROSTER_CARD_COMPACT_TARGET_HEIGHT = 310;', 'const HERO_ROSTER_CARD_COMPACT_MAX_HEIGHT = 340;', 'HERO_ROSTER_RARITY_DISPLAY_ORDER', 'UR: 0', 'SSR: 1', 'SR: 2', 'R: 3', 'sortHeroesForRosterDisplay', 'resolveRarityDisplayRank', 'const displayHeroes = this.filterHeroesBySelectedClass(this.sortHeroesForRosterDisplay(state.heroes));', 'const maxCardsInRow = Math.max(1, Math.min(displayHeroes.length, HERO_ROSTER_CARD_MAX_COLUMNS))', 'const maxCardWidthForRow = Math.max(96 * scale', '* HERO_ROSTER_CARD_DISPLAY_WIDTH_SCALE', 'HERO_ROSTER_CARD_LEVEL_X_RATIO = -0.38', 'HERO_ROSTER_CARD_LEVEL_Y_RATIO = 0.38', 'HERO_ROSTER_CARD_LEVEL_TEXT_WIDTH_RATIO = 0.29', 'HERO_ROSTER_CARD_EFFECT_TOP_MASK_PADDING = 62', 'HERO_ROSTER_CARD_BADGE_X_RATIO = 0.37', 'HERO_ROSTER_CARD_BADGE_Y_RATIO = 0.38', 'HERO_ROSTER_CARD_BADGE_SIZE_RATIO = 0.17', 'HERO_ROSTER_CARD_RARITY_Y_RATIO = 0.324', 'HERO_ROSTER_CARD_NAME_Y_RATIO = 0.132', 'HERO_ROSTER_CARD_POWER_Y_RATIO = 0.205', 'HERO_ROSTER_CARD_STARS_Y_RATIO = 0.815', 'Math.min(16 * scale, height * 0.048)', 'new Size(width - 54 * scale, height * 0.06)', 'LobbyHeroRosterHeroName', 'LobbyHeroRosterHeroPower', 'Math.min(15 * scale, height * 0.044)', 'new Size(width - 64 * scale, height * 0.058)', '战力 ${formatCompactInteger(hero.power)}', 'resolveHeroClassBadgeText', 'safeText(hero.heroName)', 'formatHeroCardLevel(hero.level)', 'safeLevel >= 100 ? `Lv${safeLevel}` : `Lv.${safeLevel}`', 'topBarLeftReserve', 'LobbyHeroRosterLevelText', 'width * HERO_ROSTER_CARD_LEVEL_X_RATIO', 'height * HERO_ROSTER_CARD_LEVEL_Y_RATIO', 'drawCircleBadge', 'const badgeSize = clamp(width * HERO_ROSTER_CARD_BADGE_SIZE_RATIO', 'const badgeX = width * HERO_ROSTER_CARD_BADGE_X_RATIO', 'const badgeY = height * HERO_ROSTER_CARD_BADGE_Y_RATIO', 'USE_HERO_ROSTER_EXTERNAL_PORTRAITS = false', 'LobbyHeroRosterHeroRelief', 'graphics.lineTo(width * 0.18, -height * 0.26)', 'HERO_ROSTER_BORDER_EFFECT_RESOURCE', 'HERO_ROSTER_BORDER_ANIMATION_BY_RARITY', "R: 'K3'", "SR: 'K4'", "SSR: 'K5'", "UR: 'K7'", 'HERO_ROSTER_UR_SEQUENCE_BORDER_PATH_PREFIX', 'HERO_ROSTER_UR_SEQUENCE_BORDER_FRAME_COUNT = 12', 'HERO_ROSTER_UR_SEQUENCE_BORDER_ALPHA = 255', 'HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_WIDTH_RATIO = 1.25', 'HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_HEIGHT_RATIO = 1.25', 'HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_Y_RATIO = -0.01', 'HERO_ROSTER_UR_SEQUENCE_BORDER_FRAME_PATHS', 'HERO_ROSTER_GOODS_BORDER_WIDTH_PADDING = 33', 'HERO_ROSTER_GOODS_BORDER_HEIGHT_PADDING = 61', 'HERO_ROSTER_GOODS_BORDER_Y_RATIO = -0.03', 'HERO_ROSTER_GOODS_BORDER_WIDTH_SCALE_MAX = 2.8', 'ui/hero-roster/UR-card-border', 'renderUrCardSequenceBorder', "this.renderRarityGoodsBorderSpine(card, 'UR', width, height);", 'LobbyHeroRosterUrSequenceBorderSprite', 'loadUrSequenceBorderFrames', 'startSequenceBorderAnimation', 'resources.load(path, SpriteFrame', 'spine/ui/hero-roster/goods_1_border/goods_1', 'renderHeroCardBorderEffect', 'renderRarityGoodsBorderSpine', 'LobbyHeroRosterRarityGoodsBorderSpine_${rarity}', 'loadBorderEffectData', 'resolveRarityBorderAnimationName', 'name.toLowerCase() === targetLower', 'clamp((width + HERO_ROSTER_GOODS_BORDER_WIDTH_PADDING) / 120, 1.12, HERO_ROSTER_GOODS_BORDER_WIDTH_SCALE_MAX)', 'clamp((height + HERO_ROSTER_GOODS_BORDER_HEIGHT_PADDING) / 120', 'LobbyHeroRosterAbyssDust', 'LobbyHeroRosterUpgradeButtonDisabled', 'resolveHeroRosterPortraitAsset'],
+    tokens: ['LobbyHeroRosterSceneContent', 'LobbyHeroRosterSceneFrame', 'layout.stageWidth', 'dim.addComponent(BlockInputEvents)', 'panelGroup.addComponent(BlockInputEvents)', 'openLobbyHeroDetail(hero.id)', 'LobbyHeroRosterBackButton', 'renderSceneBackButton(this.host, panelGroup, layout', 'LOBBY_HERO_ROSTER_CARD_FRAME_ASSET', 'ui/hero-roster/hero_card_frame/spriteFrame', 'LOBBY_HERO_ROSTER_CARD_ASSETS', 'LOBBY_HERO_ROSTER_CARD_BACKGROUND_NUU_ASSET', 'ui/hero-roster/card_background/Nuu_Illust', 'LobbyHeroRosterFilterRail', 'HERO_FILTER_ALL', 'HERO_CLASS_FILTER_ORDER', 'HERO_CLASS_KEY_ALIASES', "Warrior: '战士'", "Support: '辅助'", "Assassin: '刺客'", "Mage: '法师'", "Marksman: '射手'", "Tank: '坦克'", 'selectHeroClassFilter', 'resolveHeroFilterTabs', 'state.heroClassOptions', 'new Map<string, string>()', 'heroClassOptions.forEach', 'filterHeroesBySelectedClass', 'resolveHeroClass', 'addHeroClassTab', 'isHeroClassTabActive', 'normalizeHeroClassKey', 'const selectedKey = this.normalizeHeroClassKey(this.selectedHeroClass);', 'return heroes.filter((hero) => this.normalizeHeroClassKey(this.resolveHeroClass(hero)) === selectedKey);', 'LobbyHeroRosterScrollView', 'LobbyHeroRosterScrollContent', 'scrollView.content = content;', 'const scrollEffectTopPadding = HERO_ROSTER_CARD_EFFECT_TOP_MASK_PADDING * scale;', 'const viewportHeight = bodyHeight + scrollEffectTopPadding;', 'const viewportCenterY = bodyCenterY + scrollEffectTopPadding / 2;', 'const contentHeight = Math.max(viewportHeight', 'const startX = -bodyWidth / 2 + cardInsetX + cardWidth / 2', 'const startY = contentHeight / 2 - scrollEffectTopPadding - cardInsetY - cardHeight / 2', 'HERO_ROSTER_CARD_ASPECT_WIDTH = 937', 'HERO_ROSTER_CARD_ASPECT_HEIGHT = 1676', 'HERO_ROSTER_CARD_DISPLAY_WIDTH_SCALE = 1.2', 'HERO_ROSTER_CARD_MAX_COLUMNS = 5', 'const HERO_ROSTER_CARD_DESKTOP_TARGET_HEIGHT = 468;', 'const HERO_ROSTER_CARD_DESKTOP_MAX_HEIGHT = 492;', 'const HERO_ROSTER_CARD_COMPACT_TARGET_HEIGHT = 310;', 'const HERO_ROSTER_CARD_COMPACT_MAX_HEIGHT = 340;', 'HERO_ROSTER_RARITY_DISPLAY_ORDER', 'UR: 0', 'SSR: 1', 'SR: 2', 'R: 3', 'sortHeroesForRosterDisplay', 'resolveRarityDisplayRank', 'const displayHeroes = this.filterHeroesBySelectedClass(this.sortHeroesForRosterDisplay(state.heroes));', 'const maxCardsInRow = Math.max(1, Math.min(displayHeroes.length, HERO_ROSTER_CARD_MAX_COLUMNS))', 'const maxCardWidthForRow = Math.max(96 * scale', '* HERO_ROSTER_CARD_DISPLAY_WIDTH_SCALE', 'HERO_ROSTER_CARD_LEVEL_X_RATIO = -0.38', 'HERO_ROSTER_CARD_LEVEL_Y_RATIO = 0.38', 'HERO_ROSTER_CARD_LEVEL_TEXT_WIDTH_RATIO = 0.29', 'HERO_ROSTER_CARD_EFFECT_TOP_MASK_PADDING = 62', 'HERO_ROSTER_CARD_BADGE_X_RATIO = 0.37', 'HERO_ROSTER_CARD_BADGE_Y_RATIO = 0.38', 'HERO_ROSTER_CARD_BADGE_SIZE_RATIO = 0.17', 'HERO_ROSTER_CARD_BACKGROUND_WIDTH_RATIO = 1', 'HERO_ROSTER_CARD_BACKGROUND_HEIGHT_RATIO = 0.5', 'HERO_ROSTER_CARD_BACKGROUND_Y_RATIO = 0.02', 'HERO_ROSTER_CARD_RARITY_Y_RATIO = 0.324', 'HERO_ROSTER_CARD_NAME_Y_RATIO = 0.18', 'HERO_ROSTER_CARD_STARS_Y_RATIO = 0.13', 'Math.min(16 * scale, height * 0.048)', 'new Size(width - 54 * scale, height * 0.06)', 'LobbyHeroRosterStars', 'LobbyHeroRosterHeroName', 'resolveHeroClassBadgeText', 'safeText(hero.heroName)', 'formatHeroCardLevel(hero.level)', 'safeLevel >= 100 ? `Lv${safeLevel}` : `Lv.${safeLevel}`', 'topBarLeftReserve', 'LobbyHeroRosterLevelText', 'width * HERO_ROSTER_CARD_LEVEL_X_RATIO', 'height * HERO_ROSTER_CARD_LEVEL_Y_RATIO', 'drawCircleBadge', 'const badgeSize = clamp(width * HERO_ROSTER_CARD_BADGE_SIZE_RATIO', 'const badgeX = width * HERO_ROSTER_CARD_BADGE_X_RATIO', 'const badgeY = height * HERO_ROSTER_CARD_BADGE_Y_RATIO', 'USE_HERO_ROSTER_EXTERNAL_PORTRAITS = false', 'renderHeroCardBackground', 'LobbyHeroRosterCardBackgroundSprite', 'resolveHeroCardBackgroundAssetPath', 'hero.cardBackgroundAsset', 'LobbyHeroRosterHeroRelief', 'graphics.lineTo(width * 0.18, -height * 0.26)', 'HERO_ROSTER_BORDER_EFFECT_RESOURCE', 'HERO_ROSTER_BORDER_ANIMATION_BY_RARITY', "R: 'K3'", "SR: 'K4'", "SSR: 'K5'", "UR: 'K7'", 'HERO_ROSTER_UR_SEQUENCE_BORDER_PATH_PREFIX', 'HERO_ROSTER_UR_SEQUENCE_BORDER_FRAME_COUNT = 12', 'HERO_ROSTER_UR_SEQUENCE_BORDER_ALPHA = 255', 'HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_WIDTH_RATIO = 1.25', 'HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_HEIGHT_RATIO = 1.25', 'HERO_ROSTER_UR_SEQUENCE_BORDER_OUTER_Y_RATIO = -0.01', 'HERO_ROSTER_UR_SEQUENCE_BORDER_FRAME_PATHS', 'HERO_ROSTER_GOODS_BORDER_WIDTH_PADDING = 33', 'HERO_ROSTER_GOODS_BORDER_HEIGHT_PADDING = 61', 'HERO_ROSTER_GOODS_BORDER_Y_RATIO = -0.03', 'HERO_ROSTER_GOODS_BORDER_WIDTH_SCALE_MAX = 2.8', 'ui/hero-roster/UR-card-border', 'renderUrCardSequenceBorder', "this.renderRarityGoodsBorderSpine(card, 'UR', width, height);", 'LobbyHeroRosterUrSequenceBorderSprite', 'loadUrSequenceBorderFrames', 'startSequenceBorderAnimation', 'resources.load(path, SpriteFrame', 'spine/ui/hero-roster/goods_1_border/goods_1', 'renderHeroCardBorderEffect', 'renderRarityGoodsBorderSpine', 'LobbyHeroRosterRarityGoodsBorderSpine_${rarity}', 'loadBorderEffectData', 'resolveRarityBorderAnimationName', 'name.toLowerCase() === targetLower', 'clamp((width + HERO_ROSTER_GOODS_BORDER_WIDTH_PADDING) / 120, 1.12, HERO_ROSTER_GOODS_BORDER_WIDTH_SCALE_MAX)', 'clamp((height + HERO_ROSTER_GOODS_BORDER_HEIGHT_PADDING) / 120', 'LobbyHeroRosterAbyssDust', 'LobbyHeroRosterUpgradeButtonDisabled', 'resolveHeroRosterPortraitAsset'],
+  },
+  {
+    source: 'assets/scripts/scenes/lobby/LobbyHeroRosterPanelRenderer.ts',
+    tokens: ['const hasCardArtwork = this.renderHeroCardBackground(card, hero, width, height, scale);', 'if (!hasCardArtwork) {', 'const artworkWidth = Math.min(width * HERO_ROSTER_CARD_BACKGROUND_WIDTH_RATIO, width - 34 * scale);', 'const artworkHeight = Math.min(height * HERO_ROSTER_CARD_BACKGROUND_HEIGHT_RATIO, height - 96 * scale);', 'Texture2D', 'private readonly cardBackgroundFrames', 'loadHeroCardBackgroundFrame', 'loadHeroCardBackgroundTexture', 'resources.load(assetPath, Texture2D', 'resources.load(`${assetPath}/texture`, Texture2D', 'frame.texture = texture;', 'frame.texture = subTexture;', 'missingCardBackgroundLogs'],
   },
   {
     source: 'assets/scripts/scenes/lobby/LobbyHeroDetailPanelRenderer.ts',
-    tokens: ['LobbyHeroDetailSceneContent', 'LobbyHeroDetailSceneFrame', 'layout.stageWidth', 'layout.safeWidth < 1154 * scale', 'const artX = 0;', 'LobbyHeroDetailIdentityPlate', 'plateY = -height / 2 + 118 * scale', 'LobbyHeroDetailDynamicPortrait', 'LobbyHeroDetailSpineNode', 'LobbyHeroDetailStageDepth', 'resolveHeroSpineResource(hero)', 'spine/hero/${asset}/${asset}', 'resources.load(path, sp.SkeletonData', 'hero spine asset missing', 'hero spine load start', 'AudioSource', 'AudioClip', 'bindHeroSpineAudioEvents', 'playHeroSpineAudioEvent', 'event.data?.audioPath', 'resources.load(path, AudioClip', 'hero spine audio missing', 'getRuntimeData(true)', 'resolveHeroSpineAnimationNames', 'startHeroSpineSecondaryCycle', 'const secondaryAnimation = animationNames.secondary', 'skeleton.setAnimation(0, secondaryAnimation, false)', 'skeleton.addAnimation(0, animationName, true, 0)', '.delay(15)', 'skeleton.addAnimation(0, primaryAnimation, true, 0)', 'resolveHeroDetailGroundY(height)', 'graphics.ellipse(0, groundY', 'LobbyHeroDetailAttributeGrid', 'LobbyHeroDetailSkillList', 'LOBBY_HERO_DETAIL_PROTAGONIST_ASSET', 'dim.addComponent(BlockInputEvents)', 'LobbyHeroDetailBackButton', 'renderSceneBackButton(this.host, panelGroup, layout'],
+    tokens: ['LobbyHeroDetailSceneContent', 'LobbyHeroDetailSceneFrame', 'layout.stageWidth', 'layout.safeWidth < 1154 * scale', 'const artX = 0;', 'LobbyHeroDetailIdentityPlate', 'plateY = -height / 2 + 118 * scale', 'LobbyHeroDetailDynamicPortrait', 'LobbyHeroDetailSpineNode', 'LobbyHeroDetailStageDepth', 'resolveHeroSpineResource(hero)', 'spine/hero/${asset}/${asset}', 'resources.load(path, sp.SkeletonData', 'const cacheKey = path', 'loadHeroSpineUuidData', 'const cacheKey = `uuid:${uuid}`', 'loadResourcePathFallback', 'hero spine uuid failed, fallback resource path', 'hero spine resource path load failed or returned non-SkeletonData', 'hero spine asset missing', 'hero spine load start', 'isHeroSpineDataAsset', 'hero spine uuid load failed or returned non-SkeletonData', 'hero spine resource data failed to apply, retry uuid', 'retryHeroSpineUuidData', 'renderHeroSpineFailureHint', 'AudioSource', 'AudioClip', 'bindHeroSpineAudioEvents', 'playHeroSpineAudioEvent', 'event.data?.audioPath', 'resources.load(path, AudioClip', 'hero spine audio missing', 'applyHeroSpineDataWithRetry', 'HERO_DETAIL_SPINE_RUNTIME_RETRY_DELAYS_MS', 'hero spine runtime retry', 'isRetryableHeroSpineFailure', 'formatHeroSpineError', 'getRuntimeData(true)', 'textures=${textureCount}', 'atlas=${textureNames}', '资源应用异常：${this.formatHeroSpineError(error)}', 'resolveHeroSpineAnimationNames', 'const idleAnimation = animationNames.idle', 'const introAnimation = animationNames.intro', 'skeleton.setAnimation(0, introAnimation, false)', 'skeleton.addAnimation(0, idleAnimation, true, 0)', 'patchHeroSpineRuntimeEnums', 'getSkinsEnum =', 'getAnimsEnum =', 'createHeroSpineEnumMap', 'HERO_DETAIL_IDLE_ONLY_PROFILE', 'HERO_DETAIL_SPINE_DISPLAY_PROFILES', 'IshmaelA: HERO_DETAIL_IDLE_ONLY_PROFILE', 'Sphinx: HERO_DETAIL_IDLE_ONLY_PROFILE', "loopAnimation: 'idle'", "introAnimation: 'intro'", 'displayProfile.loopAnimation', 'displayProfile.introAnimation', 'maxScale: 0.52', 'yRatio: 0.012', 'resolveHeroSpineDisplayProfile', 'resolveHeroSpineJsonSkinNames', 'resolveHeroSpineJsonAnimationNames', 'resolveHeroSpineRuntimeSkinNames', 'resolveHeroSpineRuntimeAnimationNames', 'resolveHeroSpineAnimationNameList', 'resolvePreferredSpineName', "skinName && skinName !== 'default'", 'resolveHeroDetailGroundY(height)', 'graphics.ellipse(0, groundY', 'LobbyHeroDetailAttributeGrid', 'LobbyHeroDetailSkillList', 'LOBBY_HERO_DETAIL_PROTAGONIST_ASSET', 'dim.addComponent(BlockInputEvents)', 'LobbyHeroDetailBackButton', 'renderSceneBackButton(this.host, panelGroup, layout'],
   },
   {
     source: 'assets/scripts/scenes/gacha/GachaSceneConfig.ts',
@@ -121,7 +126,14 @@ const REQUIRED_CHUNKS = [
       'currentLobbyProfile()',
       'GachaAbyssSpineStage',
       'GachaAbyssSpineNode',
-      'const spineGroundY = -stageHeight * 0.55',
+      'GACHA_SPINE_GROUND_Y_RATIO = -0.55',
+      'GACHA_HERO_POOL_SPINE_GROUND_Y_EXTRA_RATIO = -0.075',
+      'resolveGachaSpineGroundY(stageHeight, selectedPool)',
+      'isHeroGachaPool(selectedPool)',
+      "displayType === 'LIMITED'",
+      "poolCode.includes('LIMITED')",
+      "poolCode === 'NORMAL_HERO'",
+      "displayType === 'HERO'",
       'graphics.ellipse(0, spineGroundY - 22 * scale',
       "addChildPlainNode(stage, 'GachaAbyssSpineNode', 0, spineGroundY",
       'return 0.43 * scale * stageFactor',
@@ -173,8 +185,16 @@ main().catch((error) => {
 
 async function main() {
   const importMap = JSON.parse(await getText(IMPORT_MAP_URL));
+  const engineImportMapText = await getText(ENGINE_IMPORT_MAP_URL);
   const imports = importMap.imports ?? {};
   const failures = [];
+
+  if (!engineImportMapText.includes('spine-version-3.8.js') || !engineImportMapText.includes('spine-instantiate-3.8.js')) {
+    failures.push('Cocos Preview engine runtime is not Spine 3.8, but the current project Spine baseline is 3.8.x');
+  }
+  if (engineImportMapText.includes('spine-version-4.2.js') || engineImportMapText.includes('spine-instantiate-4.2.js')) {
+    failures.push('Cocos Preview engine import-map points to Spine 4.2, which risks the existing 3.8 hero/UI Spine assets');
+  }
 
   for (const requirement of REQUIRED_CHUNKS) {
     const specifier = Object.keys(imports).find((key) => normalize(key).endsWith(requirement.source));
@@ -185,14 +205,15 @@ async function main() {
     const chunkPath = imports[specifier];
     const chunkUrl = new URL(`scripting/x/${String(chunkPath).replace(/^\.\//, '')}`, `${PREVIEW_ORIGIN}/`).href;
     const chunk = await getText(chunkUrl);
-    const missing = requirement.tokens.filter((token) => !chunk.includes(token));
+    const inspectionText = await appendSourceMapContent(chunkUrl, chunk);
+    const missing = requirement.tokens.filter((token) => !inspectionText.includes(token));
     if (missing.length > 0) {
       failures.push(`${requirement.source}: stale chunk ${chunkPath}, missing ${missing.join(', ')}`);
     }
   }
 
   if (failures.length > 0) {
-    throw new Error(`Cocos Preview is not serving latest chunks.\n${failures.map((failure) => `- ${failure}`).join('\n')}`);
+    throw new Error(`Cocos Preview is not serving the required scripts/runtime.\n${failures.map((failure) => `- ${failure}`).join('\n')}`);
   }
 
   console.log('preview freshness ok');
@@ -200,6 +221,17 @@ async function main() {
 
 function normalize(value) {
   return decodeURIComponent(String(value)).replace(/\\/g, '/');
+}
+
+async function appendSourceMapContent(chunkUrl, chunk) {
+  try {
+    const sourceMapText = await getText(`${chunkUrl}.map`);
+    const sourceMap = JSON.parse(sourceMapText);
+    const sourceContent = Array.isArray(sourceMap.sourcesContent) ? sourceMap.sourcesContent.join('\n') : '';
+    return `${chunk}\n${sourceContent}`;
+  } catch {
+    return chunk;
+  }
 }
 
 function getText(url) {
