@@ -563,3 +563,52 @@ This is a defensive battle-start guard only. It does not open rewards, stamina c
   - no new economy write endpoint;
   - no `gacha_pool_item` modification;
   - no EX V1, exchange/reissue, bag write, hero growth, reward/stamina/progress write opened.
+
+### 2026-06-08 Active R/SR card background display mapping
+
+- Current incremental SQL: `D:\project\LootChain\sql\34_active_r_sr_card_background_asset_sync.sql`.
+- For enabled R/SR rows only, `hero_template.card_background_asset` now follows `ui/hero-roster/card_background/` + current `spine_asset`.
+- Local DB readback confirmed 12 enabled R/SR rows match this rule:
+  - `R_PATROL_01 -> npc_1001`;
+  - `R_ACOLY_02 -> npc_1012`;
+  - `R_SCOUT_03 -> npc_1004`;
+  - `R_CULT_05 -> npc_1008`;
+  - `R_RANGER_06 -> npc_1016`;
+  - `R_GUARD_07 -> npc_1003`;
+  - `SR_PRIEST_01 -> npc_21006`;
+  - `SR_PALADIN_02 -> npc_1002`;
+  - `SR_WITCH_03 -> npc_1028`;
+  - `SR_BLADE_04 -> npc_1038`;
+  - `SR_SNIPER_05 -> npc_1037`;
+  - `SR_ABYSS_06 -> npc_1036`.
+- These values are display-only resources for Cocos hero roster/codex presentation. They do not change API shape, hero ownership, gacha pool items, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag writes, hero growth, or any economy write path.
+
+### 2026-06-09 Gacha Real Pool And Rate Contract Update
+
+- `GET /api/player/gacha/pools` now exposes these real drawable pools when returned by backend data:
+  - `LIMITED_ABYSS_PREVIEW`;
+  - `NORMAL_HERO`;
+  - `BASIC_CONTRACT_PREVIEW`.
+- A pool is drawable in Cocos only when all existing gate fields allow it:
+  - `locked=false`;
+  - `drawEnabled=true`;
+  - `previewOnly=false`.
+- `SEALED_LIGHT_DARK` remains locked/display-only and must not be treated as drawable.
+- Active real-pool rate contract:
+  - `R=0.576000`;
+  - `SR=0.384000`;
+  - `SSR=0.036000`;
+  - `UR=0.004000`.
+- Pity contract for the shared `HERO_BASE` pity group:
+  - `SSR=80`;
+  - `UR=180`.
+- Cost contract remains unchanged for the opened pools:
+  - single draw `DIAMOND 280`;
+  - ten draw `DIAMOND 2800`.
+- Write contract:
+  - the only current Cocos gacha write remains `POST /api/player/gacha/draw`;
+  - no exchange/reissue API is opened;
+  - no EX V1, bag write, hero growth, reward/stamina/progress write, or new economy write endpoint is opened.
+- Runtime closure note:
+  - with Redis/backend online, real draw calls for the opened pools reached the deduction path;
+  - the current user lacked enough DIAMOND, so the calls returned insufficient-balance and created no new draw log/result rows.

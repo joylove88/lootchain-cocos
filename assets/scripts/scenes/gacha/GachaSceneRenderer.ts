@@ -14,6 +14,10 @@ import {
   UITransform,
   UIOpacity,
   Vec3,
+  VideoClip,
+  VideoPlayer,
+  AudioClip,
+  AudioSource,
   tween,
 } from 'cc';
 import { safeText } from '../UiTextFormatter';
@@ -39,6 +43,12 @@ import {
   GACHA_PREVIEW_POOLS,
   GACHA_REVEAL_STEPS,
   GACHA_RIGHT_ACTIONS,
+  GACHA_SUMMON_AUDIO_RESOURCE,
+  GACHA_SUMMON_VIDEO_ASPECT_HEIGHT,
+  GACHA_SUMMON_VIDEO_ASPECT_WIDTH,
+  GACHA_SUMMON_VIDEO_FALLBACK_SECONDS,
+  GACHA_SUMMON_VIDEO_NORMAL_RESOURCE,
+  GACHA_SUMMON_VIDEO_RARE_RESOURCE,
   gachaRarityTone,
   type GachaActionKey,
   type GachaMockResultItem,
@@ -72,6 +82,7 @@ export interface GachaSceneHost {
   closeGachaActionScene(): void;
   selectGachaPool(poolCode: string): void;
   startGachaDraw(mode: GachaPreviewResultMode): void;
+  finishGachaSummonVideoScene(): void;
   openGachaActionScene(action: GachaActionKey): void;
   openGachaMockRevealScene(mode: GachaPreviewResultMode): void;
   closeGachaMockRevealScene(): void;
@@ -165,6 +176,18 @@ export class GachaSceneRenderer {
     this.renderBackground(root, layout);
     this.renderRevealTopBar(root, layout, scale);
     this.renderRevealSceneContent(root, layout, scale, mode);
+  }
+
+  renderSummonVideoScene(layout: UiLayout, mode: GachaPreviewResultMode, rarity: GachaRarity | null): void {
+    const scale = this.resolveScale(layout);
+    const centerX = (layout.stageLeft + layout.stageRight) / 2;
+    const centerY = (layout.stageTop + layout.stageBottom) / 2;
+    const root = this.createUiNode('GachaSummonVideoSceneRoot');
+    root.setPosition(new Vec3(centerX, centerY, 0));
+    root.addComponent(UITransform).setContentSize(new Size(layout.width, layout.height));
+    root.addComponent(BlockInputEvents);
+
+    this.renderSummonVideoContent(root, layout, scale, mode, rarity);
   }
 
   private createUiNode(name: string): Node {
@@ -1087,6 +1110,141 @@ export class GachaSceneRenderer {
     this.applyOutline(label, scale, true);
     const costLabel = this.host.addChildLabel(node, `${name}Cost`, cost, -width / 2 + 80 * scale, 0, 16 * scale, rgba(181, 209, 255), new Size(118 * scale, height), HorizontalTextAlignment.LEFT);
     costLabel.overflow = Label.Overflow.SHRINK;
+  }
+
+  private renderSummonVideoContent(parent: Node, layout: UiLayout, scale: number, mode: GachaPreviewResultMode, rarity: GachaRarity | null): void {
+    const backdrop = this.host.addChildPlainNode(parent, 'GachaSummonVideoFallbackBackdrop', 0, 0, layout.width, layout.height);
+    const backdropGraphics = backdrop.addComponent(Graphics);
+    backdropGraphics.fillColor = rgba(0, 0, 0, 255);
+    backdropGraphics.rect(-layout.width / 2, -layout.height / 2, layout.width, layout.height);
+    backdropGraphics.fill();
+
+    const loading = this.host.addChildLabel(
+      parent,
+      'GachaSummonVideoLoadingLabel',
+      mode === 'ten' ? '十连契约唤醒中' : '契约唤醒中',
+      0,
+      0,
+      28 * scale,
+      rgba(250, 224, 158),
+      new Size(Math.min(layout.safeWidth - 80 * scale, 520 * scale), 40 * scale),
+    );
+    loading.overflow = Label.Overflow.SHRINK;
+    this.applyOutline(loading, scale, true);
+    const loadingOpacity = loading.node.addComponent(UIOpacity);
+    loadingOpacity.opacity = 210;
+
+    const videoResource = this.resolveSummonVideoResource(rarity);
+    const videoCoverSize = this.resolveSummonVideoCoverSize(layout);
+    const videoNode = this.host.addChildPlainNode(parent, 'GachaSummonVideoPlayer', 0, 0, videoCoverSize.width, videoCoverSize.height);
+    videoNode.getComponent(UITransform)?.setContentSize(videoCoverSize);
+    const videoPlayer = videoNode.addComponent(VideoPlayer);
+    videoPlayer.resourceType = VideoPlayer.ResourceType.LOCAL;
+    videoPlayer.playOnAwake = false;
+    videoPlayer.loop = false;
+    videoPlayer.keepAspectRatio = true;
+    videoPlayer.mute = true;
+    videoPlayer.volume = 0;
+
+    const audioNode = this.host.addChildPlainNode(parent, 'GachaSummonCallAudio', 0, 0, 1, 1);
+    const audioSource = audioNode.addComponent(AudioSource);
+    audioSource.loop = false;
+    let videoStarted = false;
+    let finished = false;
+
+    const tryPlayAudio = () => {
+      if (!videoStarted || !audioSource.clip || !this.isNodeAlive(audioNode)) {
+        return;
+      }
+      try {
+        audioSource.play();
+      } catch (error) {
+        console.warn(`[Gacha] summon call audio play failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    };
+
+    const finishOnce = (reason: string) => {
+      if (finished) {
+        return;
+      }
+      finished = true;
+      try {
+        videoPlayer.stop();
+      } catch {
+        // VideoPlayer may already be stopped after COMPLETED.
+      }
+      try {
+        audioSource.stop();
+      } catch {
+        // AudioSource may not have started yet.
+      }
+      console.info(`[Gacha] summon video finished: ${videoResource}, reason=${reason}`);
+      this.host.finishGachaSummonVideoScene();
+    };
+
+    videoNode.on(VideoPlayer.EventType.PLAYING, () => {
+      videoStarted = true;
+      loadingOpacity.opacity = 0;
+      tryPlayAudio();
+    }, this);
+    videoNode.on(VideoPlayer.EventType.COMPLETED, () => finishOnce('completed'), this);
+    videoNode.on(VideoPlayer.EventType.ERROR, () => {
+      this.host.setStatus('召唤视频播放异常，返回召唤结果。');
+      finishOnce('video-error');
+    }, this);
+
+    resources.load(videoResource, VideoClip, (error: Error | null, clip: VideoClip | null) => {
+      if (finished || !this.isNodeAlive(videoNode)) {
+        return;
+      }
+      if (error || !clip) {
+        console.warn(`[Gacha] summon video load failed: ${videoResource}, ${error?.message ?? 'empty clip'}`);
+        this.host.setStatus('召唤视频加载失败，返回召唤结果。');
+        finishOnce('video-load-failed');
+        return;
+      }
+      videoPlayer.clip = clip;
+      try {
+        videoPlayer.play();
+        videoStarted = true;
+        loadingOpacity.opacity = 0;
+        tryPlayAudio();
+      } catch (playError) {
+        console.warn(`[Gacha] summon video play failed: ${playError instanceof Error ? playError.message : String(playError)}`);
+        this.host.setStatus('召唤视频播放失败，返回召唤结果。');
+        finishOnce('video-play-failed');
+      }
+    });
+
+    resources.load(GACHA_SUMMON_AUDIO_RESOURCE, AudioClip, (error: Error | null, clip: AudioClip | null) => {
+      if (finished || !this.isNodeAlive(audioNode)) {
+        return;
+      }
+      if (error || !clip) {
+        console.warn(`[Gacha] summon call audio load failed: ${GACHA_SUMMON_AUDIO_RESOURCE}, ${error?.message ?? 'empty clip'}`);
+        return;
+      }
+      audioSource.clip = clip;
+      tryPlayAudio();
+    });
+
+    tween(videoNode)
+      .delay(GACHA_SUMMON_VIDEO_FALLBACK_SECONDS)
+      .call(() => finishOnce('fallback-timeout'))
+      .start();
+  }
+
+  private resolveSummonVideoResource(rarity: GachaRarity | null): string {
+    return rarity === 'SSR' || rarity === 'UR' ? GACHA_SUMMON_VIDEO_RARE_RESOURCE : GACHA_SUMMON_VIDEO_NORMAL_RESOURCE;
+  }
+
+  private resolveSummonVideoCoverSize(layout: UiLayout): Size {
+    const videoAspect = GACHA_SUMMON_VIDEO_ASPECT_WIDTH / GACHA_SUMMON_VIDEO_ASPECT_HEIGHT;
+    const viewportAspect = layout.width / layout.height;
+    if (viewportAspect > videoAspect) {
+      return new Size(layout.width, layout.width / videoAspect);
+    }
+    return new Size(layout.height * videoAspect, layout.height);
   }
 
   private renderRevealSceneContent(parent: Node, layout: UiLayout, scale: number, mode: GachaPreviewResultMode): void {

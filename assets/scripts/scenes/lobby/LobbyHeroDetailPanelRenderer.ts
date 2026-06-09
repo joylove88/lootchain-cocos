@@ -54,13 +54,28 @@ interface HeroSpineDisplayProfile {
   introAnimation?: string;
   introFallbackHints?: string[];
   maxScale?: number;
+  targetHeightRatio?: number;
+  maxWidthRatio?: number;
+  scaleMultiplier?: number;
   xRatio?: number;
   yRatio?: number;
 }
 
+const HERO_DETAIL_NUU_VISUAL_HEIGHT_RATIO = 0.6;
+const HERO_DETAIL_SPINE_MAX_WIDTH_RATIO = 1.22;
+const HERO_DETAIL_SPINE_DEFAULT_MAX_SCALE = 0.62;
+const HERO_DETAIL_NUU_MATCHED_HEIGHT_RATIO = 0.78;
+const HERO_DETAIL_NUU_MATCHED_MAX_WIDTH_RATIO = 3.2;
+const HERO_DETAIL_NUU_MATCHED_MAX_SCALE = 0.78;
+const HERO_DETAIL_NUU_MATCHED_SCALE_MULTIPLIER = 1.18;
+
 const HERO_DETAIL_IDLE_ONLY_PROFILE: HeroSpineDisplayProfile = {
   preferIdleFirst: true,
   loopAnimation: 'idle',
+  targetHeightRatio: HERO_DETAIL_NUU_MATCHED_HEIGHT_RATIO,
+  maxWidthRatio: HERO_DETAIL_NUU_MATCHED_MAX_WIDTH_RATIO,
+  maxScale: HERO_DETAIL_NUU_MATCHED_MAX_SCALE,
+  scaleMultiplier: HERO_DETAIL_NUU_MATCHED_SCALE_MULTIPLIER,
 };
 
 const HERO_DETAIL_SPINE_DISPLAY_PROFILES: Record<string, HeroSpineDisplayProfile> = {
@@ -76,6 +91,8 @@ const HERO_DETAIL_SPINE_DISPLAY_PROFILES: Record<string, HeroSpineDisplayProfile
     loopAnimation: 'idle',
     introAnimation: 'intro',
     maxScale: 0.52,
+    targetHeightRatio: HERO_DETAIL_NUU_VISUAL_HEIGHT_RATIO,
+    maxWidthRatio: HERO_DETAIL_SPINE_MAX_WIDTH_RATIO,
     xRatio: -0.035,
     yRatio: 0.012,
   },
@@ -577,10 +594,12 @@ export class LobbyHeroDetailPanelRenderer {
   private resolveHeroSpineScale(rawWidth: number | undefined, rawHeight: number | undefined, stageWidth: number, stageHeight: number, scale: number, displayProfile: HeroSpineDisplayProfile): number {
     const safeWidth = Math.max(1, rawWidth || 1);
     const safeHeight = Math.max(1, rawHeight || 1);
-    const targetWidth = stageWidth * 0.76;
-    const targetHeight = stageHeight * 0.86;
-    const fit = Math.min(targetWidth / safeWidth, targetHeight / safeHeight);
-    return clamp(fit, 0.18 * scale, (displayProfile.maxScale ?? 1.45) * scale);
+    const targetHeight = stageHeight * (displayProfile.targetHeightRatio ?? HERO_DETAIL_NUU_VISUAL_HEIGHT_RATIO);
+    const maxWidth = stageWidth * (displayProfile.maxWidthRatio ?? HERO_DETAIL_SPINE_MAX_WIDTH_RATIO);
+    const heightFit = targetHeight / safeHeight;
+    const widthFit = maxWidth / safeWidth;
+    const fit = Math.min(heightFit, widthFit) * (displayProfile.scaleMultiplier ?? 1);
+    return clamp(fit, 0.18 * scale, (displayProfile.maxScale ?? HERO_DETAIL_SPINE_DEFAULT_MAX_SCALE) * scale);
   }
 
   private resolveHeroSpineSkinName(data: sp.SkeletonData, runtimeData: HeroSpineRuntimeData): string | null {

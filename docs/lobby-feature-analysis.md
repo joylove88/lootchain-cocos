@@ -2910,3 +2910,241 @@
   - the currently running 8081 game-server process still omits `cardBackgroundAsset` in live JSON, while current source maps it. Restart the game server from current source before treating API-level `cardBackgroundAsset` readback as accepted.
 - Boundary unchanged:
   - readonly display metadata and presentation only; no backend API contract shape, economy rule, gacha pool item, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag write, hero growth, or reward/stamina/progress write changed.
+
+## 2026-06-08 Active R/SR Card Background Asset QA Note
+
+- Product/data decision:
+  - enabled R/SR hero roster cards should use card background images placed under `assets/resources/ui/hero-roster/card_background`;
+  - the DB-facing value is `ui/hero-roster/card_background/` + current `hero_template.spine_asset`;
+  - this applies only to `status=1`, `deleted=0`, `rarity in ('R','SR')` templates.
+- API/DB acceptance:
+  - SQL `D:\project\LootChain\sql\34_active_r_sr_card_background_asset_sync.sql` updates only `hero_template.card_background_asset`;
+  - local DB readback confirmed 12 enabled R/SR rows match the spine-derived path rule;
+  - `D:\project\LootChain\sql\05_hero_module.sql` includes the same display-only mapping for fresh local schema imports.
+- UI/resource acceptance:
+  - the 12 `npc_*.png` card backgrounds and their Cocos texture-only `.meta` files exist in `assets/resources/ui/hero-roster/card_background`;
+  - `LobbyHeroApi` and `LobbyCodexApi` include readonly fallback metadata for the same R/SR hero codes;
+  - existing hero-card rendering still uses the Texture2D fallback path, so these texture-only imports can render without spriteFrame subresources.
+- Review result:
+  - `npm.cmd run check:layout` passed;
+  - Cocos TypeScript no-emit passed;
+  - `.spine/.spine.meta` source scan returned `0`;
+  - new `npc_*.png.meta` JSON parse check passed;
+  - current `check:preview` is stale for `LobbyHeroApi` and `LobbyCodexApi`, so refresh/restart Preview before visual acceptance.
+- Boundary unchanged:
+  - display metadata/resource sync only; no gacha pool item, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag write, hero growth, reward/stamina/progress write, or new economy endpoint changed.
+
+## 2026-06-08 R/SR NPC Card Background Scale QA Note
+
+- Product issue:
+  - the new R/SR `npc_*` card background images rendered too large and visually spilled beyond the intended card composition.
+- UI acceptance:
+  - `ui/hero-roster/card_background/npc_*` assets should use a compact card-art profile instead of the UR/SSR `*_Illust` enlargement profile;
+  - NPC card art should preserve its source aspect ratio;
+  - NPC card art should not force-fill the whole mask width;
+  - rarity, name, stars, level, class badge, and border effects must remain readable and above the art layer.
+- Implementation:
+  - `LobbyHeroRosterPanelRenderer` detects NPC card backgrounds through `HERO_ROSTER_CARD_BACKGROUND_NPC_PREFIX`;
+  - compact profile constants are `0.42` visible height, `0.56` max display height, and `0.82` max display width;
+  - Nuu and the previously mapped UR/SSR `*_Illust` profiles are unchanged.
+- Review result:
+  - `check:layout`, Cocos TypeScript no-emit, and `.spine/.spine.meta` scan passed;
+  - `check:preview` is stale for `LobbyHeroRosterPanelRenderer`, so refresh/restart Preview before visual acceptance.
+- Boundary unchanged:
+  - readonly card presentation only; no SQL, backend API, economy rule, gacha pool item, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag write, hero growth, reward/stamina/progress write, or new economy endpoint changed.
+
+## 2026-06-09 Gacha Summon Animation QA Note
+
+- Product decision:
+  - clicking a summon button should show a summon animation first;
+  - the real draw request should be submitted only after that animation finishes.
+- UI/resource acceptance:
+  - summon PNG resources live under `assets/resources/ui/gacha/summon`;
+  - the animation should compose the background, floor, magic circle, light, center silhouette, and four role sprites;
+  - the animation view should block duplicate draw clicks while the pending draw ticket is active;
+  - closing the gacha scene during the animation should be blocked until the animation finishes.
+- Flow acceptance:
+  - `startGachaDraw()` validates the currently selected pool, stores `PendingGachaDraw`, and switches to `gachaSummon`;
+  - `finishPendingGachaDrawAfterAnimation()` ignores stale tickets;
+  - `executeGachaDrawAfterAnimation()` uses the existing draw API, requestId creation, result display, pity refresh, and readonly asset refresh flow.
+- Resource hygiene:
+  - only PNG assets were imported from the C1812-1 summon composition;
+  - no `.spine/.spine.meta` source files should exist under `assets/resources/spine`.
+- Review result:
+  - `check:layout`, Cocos TypeScript no-emit, summon `.meta` JSON parse, and `.spine/.spine.meta` scan passed;
+  - `git diff --check` reported only LF/CRLF working-copy warnings;
+  - `check:preview` is stale for `LootChainGameRoot`, `LobbyHeroRosterPanelRenderer`, `GachaSceneConfig`, and `GachaSceneRenderer`, so refresh/restart Preview before visual acceptance.
+- Boundary unchanged:
+  - frontend animation only; no backend API, SQL, economy rule, gacha pool item, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag write, hero growth, reward/stamina/progress write, or new economy endpoint changed.
+
+## 2026-06-09 Recruit_take4 Spine Summon QA Note
+
+- Product issue:
+  - the initial summon scene used static PNG/tween composition and did not play the skeletal animation available in C1812-1.
+- Resource acceptance:
+  - `Recruit_take4.skel`, `Recruit_take4.atlas`, and `Recruit_take4.png` should exist under `assets/resources/spine/gacha/summon/recruit_take4`;
+  - `Recruit_take4.skel.meta` should be `spine-data` and reference the atlas UUID;
+  - no `.spine/.spine.meta` files should exist under `assets/resources/spine`.
+- UI acceptance:
+  - `gachaSummon` should render `GachaSummonRecruitTake4SpineNode` during the pre-draw animation;
+  - the center silhouette/PNG composition is fallback only and should be removed once the Spine asset applies;
+  - the animation should still block duplicate summon clicks and should submit the real draw only after the scheduled animation window.
+- Review result:
+  - `check:layout` failed before resources/code existed and passed after implementation;
+  - Cocos TypeScript no-emit, summon Spine `.meta` JSON parse, `.spine/.spine.meta` scan, and `git diff --check` passed;
+  - `check:preview` is stale for `GachaSceneConfig` and `GachaSceneRenderer`, so restart/refresh Preview before visual acceptance.
+- Boundary unchanged:
+  - frontend animation playback only; no backend API, SQL, economy rule, gacha pool item, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag write, hero growth, reward/stamina/progress write, or new economy endpoint changed.
+
+## 2026-06-09 Fullscreen Summon And Rarity Burst QA Note
+
+- Product issue:
+  - the summon animation appeared as a centered square block;
+  - SSR/UR draws need a different visual response with golden light.
+- UI/resource acceptance:
+  - `Summon_Normal_BG.png` should fill the full viewport through cover sizing;
+  - `Recruit_take4` should not leave its exported square `BG` attachment visible when the runtime can clear it;
+  - SSR should show `GachaSummonRarityGoldBurst`;
+  - UR should show `GachaSummonRarityUrBurst`;
+  - lower-rarity results should not use the SSR/UR gold burst.
+- Flow acceptance:
+  - clicking summon enters `gachaSummon` immediately;
+  - the existing real draw endpoint is submitted during the animation, not after the animation;
+  - the response is used only to select the animation rarity tone until the animation is ready;
+  - the existing result page, pity refresh, and readonly asset refresh still happen after the animation result handoff.
+- Review result:
+  - `check:layout` failed before the full-screen/rarity requirements existed and passed after implementation;
+  - Cocos TypeScript no-emit, summon `.meta` JSON parse, `.spine/.spine.meta` scan, and `git diff --check` passed.
+  - `check:preview` is stale for `LootChainGameRoot`, `GachaSceneConfig`, and `GachaSceneRenderer`, so refresh/restart Preview before visual acceptance.
+- Boundary unchanged:
+  - same existing draw endpoint only; no backend API, SQL, economy rule, new economy write entry, gacha pool item, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag write, hero growth, reward/stamina/progress write changed.
+
+## 2026-06-09 Summon Failure Path Minimum Animation QA Note
+
+- Product issue:
+  - when the draw request fails quickly, the summon scene should not flash and disappear before the user can see the animation.
+- Flow acceptance:
+  - draw failure during `gachaSummon` should set `pending.error`;
+  - the scene should remain in `gachaSummon` until `finishPendingGachaDrawAfterAnimation()` marks `animationReady`;
+  - only after the minimum animation window should `presentPendingGachaDrawFailure()` return to the summon page and show the error.
+- Review result:
+  - `check:layout` failed before the delayed-failure guard existed and passed after implementation;
+  - Cocos TypeScript no-emit, summon `.meta` JSON parse, `.spine/.spine.meta` scan, and `git diff --check` passed;
+  - `check:preview` is stale for `LootChainGameRoot`, so refresh/restart Preview before visual validation.
+- Boundary unchanged:
+  - frontend flow/error presentation only; same existing draw endpoint only; no backend API, SQL, economy rule, new economy write entry, gacha pool item, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag write, hero growth, reward/stamina/progress write changed.
+
+## 2026-06-09 Summon Fullscreen Background And Local SSR/UR Preview QA Note
+
+- Product issue:
+  - the latest preview still showed a large red circular backdrop and a small square-looking summon background;
+  - the user also needed a way to inspect SSR/UR gold effects without spending resources or forcing a real draw.
+- UI acceptance:
+  - remove the extra red circular veil from `GachaSummonAnimationVeil`;
+  - render `Summon_Normal_BG.png` as the full-screen base with cover overscan;
+  - keep `RecruitBG` as a low-opacity overlay only;
+  - expand the `Recruit_take4` Spine stage to the full-screen context and repeatedly hide the exported `BG` attachment;
+  - SSR and UR previews should enter `gachaSummon` with `GachaSummonRarityGoldBurst` / `GachaSummonRarityUrBurst` available.
+- Flow acceptance:
+  - `GachaSummonPreviewSSRButton` and `GachaSummonPreviewURButton` are local visual preview buttons only;
+  - `openGachaRarityPreviewScene(rarity)` sets local `gachaPreviewSummonRarity`, renders the animation, and auto-returns to the summon page;
+  - the preview path must not create requestId, must not call `/api/player/gacha/draw`, and must not update resources, draw logs, rewards, fragments, pity, or readonly asset refresh.
+- Code hygiene:
+  - `LobbyHeroApi.ts` and `LobbyCodexApi.ts` duplicate `R_PATROL_01` fallback entries were cleaned so TypeScript no-emit can run; the retained fallback keeps the read-only `cardBackgroundAsset`.
+- Review result:
+  - `check:layout`, Cocos TypeScript no-emit, summon `.meta` JSON parse, `.spine/.spine.meta` scan, and `git diff --check` passed;
+  - `check:preview` is stale for `LootChainGameRoot` and `GachaSceneRenderer`, so refresh/restart Preview before visual validation.
+- Boundary unchanged:
+  - frontend visual preview and readonly fallback cleanup only; no backend API, SQL, economy rule, new economy write entry, gacha pool item, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag write, hero growth, reward/stamina/progress write changed.
+
+## 2026-06-09 Summon Rarity Background Switch QA Note
+
+- Product issue:
+  - summon animation background should use different full-screen art by rarity;
+  - ordinary hero results should use `RecruitBG.png`;
+  - SSR/UR results should use `Headhunting_bg.png`.
+- UI/resource acceptance:
+  - import `Headhunting_bg.png` under `assets/resources/ui/gacha/summon`;
+  - `GachaSceneConfig` should expose `headhuntingBg: 'ui/gacha/summon/Headhunting_bg'`;
+  - `GachaSceneRenderer` should render one full-screen background via `GachaSummonFullScreenBackground`;
+  - `resolveSummonBackgroundAsset()` should return `Headhunting_bg` only for SSR/UR, and `RecruitBG` otherwise;
+  - `Summon_Normal_BG` should no longer drive the summon animation background.
+- Review result:
+  - `check:layout`, Cocos TypeScript no-emit, `Headhunting_bg.png.meta` JSON parse, `.spine/.spine.meta` scan, and `git diff --check` passed;
+  - `check:preview` is stale for `GachaSceneConfig` and `GachaSceneRenderer`, so refresh/restart Preview before visual validation.
+- Boundary unchanged:
+  - frontend visual background selection only; no backend API, SQL, economy rule, new economy write entry, gacha pool item, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag write, hero growth, reward/stamina/progress write changed.
+
+## 2026-06-09 Summon Video Replacement QA Note
+
+- Product issue:
+  - the previous summon-animation implementation was rejected and should be treated as withdrawn;
+  - clicking summon should now play a full-screen video instead of the old PNG/Spine composition.
+- UI/resource acceptance:
+  - old `assets/resources/ui/gacha/summon*` and `assets/resources/spine/gacha/summon*` resources should not exist;
+  - normal/lower-rarity results should play `assets/resources/video/gacha/call1.mp4`;
+  - results containing `SSR` or `UR` should play `assets/resources/video/gacha/call2.mp4`;
+  - `assets/resources/audio/gacha/call.mp3` should play as the summon call audio;
+  - the video should fill the full viewport through `VideoPlayer` instead of appearing as a small centered square.
+- Flow acceptance:
+  - clicking summon submits the existing `POST /api/player/gacha/draw` request first, so video choice is based on the actual result;
+  - the request still uses the existing requestId/idempotency path;
+  - on video completion, the existing gacha result page opens;
+  - draw failure should not play video and should return to the summon page with the backend error.
+- Review result:
+  - `check:layout` failed before the video/audio resources and video-flow code existed, then passed after implementation;
+  - directed Cocos TypeScript no-emit passed;
+  - new video/audio `.meta` JSON parse passed;
+  - `ffprobe` and extracted mid-frame self-preview confirmed `call1` and `call2` are valid, distinct 1680x720 videos;
+  - `.spine/.spine.meta` scan returned `0`;
+  - `git diff --check` passed with only LF/CRLF working-copy warnings;
+  - `check:preview` currently reports stale `LootChainGameRoot`, `GachaSceneConfig`, and `GachaSceneRenderer` chunks, so restart/refresh Preview before runtime visual acceptance.
+- Testing caveat:
+  - no real new draw was executed because it would spend resources, write draw logs, and grant heroes/fragments without explicit user confirmation.
+- Boundary unchanged:
+  - frontend video/audio presentation only; same existing draw endpoint only; no backend API, SQL, economy rule, new economy write entry, gacha pool item, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag write, hero growth, reward/stamina/progress write changed.
+
+## 2026-06-09 Summon Video Aspect Cover QA Note
+
+- Product issue:
+  - the full-screen summon video looked stretched/deformed in 1920x1080 Preview.
+- Root cause:
+  - `call1.mp4` and `call2.mp4` are 1680x720 videos;
+  - forcing them into a 1920x1080 node with `keepAspectRatio = false` distorts the frame.
+- UI acceptance:
+  - `VideoPlayer.keepAspectRatio` must be `true`;
+  - the video node should use an aspect-preserving cover size derived from 1680:720;
+  - 1920x1080 should resolve to 2520x1080, centered, with side cropping rather than stretching;
+  - circles and sigils in `call1/call2` should remain circular, not oval.
+- Review result:
+  - `check:layout` failed before the aspect-cover guard existed and passed after implementation;
+  - directed Cocos TypeScript no-emit passed;
+  - 1920x1080 cover-size calculation resolved to 2520x1080;
+  - `check:preview` currently reports stale `GachaSceneConfig` and `GachaSceneRenderer` chunks, so restart/refresh Preview before runtime visual acceptance.
+- Boundary unchanged:
+  - frontend video sizing only; same existing draw endpoint only; no backend API, SQL, economy rule, new economy write entry, gacha pool item, probability, weight, pity, cost, reward, duplicate conversion, EX V1, exchange/reissue, bag write, hero growth, reward/stamina/progress write changed.
+
+## 2026-06-09 Gacha Economy Opening QA Note
+
+- Product change:
+  - after explicit user approval, SSR/UR rates and pity are adjusted and ordinary/limited real draw pools are opened.
+- Expected gacha pool state:
+  - `LIMITED_ABYSS_PREVIEW`, `NORMAL_HERO`, and `BASIC_CONTRACT_PREVIEW` should be selectable and drawable when backend returns `locked=false`, `drawEnabled=true`, and `previewOnly=false`;
+  - `SEALED_LIGHT_DARK` should remain unavailable.
+- Expected rate/pity display:
+  - `R=57.6%`;
+  - `SR=38.4%`;
+  - `SSR=3.6%`;
+  - `UR=0.4%`;
+  - SSR pity `80`;
+  - UR pity `180`.
+- Cocos behavior:
+  - no new write entry should appear in UI code;
+  - summon still uses the existing `POST /api/player/gacha/draw`;
+  - insufficient balance should surface as an error without playing the result video or creating rewards.
+- Review result:
+  - backend economy guard passed;
+  - backend gacha service tests passed;
+  - Cocos `check:layout`, directed TypeScript no-emit, `check:preview`, `.spine/.spine.meta` scan, and `git diff --check` passed.
+- Still closed:
+  - EX V1, exchange/reissue, bag use/sell/batch-use, hero growth, reward/stamina/progress writes, and any new economy write endpoint.

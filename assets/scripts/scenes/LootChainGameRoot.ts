@@ -73,7 +73,7 @@ import type { LobbyBattlePanelState } from './lobby/LobbyBattleState';
 import type { LobbyCodexPanelState } from '../types/LobbyCodexTypes';
 import type { LobbyHeroItemVO, LobbyHeroRosterPanelState } from '../types/LobbyHeroTypes';
 import type { LobbyNoticePanelState } from '../types/LobbyNoticeTypes';
-import type { GachaPoolVO } from '../types/GachaTypes';
+import type { GachaDrawResultVO, GachaPoolVO } from '../types/GachaTypes';
 import type { ProtagonistCreateFormState, ProtagonistForm, ProtagonistGender } from '../types/ProtagonistTypes';
 import { LoginVideoBackground } from '../../resources/login-bg/scripts/login/LoginVideoBackground';
 
@@ -103,11 +103,21 @@ type ViewName =
   | 'gachaExchange'
   | 'gachaPoolContent'
   | 'gachaReveal'
+  | 'gachaSummon'
   | 'gachaResult'
   | 'placeholder';
 type LobbyPlaceholderDialogState = {
   title: string;
   detail: string;
+};
+type PendingGachaDraw = {
+  ticket: number;
+  mode: GachaPreviewResultMode;
+  poolCode: string;
+  drawCount: 1 | 10;
+  requestId: string;
+  result: GachaDrawResultVO | null;
+  highestRarity: GachaRarity | null;
 };
 
 const LOGIN_SCENE_BACKGROUND_NODE_NAMES = [
@@ -211,6 +221,9 @@ export class LootChainGameRoot extends Component {
   private loginLanguageDialogOpen = false;
   private lobbyPlaceholderDialog: LobbyPlaceholderDialogState | null = null;
   private gachaResultMode: GachaPreviewResultMode | null = null;
+  private pendingGachaDraw: PendingGachaDraw | null = null;
+  private gachaSummonRarity: GachaRarity | null = null;
+  private gachaSummonTicket = 0;
   private gachaConfigRefreshElapsed = 0;
   private gachaSceneState: GachaSceneState = {
     loading: false,
@@ -286,6 +299,10 @@ export class LootChainGameRoot extends Component {
     }
     if (this.currentView === 'gachaReveal') {
       this.renderGachaRevealScene();
+      return;
+    }
+    if (this.currentView === 'gachaSummon') {
+      this.renderGachaSummonVideoScene();
       return;
     }
     if (this.currentView === 'gachaResult') {
@@ -506,6 +523,12 @@ export class LootChainGameRoot extends Component {
     const layout = this.renderBase();
     // 召唤演出同样只消费本地 mock 数据，不生成 drawNo、不扣资源、不发奖。
     this.gachaSceneRenderer.renderRevealScene(layout, this.gachaResultMode ?? 'once');
+  }
+
+  private renderGachaSummonVideoScene(): void {
+    this.currentView = 'gachaSummon';
+    const layout = this.renderBase();
+    this.gachaSceneRenderer.renderSummonVideoScene(layout, this.gachaResultMode ?? 'once', this.gachaSummonRarity);
   }
 
   private renderGachaResultScene(): void {
@@ -1369,6 +1392,9 @@ export class LootChainGameRoot extends Component {
     this.lobbySettingsPanelOpen = false;
     this.lobbyPlaceholderDialog = null;
     this.gachaResultMode = null;
+    this.pendingGachaDraw = null;
+    this.gachaSummonRarity = null;
+    this.gachaSummonTicket += 1;
     this.gachaConfigRefreshElapsed = 0;
     this.gachaSceneState = { ...this.gachaSceneState, activeAction: null };
     this.currentView = 'gacha';
@@ -1630,6 +1656,10 @@ export class LootChainGameRoot extends Component {
   }
 
   private startGachaDraw(mode: GachaPreviewResultMode): void {
+    if (this.gachaSceneState.drawing || this.pendingGachaDraw) {
+      this.setStatus('召唤请求处理中，请勿重复点击。');
+      return;
+    }
     const pool = this.gachaSceneState.pools.find((item) => item.poolCode === this.gachaSceneState.selectedPoolCode || item.id === this.gachaSceneState.selectedPoolCode);
     if (!pool || !pool.poolCode) {
       this.setStatus('当前卡池缺少真实 poolCode，无法召唤。');
@@ -1639,27 +1669,117 @@ export class LootChainGameRoot extends Component {
       this.setStatus(pool.buttonDisabledReason ?? '该卡池暂未开放真实抽卡。');
       return;
     }
-    this.gachaSceneState = { ...this.gachaSceneState, drawing: true, lastDrawResult: null, error: null };
-    this.renderCurrentView();
     const drawCount: 1 | 10 = mode === 'ten' ? 10 : 1;
+    const ticket = this.gachaSummonTicket + 1;
+    this.gachaSummonTicket = ticket;
     const requestId = this.createGachaRequestId(pool.poolCode, drawCount);
-    void this.api.gacha.draw({ poolCode: pool.poolCode, drawCount, requestId })
+    this.pendingGachaDraw = { ticket, mode, poolCode: pool.poolCode, drawCount, requestId, result: null, highestRarity: null };
+    this.gachaSummonRarity = null;
+    this.gachaResultMode = mode;
+    this.gachaSceneState = { ...this.gachaSceneState, drawing: true, lastDrawResult: null, error: null, activeAction: null };
+    this.renderCurrentView();
+    this.setStatus('召唤请求提交中，正在确认契约结果。');
+    this.executeGachaDrawBeforeVideo(ticket);
+  }
+
+  private executeGachaDrawBeforeVideo(ticket: number): void {
+    const pending = this.pendingGachaDraw;
+    if (!pending || pending.ticket !== ticket) {
+      return;
+    }
+    void this.api.gacha.draw({ poolCode: pending.poolCode, drawCount: pending.drawCount, requestId: pending.requestId })
       .then((result) => {
-        this.gachaSceneState = { ...this.gachaSceneState, drawing: false, lastDrawResult: result };
-        this.gachaResultMode = mode;
-        this.currentView = 'gachaResult';
-        this.renderCurrentView();
-        this.setStatus(`召唤完成：${result.drawNo}`);
-        void this.loadGachaPity(pool.poolCode ?? '');
-        void this.refreshReadonlyAssetsAfterGacha();
+        if (!this.pendingGachaDraw || this.pendingGachaDraw.ticket !== ticket) {
+          return;
+        }
+        const pending = this.pendingGachaDraw;
+        pending.result = result;
+        pending.highestRarity = this.resolveGachaDrawResultHighestRarity(result);
+        this.presentPendingGachaDrawVideo(ticket);
       })
       .catch((error) => {
+        if (!this.pendingGachaDraw || this.pendingGachaDraw.ticket !== ticket) {
+          return;
+        }
+        const pending = this.pendingGachaDraw;
         const message = error instanceof Error ? error.message : String(error);
-        this.gachaSceneState = { ...this.gachaSceneState, drawing: false, error: message };
-        this.currentView = 'gacha';
-        this.renderCurrentView();
-        this.setStatus(`召唤失败：${message}`);
+        this.presentPendingGachaDrawFailure(ticket, message);
       });
+  }
+
+  private presentPendingGachaDrawVideo(ticket: number): void {
+    const pending = this.pendingGachaDraw;
+    if (!pending || pending.ticket !== ticket || !pending.result) {
+      return;
+    }
+    this.gachaSummonRarity = pending.highestRarity;
+    this.gachaResultMode = pending.mode;
+    this.currentView = 'gachaSummon';
+    this.renderCurrentView();
+    this.setStatus(pending.highestRarity === 'SSR' || pending.highestRarity === 'UR' ? '高阶契约响应，播放稀有召唤影像。' : '契约响应完成，播放召唤影像。');
+  }
+
+  private finishGachaSummonVideoScene(): void {
+    if (this.currentView !== 'gachaSummon') {
+      return;
+    }
+    const pending = this.pendingGachaDraw;
+    if (!pending || !pending.result) {
+      return;
+    }
+    this.presentPendingGachaDrawResult(pending.ticket);
+  }
+
+  private presentPendingGachaDrawResult(ticket: number): void {
+    const pending = this.pendingGachaDraw;
+    if (!pending || pending.ticket !== ticket || !pending.result) {
+      return;
+    }
+    const result = pending.result;
+    this.pendingGachaDraw = null;
+    this.gachaSummonRarity = null;
+    this.gachaSceneState = { ...this.gachaSceneState, drawing: false, lastDrawResult: result };
+    this.gachaResultMode = pending.mode;
+    this.currentView = 'gachaResult';
+    this.renderCurrentView();
+    this.setStatus(`召唤完成：${result.drawNo}`);
+    void this.loadGachaPity(pending.poolCode);
+    void this.refreshReadonlyAssetsAfterGacha();
+  }
+
+  private presentPendingGachaDrawFailure(ticket: number, message: string): void {
+    const pending = this.pendingGachaDraw;
+    if (!pending || pending.ticket !== ticket) {
+      return;
+    }
+    this.pendingGachaDraw = null;
+    this.gachaSummonRarity = null;
+    this.gachaSceneState = { ...this.gachaSceneState, drawing: false, error: message };
+    this.currentView = 'gacha';
+    this.renderCurrentView();
+    this.setStatus(`召唤失败：${message}`);
+  }
+
+  private resolveGachaDrawResultHighestRarity(result: GachaDrawResultVO): GachaRarity | null {
+    return result.items.reduce<GachaRarity | null>((highest, item) => {
+      const rarity = this.normalizeGachaRarity(item.rarity);
+      if (!rarity) {
+        return highest;
+      }
+      return this.compareGachaRarity(rarity, highest) > 0 ? rarity : highest;
+    }, null);
+  }
+
+  private compareGachaRarity(left: string | null | undefined, right: string | null | undefined): number {
+    const ranks: Record<GachaRarity, number> = { R: 0, SR: 1, SSR: 2, UR: 3 };
+    const leftRarity = this.normalizeGachaRarity(left);
+    const rightRarity = this.normalizeGachaRarity(right);
+    return (leftRarity ? ranks[leftRarity] : -1) - (rightRarity ? ranks[rightRarity] : -1);
+  }
+
+  private normalizeGachaRarity(value: string | null | undefined): GachaRarity | null {
+    const normalized = (value ?? '').trim().toUpperCase();
+    return normalized === 'R' || normalized === 'SR' || normalized === 'SSR' || normalized === 'UR' ? normalized : null;
   }
 
   private openGachaMockRevealScene(mode: GachaPreviewResultMode): void {
@@ -1695,6 +1815,10 @@ export class LootChainGameRoot extends Component {
   }
 
   private closeGachaScene(): void {
+    if (this.currentView === 'gachaSummon') {
+      this.setStatus('召唤视频正在播放，请稍候。');
+      return;
+    }
     if (this.currentView !== 'gacha' && this.currentView !== 'gachaReveal' && this.currentView !== 'gachaResult' && !this.isGachaActionSceneView(this.currentView)) {
       return;
     }
@@ -2168,6 +2292,10 @@ export class LootChainGameRoot extends Component {
     this.lobbyNoticePanelOpen = false;
     this.lobbySettingsPanelOpen = false;
     this.lobbyPlaceholderDialog = null;
+    this.gachaResultMode = null;
+    this.pendingGachaDraw = null;
+    this.gachaSummonRarity = null;
+    this.gachaSummonTicket += 1;
   }
 
   private loadLobbyProfileAfterLogin(userId: number): void {
@@ -2194,7 +2322,7 @@ export class LootChainGameRoot extends Component {
   }
 
   private setStatus(text: string): void {
-    if (this.currentView === 'gacha' || this.currentView === 'gachaReveal' || this.currentView === 'gachaResult' || this.isGachaActionSceneView(this.currentView)) {
+    if (this.currentView === 'gacha' || this.currentView === 'gachaReveal' || this.currentView === 'gachaSummon' || this.currentView === 'gachaResult' || this.isGachaActionSceneView(this.currentView)) {
       const layout = this.resolveLayout();
       const gachaStatusY = layout.stageBottom + 210 * layout.uiScale;
       this.statusPresenter.set(text, layout, gachaStatusY);
@@ -2362,7 +2490,7 @@ export class LootChainGameRoot extends Component {
     // Cocos Preview 在固定设计分辨率下可能只改变浏览器物理视口，必须纳入 key 才会重排 HUD。
     const viewportKey = `${Math.round(layout.viewportWidth)}x${Math.round(layout.viewportHeight)}`;
     const languageKey = lootChainI18n.currentLanguage();
-    const gachaOpen = this.currentView === 'gacha' || this.currentView === 'gachaReveal' || this.currentView === 'gachaResult' || this.isGachaActionSceneView(this.currentView);
+    const gachaOpen = this.currentView === 'gacha' || this.currentView === 'gachaReveal' || this.currentView === 'gachaSummon' || this.currentView === 'gachaResult' || this.isGachaActionSceneView(this.currentView);
     return `${this.currentView}:${languageKey}:${layout.width}x${layout.height}:${viewportKey}:${stageKey}:${this.loginLanguageDialogOpen ? 'login-language-open' : 'login-language-closed'}:${this.loginFlow.agreementAccepted ? 'agree' : 'deny'}:${this.protagonistCreateFlow.version}:${this.lobbyProfileOpen ? 'profile-open' : 'profile-closed'}:${this.lobbyAdventurePanelOpen ? 'adventure-open' : 'adventure-closed'}:${this.lobbyAdventureLoader.version}:${this.lobbyBagPanelOpen ? 'bag-open' : 'bag-closed'}:${this.lobbyBagLoader.version}:${this.selectedLobbyStageCode}:${this.lobbyBattlePreviewPanelOpen ? 'battle-open' : 'battle-closed'}:${this.lobbyBattleFlow.currentState().version}:${this.lobbyCodexPanelOpen ? 'codex-open' : 'codex-closed'}:${this.lobbyCodexLoader.version}:${this.lobbyFormationPanelOpen ? 'formation-open' : 'formation-closed'}:${this.selectedLobbyFormationHeroIds.join(',')}:${this.lobbyHeroRosterPanelOpen ? 'heroes-open' : 'heroes-closed'}:${this.lobbyHeroDetailHeroId ?? 'detail-closed'}:${this.lobbyHeroRosterLoader.version}:${this.lobbyNoticePanelOpen ? 'notice-open' : 'notice-closed'}:${this.lobbyNoticeLoader.version}:${this.lobbySettingsPanelOpen ? 'settings-open' : 'settings-closed'}:${gachaOpen ? 'gacha-open' : 'gacha-closed'}:${this.gachaSceneState.activeAction ?? 'gacha-action-closed'}:${this.gachaSceneState.selectedPoolCode ?? 'gacha-pool-none'}:${this.gachaSceneState.poolDetailLoading ? 'gacha-detail-loading' : 'gacha-detail-idle'}:${this.gachaSceneState.logsLoading ? 'gacha-logs-loading' : 'gacha-logs-idle'}:${this.gachaSceneState.poolDetail?.items.length ?? 0}:${this.gachaSceneState.logs.length}:${this.gachaResultMode ?? 'gacha-result-closed'}:${this.lobbyPlaceholderDialog ? 'placeholder-open' : 'placeholder-closed'}`;
   }
 

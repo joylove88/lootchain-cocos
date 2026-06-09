@@ -82,6 +82,40 @@ const HERO_ROSTER_CARD_BADGE_SIZE_RATIO = 0.17;
 const HERO_ROSTER_CARD_BACKGROUND_WIDTH_RATIO = 1;
 const HERO_ROSTER_CARD_BACKGROUND_HEIGHT_RATIO = 0.5;
 const HERO_ROSTER_CARD_BACKGROUND_Y_RATIO = 0.02;
+const HERO_ROSTER_CARD_BACKGROUND_MASK_WIDTH_RATIO = 0.92;
+const HERO_ROSTER_CARD_BACKGROUND_MASK_HEIGHT_RATIO = 0.74;
+const HERO_ROSTER_CARD_BACKGROUND_MASK_Y_RATIO = 0.15;
+const HERO_ROSTER_CARD_BACKGROUND_NUU_VISIBLE_HEIGHT_RATIO = 0.5;
+const HERO_ROSTER_CARD_BACKGROUND_MATCHED_VISIBLE_HEIGHT_RATIO = 0.58;
+const HERO_ROSTER_CARD_BACKGROUND_MAX_DISPLAY_HEIGHT_RATIO = 1.06;
+const HERO_ROSTER_CARD_BACKGROUND_MIN_VISIBLE_ALPHA_RATIO = 0.56;
+const HERO_ROSTER_CARD_BACKGROUND_NPC_PREFIX = 'ui/hero-roster/card_background/npc_';
+const HERO_ROSTER_CARD_BACKGROUND_NPC_VISIBLE_HEIGHT_RATIO = 0.42;
+const HERO_ROSTER_CARD_BACKGROUND_NPC_MAX_DISPLAY_HEIGHT_RATIO = 0.56;
+const HERO_ROSTER_CARD_BACKGROUND_NPC_MAX_DISPLAY_WIDTH_RATIO = 0.82;
+const HERO_ROSTER_CARD_BACKGROUND_VISIBLE_HEIGHT_RATIOS: Record<string, number> = {
+  'ui/hero-roster/card_background/Belladonna_Illust': 0.635,
+  'ui/hero-roster/card_background/Carmilla_center': 0.93,
+  'ui/hero-roster/card_background/Eulenspigel_Illust': 0.603,
+  'ui/hero-roster/card_background/HeylelS01_Illust': 0.604,
+  'ui/hero-roster/card_background/Ishmael_center': 0.958,
+  'ui/hero-roster/card_background/IshmaelA_Illust': 0.739,
+  'ui/hero-roster/card_background/LucienA_Illust': 0.768,
+  'ui/hero-roster/card_background/Lucrecia_Illust': 0.567,
+  'ui/hero-roster/card_background/Nuu_Illust': 1,
+  'ui/hero-roster/card_background/Sphinx_Illust': 0.729,
+};
+const HERO_ROSTER_CARD_BACKGROUND_FOCUS_X_RATIOS: Record<string, number> = {
+  'ui/hero-roster/card_background/Belladonna_Illust': -0.075,
+  'ui/hero-roster/card_background/Carmilla_center': -0.022,
+  'ui/hero-roster/card_background/Eulenspigel_Illust': -0.058,
+  'ui/hero-roster/card_background/HeylelS01_Illust': -0.024,
+  'ui/hero-roster/card_background/Ishmael_center': 0.068,
+  'ui/hero-roster/card_background/IshmaelA_Illust': 0.06,
+  'ui/hero-roster/card_background/LucienA_Illust': -0.011,
+  'ui/hero-roster/card_background/Lucrecia_Illust': 0.174,
+  'ui/hero-roster/card_background/Sphinx_Illust': 0.102,
+};
 const HERO_ROSTER_BORDER_EFFECT_RESOURCE = 'spine/ui/hero-roster/goods_1_border/goods_1';
 const HERO_ROSTER_BORDER_ANIMATION_BY_RARITY: Record<string, string> = {
   R: 'K3',
@@ -593,31 +627,98 @@ export class LobbyHeroRosterPanelRenderer {
     if (!assetPath) {
       return false;
     }
-    const artworkWidth = Math.min(width * HERO_ROSTER_CARD_BACKGROUND_WIDTH_RATIO, width - 34 * scale);
-    const artworkHeight = Math.min(height * HERO_ROSTER_CARD_BACKGROUND_HEIGHT_RATIO, height - 96 * scale);
-    const node = this.host.addChildPlainNode(
+    const maskWidth = Math.min(width * HERO_ROSTER_CARD_BACKGROUND_MASK_WIDTH_RATIO, width - 22 * scale);
+    const maskHeight = Math.min(height * HERO_ROSTER_CARD_BACKGROUND_MASK_HEIGHT_RATIO, height - 76 * scale);
+    const maskNode = this.host.addChildPlainNode(
       card,
-      'LobbyHeroRosterCardBackgroundSprite',
+      'LobbyHeroRosterCardBackgroundMask',
       0,
-      height * HERO_ROSTER_CARD_BACKGROUND_Y_RATIO,
-      artworkWidth,
-      artworkHeight,
+      height * HERO_ROSTER_CARD_BACKGROUND_MASK_Y_RATIO,
+      maskWidth,
+      maskHeight,
     );
+    const mask = maskNode.addComponent(Mask);
+    mask.type = Mask.Type.GRAPHICS_RECT;
+    const node = this.host.addChildPlainNode(maskNode, 'LobbyHeroRosterCardBackgroundSprite', 0, 0, maskWidth, maskHeight);
     const sprite = node.addComponent(Sprite);
     sprite.type = Sprite.Type.SIMPLE;
     sprite.sizeMode = Sprite.SizeMode.CUSTOM;
     sprite.color = rgba(255, 255, 255, 255);
     this.loadHeroCardBackgroundFrame(assetPath, (frame) => {
-      if (!node.isValid) {
+      if (!maskNode.isValid || !node.isValid) {
         return;
       }
       if (!frame) {
-        node.removeFromParent();
+        maskNode.removeFromParent();
         return;
       }
       sprite.spriteFrame = frame;
+      const frameSize = this.resolveHeroCardBackgroundFrameSize(frame);
+      const displaySize = this.resolveHeroCardBackgroundDisplaySize(assetPath, frameSize, maskWidth, maskHeight, height, scale);
+      node.getComponent(UITransform)?.setContentSize(displaySize);
+      node.setPosition(new Vec3(this.resolveHeroCardBackgroundOffsetX(assetPath, displaySize.width), this.resolveHeroCardBackgroundOffsetY(displaySize.height, maskHeight), 0));
     });
     return true;
+  }
+
+  private resolveHeroCardBackgroundFrameSize(frame: SpriteFrame): Size {
+    const meta = frame as unknown as {
+      originalSize?: Size;
+      rect?: { width?: number; height?: number };
+      width?: number;
+      height?: number;
+    };
+    const originalSize = meta.originalSize;
+    if (originalSize?.width && originalSize?.height) {
+      return new Size(originalSize.width, originalSize.height);
+    }
+    const rect = meta.rect;
+    if (rect?.width && rect?.height) {
+      return new Size(rect.width, rect.height);
+    }
+    if (meta.width && meta.height) {
+      return new Size(meta.width, meta.height);
+    }
+    return new Size(1, 1);
+  }
+
+  private resolveHeroCardBackgroundDisplaySize(assetPath: string, frameSize: Size, maskWidth: number, maskHeight: number, cardHeight: number, scale: number): Size {
+    const aspect = Math.max(0.18, frameSize.width / Math.max(1, frameSize.height));
+    const isNpcCardBackground = this.isNpcHeroCardBackgroundAssetPath(assetPath);
+    const visibleAlphaRatio = clamp(
+      isNpcCardBackground ? 1 : (HERO_ROSTER_CARD_BACKGROUND_VISIBLE_HEIGHT_RATIOS[assetPath] ?? HERO_ROSTER_CARD_BACKGROUND_MIN_VISIBLE_ALPHA_RATIO),
+      isNpcCardBackground ? 1 : HERO_ROSTER_CARD_BACKGROUND_MIN_VISIBLE_ALPHA_RATIO,
+      1,
+    );
+    const targetVisibleHeightRatio = isNpcCardBackground
+      ? HERO_ROSTER_CARD_BACKGROUND_NPC_VISIBLE_HEIGHT_RATIO
+      : assetPath === LOBBY_HERO_ROSTER_CARD_BACKGROUND_NUU_ASSET
+      ? HERO_ROSTER_CARD_BACKGROUND_NUU_VISIBLE_HEIGHT_RATIO
+      : HERO_ROSTER_CARD_BACKGROUND_MATCHED_VISIBLE_HEIGHT_RATIO;
+    const targetVisibleHeight = cardHeight * targetVisibleHeightRatio;
+    const minDisplayHeight = isNpcCardBackground ? maskHeight * 0.24 : maskHeight * 0.56;
+    const maxDisplayHeight = cardHeight * (isNpcCardBackground
+      ? HERO_ROSTER_CARD_BACKGROUND_NPC_MAX_DISPLAY_HEIGHT_RATIO
+      : HERO_ROSTER_CARD_BACKGROUND_MAX_DISPLAY_HEIGHT_RATIO);
+    const displayHeight = clamp(targetVisibleHeight / visibleAlphaRatio, minDisplayHeight, maxDisplayHeight);
+    const aspectWidth = displayHeight * aspect;
+    const displayWidth = isNpcCardBackground
+      ? Math.min(maskWidth * HERO_ROSTER_CARD_BACKGROUND_NPC_MAX_DISPLAY_WIDTH_RATIO, aspectWidth)
+      : Math.max(maskWidth, aspectWidth);
+    return new Size(displayWidth, displayHeight);
+  }
+
+  private isNpcHeroCardBackgroundAssetPath(assetPath: string): boolean {
+    return assetPath.startsWith(HERO_ROSTER_CARD_BACKGROUND_NPC_PREFIX);
+  }
+
+  private resolveHeroCardBackgroundOffsetX(assetPath: string, displayWidth: number): number {
+    const focusXRatio = HERO_ROSTER_CARD_BACKGROUND_FOCUS_X_RATIOS[assetPath] ?? 0;
+    return -displayWidth * focusXRatio;
+  }
+
+  private resolveHeroCardBackgroundOffsetY(displayHeight: number, maskHeight: number): number {
+    return -maskHeight / 2 + displayHeight / 2;
   }
 
   private loadHeroCardBackgroundFrame(assetPath: string, callback: (frame: SpriteFrame | null) => void): void {

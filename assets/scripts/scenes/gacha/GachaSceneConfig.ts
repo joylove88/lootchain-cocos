@@ -89,6 +89,12 @@ export const GACHA_ABYSS_FALLBACK_SPINE_UUID = 'ce6aee72-45cb-4315-abfd-74ac40b8
 export const GACHA_ABYSS_FALLBACK_SPINE_SKIN = 'default';
 export const GACHA_ABYSS_FALLBACK_SPINE_INTRO_ANIMATION = 'appear';
 export const GACHA_ABYSS_FALLBACK_SPINE_IDLE_ANIMATION = 'idle';
+export const GACHA_SUMMON_VIDEO_NORMAL_RESOURCE = 'video/gacha/call1';
+export const GACHA_SUMMON_VIDEO_RARE_RESOURCE = 'video/gacha/call2';
+export const GACHA_SUMMON_AUDIO_RESOURCE = 'audio/gacha/call';
+export const GACHA_SUMMON_VIDEO_ASPECT_WIDTH = 1680;
+export const GACHA_SUMMON_VIDEO_ASPECT_HEIGHT = 720;
+export const GACHA_SUMMON_VIDEO_FALLBACK_SECONDS = 5.5;
 
 // 当前为抽奖系统视觉预览配置，所有数据都只在客户端展示，不代表真实卡池概率或奖励。
 export const GACHA_PREVIEW_POOLS: GachaPreviewPool[] = [

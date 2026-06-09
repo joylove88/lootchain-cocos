@@ -163,6 +163,31 @@ const required = [
   'assets/resources/ui/hero-roster.meta',
   'assets/resources/ui/hero-roster/hero_card_frame.png',
   'assets/resources/ui/hero-roster/hero_card_frame.png.meta',
+  'assets/resources/ui/hero-roster/card_background.meta',
+  'assets/resources/ui/hero-roster/card_background/npc_1001.png',
+  'assets/resources/ui/hero-roster/card_background/npc_1001.png.meta',
+  'assets/resources/ui/hero-roster/card_background/npc_1002.png',
+  'assets/resources/ui/hero-roster/card_background/npc_1002.png.meta',
+  'assets/resources/ui/hero-roster/card_background/npc_1003.png',
+  'assets/resources/ui/hero-roster/card_background/npc_1003.png.meta',
+  'assets/resources/ui/hero-roster/card_background/npc_1004.png',
+  'assets/resources/ui/hero-roster/card_background/npc_1004.png.meta',
+  'assets/resources/ui/hero-roster/card_background/npc_1008.png',
+  'assets/resources/ui/hero-roster/card_background/npc_1008.png.meta',
+  'assets/resources/ui/hero-roster/card_background/npc_1012.png',
+  'assets/resources/ui/hero-roster/card_background/npc_1012.png.meta',
+  'assets/resources/ui/hero-roster/card_background/npc_1016.png',
+  'assets/resources/ui/hero-roster/card_background/npc_1016.png.meta',
+  'assets/resources/ui/hero-roster/card_background/npc_1028.png',
+  'assets/resources/ui/hero-roster/card_background/npc_1028.png.meta',
+  'assets/resources/ui/hero-roster/card_background/npc_1036.png',
+  'assets/resources/ui/hero-roster/card_background/npc_1036.png.meta',
+  'assets/resources/ui/hero-roster/card_background/npc_1037.png',
+  'assets/resources/ui/hero-roster/card_background/npc_1037.png.meta',
+  'assets/resources/ui/hero-roster/card_background/npc_1038.png',
+  'assets/resources/ui/hero-roster/card_background/npc_1038.png.meta',
+  'assets/resources/ui/hero-roster/card_background/npc_21006.png',
+  'assets/resources/ui/hero-roster/card_background/npc_21006.png.meta',
   'assets/resources/ui/hero-roster/UR-card-border.meta',
   'assets/resources/ui/hero-roster/UR-card-border/01.png',
   'assets/resources/ui/hero-roster/UR-card-border/01.png.meta',
@@ -206,6 +231,16 @@ const required = [
   'assets/resources/ui/gacha/logo_normal.png.meta',
   'assets/resources/ui/gacha/logo_locked.png',
   'assets/resources/ui/gacha/logo_locked.png.meta',
+  'assets/resources/video.meta',
+  'assets/resources/video/gacha.meta',
+  'assets/resources/video/gacha/call1.mp4',
+  'assets/resources/video/gacha/call1.mp4.meta',
+  'assets/resources/video/gacha/call2.mp4',
+  'assets/resources/video/gacha/call2.mp4.meta',
+  'assets/resources/audio.meta',
+  'assets/resources/audio/gacha.meta',
+  'assets/resources/audio/gacha/call.mp3',
+  'assets/resources/audio/gacha/call.mp3.meta',
   'assets/resources/spine.meta',
   'assets/resources/spine/gacha.meta',
   'assets/resources/spine/gacha/huangfengjiaozong.meta',
@@ -262,6 +297,20 @@ let ok = true;
 for (const file of required) {
   if (!existsSync(file)) {
     console.error(`missing: ${file}`);
+    ok = false;
+  }
+}
+
+const forbiddenLegacySummonResources = [
+  'assets/resources/ui/gacha/summon.meta',
+  'assets/resources/ui/gacha/summon',
+  'assets/resources/spine/gacha/summon.meta',
+  'assets/resources/spine/gacha/summon',
+];
+
+for (const file of forbiddenLegacySummonResources) {
+  if (existsSync(file)) {
+    console.error(`legacy summon PNG/Spine animation resource must be removed for the video call flow: ${file}`);
     ok = false;
   }
 }
@@ -929,7 +978,7 @@ const requiredLoginRootTokens = [
   'private compactResourceValue(value: number | null | undefined): string',
   'this.statusPresenter.reset();',
   'this.statusPresenter.add(text, layout, y);',
-  "this.currentView === 'gacha' || this.currentView === 'gachaReveal' || this.currentView === 'gachaResult'",
+  "this.currentView === 'gacha' || this.currentView === 'gachaReveal' || this.currentView === 'gachaSummon' || this.currentView === 'gachaResult'",
   'const gachaStatusY = layout.stageBottom + 210 * layout.uiScale;',
   'this.statusPresenter.set(text, layout, gachaStatusY);',
   'this.statusPresenter.set(text);',
@@ -1425,6 +1474,9 @@ for (const token of [
   'function validateLobbyCodex(data: unknown): LobbyCodexItemVO[]',
   'const HERO_ASSET_FALLBACKS',
   'R_PATROL_01',
+  "R_ACOLY_02: { portraitAsset: 'act_1012', spineAsset: 'npc_1012'",
+  "SR_PRIEST_01: { portraitAsset: 'act_21006', spineAsset: 'npc_21006'",
+  "cardBackgroundAsset: 'ui/hero-roster/card_background/npc_21006'",
   'UR_EVELYN',
   "UR_EVELYN: { portraitAsset: 'Nuu', spineAsset: 'Nuu'",
   'resolveHeroAssetFallback(heroCode)',
@@ -1462,6 +1514,9 @@ for (const token of [
   'function resolveHeroClassFallback(heroCode: string): string | null',
   'const HERO_ASSET_FALLBACKS',
   'R_PATROL_01',
+  "R_ACOLY_02: { portraitAsset: 'act_1012', spineAsset: 'npc_1012'",
+  "SR_PRIEST_01: { portraitAsset: 'act_21006', spineAsset: 'npc_21006'",
+  "cardBackgroundAsset: 'ui/hero-roster/card_background/npc_21006'",
   "UR_EVELYN: { portraitAsset: 'Nuu', spineAsset: 'Nuu'",
   'UR_ARTHAS: { portraitAsset: \'IshmaelA\', spineAsset: \'IshmaelA\'',
   "SSR_LIVIA: { portraitAsset: 'Carmilla', spineAsset: 'Carmilla'",
@@ -1660,14 +1715,27 @@ for (const token of [
   'getAnimsEnum =',
   'createHeroSpineEnumMap',
   'HERO_DETAIL_IDLE_ONLY_PROFILE',
+  'HERO_DETAIL_NUU_VISUAL_HEIGHT_RATIO = 0.6',
+  'HERO_DETAIL_SPINE_MAX_WIDTH_RATIO = 1.22',
+  'HERO_DETAIL_SPINE_DEFAULT_MAX_SCALE = 0.62',
+  'HERO_DETAIL_NUU_MATCHED_HEIGHT_RATIO = 0.78',
+  'HERO_DETAIL_NUU_MATCHED_MAX_WIDTH_RATIO = 3.2',
+  'HERO_DETAIL_NUU_MATCHED_MAX_SCALE = 0.78',
+  'HERO_DETAIL_NUU_MATCHED_SCALE_MULTIPLIER = 1.18',
   'HERO_DETAIL_SPINE_DISPLAY_PROFILES',
   'IshmaelA: HERO_DETAIL_IDLE_ONLY_PROFILE',
   'Sphinx: HERO_DETAIL_IDLE_ONLY_PROFILE',
   "loopAnimation: 'idle'",
   "introAnimation: 'intro'",
+  'targetHeightRatio: HERO_DETAIL_NUU_MATCHED_HEIGHT_RATIO',
+  'maxWidthRatio: HERO_DETAIL_NUU_MATCHED_MAX_WIDTH_RATIO',
+  'maxScale: HERO_DETAIL_NUU_MATCHED_MAX_SCALE',
+  'scaleMultiplier: HERO_DETAIL_NUU_MATCHED_SCALE_MULTIPLIER',
   'displayProfile.loopAnimation',
   'displayProfile.introAnimation',
   'maxScale: 0.52',
+  'targetHeightRatio: HERO_DETAIL_NUU_VISUAL_HEIGHT_RATIO',
+  'maxWidthRatio: HERO_DETAIL_SPINE_MAX_WIDTH_RATIO',
   'yRatio: 0.012',
   'resolveHeroSpineDisplayProfile',
   'resolveHeroSpineJsonSkinNames',
@@ -1680,6 +1748,10 @@ for (const token of [
   'resolveHeroDetailGroundY(height)',
   'graphics.ellipse(0, groundY',
   'resolveHeroSpineScale',
+  'const heightFit = targetHeight / safeHeight',
+  'const widthFit = maxWidth / safeWidth',
+  'displayProfile.scaleMultiplier ?? 1',
+  'HERO_DETAIL_SPINE_DEFAULT_MAX_SCALE',
   'fallbackPortrait.destroy()',
   'dim.addComponent(BlockInputEvents);',
   'LobbyHeroDetailBackButton',
@@ -1827,8 +1899,27 @@ for (const token of [
   'if (!hasCardArtwork) {',
   'resolveHeroCardBackgroundAssetPath',
   'hero.cardBackgroundAsset',
-  'const artworkWidth = Math.min(width * HERO_ROSTER_CARD_BACKGROUND_WIDTH_RATIO, width - 34 * scale);',
-  'const artworkHeight = Math.min(height * HERO_ROSTER_CARD_BACKGROUND_HEIGHT_RATIO, height - 96 * scale);',
+  'LobbyHeroRosterCardBackgroundMask',
+  'mask.type = Mask.Type.GRAPHICS_RECT',
+  'HERO_ROSTER_CARD_BACKGROUND_MASK_WIDTH_RATIO = 0.92',
+  'HERO_ROSTER_CARD_BACKGROUND_MASK_HEIGHT_RATIO = 0.74',
+  'HERO_ROSTER_CARD_BACKGROUND_NUU_VISIBLE_HEIGHT_RATIO = 0.5',
+  'HERO_ROSTER_CARD_BACKGROUND_MATCHED_VISIBLE_HEIGHT_RATIO = 0.58',
+  'HERO_ROSTER_CARD_BACKGROUND_NPC_PREFIX',
+  'HERO_ROSTER_CARD_BACKGROUND_NPC_VISIBLE_HEIGHT_RATIO = 0.42',
+  'HERO_ROSTER_CARD_BACKGROUND_NPC_MAX_DISPLAY_HEIGHT_RATIO = 0.56',
+  'HERO_ROSTER_CARD_BACKGROUND_NPC_MAX_DISPLAY_WIDTH_RATIO = 0.82',
+  'HERO_ROSTER_CARD_BACKGROUND_VISIBLE_HEIGHT_RATIOS',
+  'HERO_ROSTER_CARD_BACKGROUND_FOCUS_X_RATIOS',
+  'isNpcHeroCardBackgroundAssetPath',
+  'isNpcCardBackground ? 1',
+  'Math.min(maskWidth * HERO_ROSTER_CARD_BACKGROUND_NPC_MAX_DISPLAY_WIDTH_RATIO, aspectWidth)',
+  'resolveHeroCardBackgroundFrameSize',
+  'resolveHeroCardBackgroundDisplaySize',
+  'resolveHeroCardBackgroundOffsetX',
+  'resolveHeroCardBackgroundOffsetY',
+  'targetVisibleHeight / visibleAlphaRatio',
+  'targetVisibleHeightRatio',
   'loadHeroCardBackgroundFrame',
   'loadHeroCardBackgroundTexture',
   'resources.load(assetPath, Texture2D',
@@ -2728,6 +2819,153 @@ if (!gachaDrawBody || !gachaDrawBody.includes("this.http.post<GachaDrawResultVO>
   ok = false;
 }
 
+const startGachaDrawBody = extractMethodBody(gameRoot, 'startGachaDraw(mode: GachaPreviewResultMode): void');
+if (!startGachaDrawBody) {
+  console.error(`missing startGachaDraw guard in ${gameRootPath}`);
+  ok = false;
+} else {
+  for (const token of [
+    'const requestId = this.createGachaRequestId(pool.poolCode, drawCount);',
+    'this.pendingGachaDraw = { ticket, mode, poolCode: pool.poolCode, drawCount, requestId, result: null, highestRarity: null };',
+    'this.gachaSummonRarity = null;',
+    'this.executeGachaDrawBeforeVideo(ticket);',
+  ]) {
+    if (!startGachaDrawBody.includes(token)) {
+      console.error(`startGachaDraw must submit the existing real draw before selecting the summon video in ${gameRootPath}: ${token}`);
+      ok = false;
+    }
+  }
+  if (startGachaDrawBody.includes('this.api.gacha.draw')) {
+    console.error(`startGachaDraw must delegate draw execution through the guarded video flow in ${gameRootPath}`);
+    ok = false;
+  }
+  if (startGachaDrawBody.includes("this.currentView = 'gachaSummon';")) {
+    console.error(`startGachaDraw must not enter the video scene before the draw result chooses call1/call2 in ${gameRootPath}`);
+    ok = false;
+  }
+}
+
+const executeGachaDrawBody = extractMethodBody(gameRoot, 'executeGachaDrawBeforeVideo(ticket: number): void');
+if (!executeGachaDrawBody) {
+  console.error(`missing pre-video draw executor in ${gameRootPath}`);
+  ok = false;
+} else {
+  for (const token of [
+    'void this.api.gacha.draw({ poolCode: pending.poolCode, drawCount: pending.drawCount, requestId: pending.requestId })',
+    'pending.result = result;',
+    'pending.highestRarity = this.resolveGachaDrawResultHighestRarity(result);',
+    'this.presentPendingGachaDrawVideo(ticket);',
+    'this.presentPendingGachaDrawFailure(ticket, message);',
+  ]) {
+    if (!executeGachaDrawBody.includes(token)) {
+      console.error(`pre-video draw executor must keep the existing real draw flow in ${gameRootPath}: ${token}`);
+      ok = false;
+    }
+  }
+  if (executeGachaDrawBody.includes("this.currentView = 'gachaSummon';")) {
+    console.error(`pre-video draw executor must delegate video entry to presentPendingGachaDrawVideo in ${gameRootPath}`);
+    ok = false;
+  }
+}
+
+const presentGachaDrawVideoBody = extractMethodBody(gameRoot, 'presentPendingGachaDrawVideo(ticket: number): void');
+if (!presentGachaDrawVideoBody) {
+  console.error(`missing result-driven summon video presenter in ${gameRootPath}`);
+  ok = false;
+} else {
+  for (const token of [
+    'if (!pending || pending.ticket !== ticket || !pending.result)',
+    'this.gachaSummonRarity = pending.highestRarity;',
+    'this.gachaResultMode = pending.mode;',
+    "this.currentView = 'gachaSummon';",
+    'this.renderCurrentView();',
+  ]) {
+    if (!presentGachaDrawVideoBody.includes(token)) {
+      console.error(`summon video presenter must enter the video scene after result/rating is known in ${gameRootPath}: ${token}`);
+      ok = false;
+    }
+  }
+}
+
+const finishGachaSummonBody = extractMethodBody(gameRoot, 'finishGachaSummonVideoScene(): void');
+if (!finishGachaSummonBody) {
+  console.error(`missing summon video completion method in ${gameRootPath}`);
+  ok = false;
+} else {
+  for (const token of [
+    "if (this.currentView !== 'gachaSummon')",
+    'if (!pending || !pending.result)',
+    'this.presentPendingGachaDrawResult(pending.ticket);',
+  ]) {
+    if (!finishGachaSummonBody.includes(token)) {
+      console.error(`summon video completion must hand off to the existing result page in ${gameRootPath}: ${token}`);
+      ok = false;
+    }
+  }
+}
+
+for (const method of [
+  'presentPendingGachaDrawVideo(ticket: number): void',
+  'presentPendingGachaDrawResult(ticket: number): void',
+  'presentPendingGachaDrawFailure(ticket: number, message: string): void',
+  'resolveGachaDrawResultHighestRarity(result: GachaDrawResultVO): GachaRarity | null',
+  'compareGachaRarity(left: string | null | undefined, right: string | null | undefined): number',
+]) {
+  if (!extractMethodBody(gameRoot, method)) {
+    console.error(`missing rarity-aware summon video method in ${gameRootPath}: ${method}`);
+    ok = false;
+  }
+}
+
+const presentGachaDrawBody = extractMethodBody(gameRoot, 'presentPendingGachaDrawResult(ticket: number): void');
+if (presentGachaDrawBody) {
+  for (const token of [
+    'this.pendingGachaDraw = null;',
+    'this.gachaSummonRarity = null;',
+    "this.currentView = 'gachaResult';",
+    'void this.loadGachaPity(pending.poolCode);',
+    'void this.refreshReadonlyAssetsAfterGacha();',
+  ]) {
+    if (!presentGachaDrawBody.includes(token)) {
+      console.error(`pending summon result presenter must preserve the real draw result flow in ${gameRootPath}: ${token}`);
+      ok = false;
+    }
+  }
+}
+
+const presentGachaDrawFailureBody = extractMethodBody(gameRoot, 'presentPendingGachaDrawFailure(ticket: number, message: string): void');
+if (presentGachaDrawFailureBody) {
+  for (const token of [
+    'this.pendingGachaDraw = null;',
+    'this.gachaSummonRarity = null;',
+    'this.gachaSceneState = { ...this.gachaSceneState, drawing: false, error: message };',
+    "this.currentView = 'gacha';",
+  ]) {
+    if (!presentGachaDrawFailureBody.includes(token)) {
+      console.error(`pending summon failure presenter must return without playing video when draw fails in ${gameRootPath}: ${token}`);
+      ok = false;
+    }
+  }
+}
+
+for (const token of [
+  'private gachaPreviewSummonRarity: GachaRarity | null = null;',
+  'openGachaRarityPreviewScene',
+  'closeGachaRarityPreviewScene',
+  'finishPendingGachaDrawAfterAnimation',
+  'executeGachaDrawDuringAnimation',
+  'completePendingGachaDrawIfReady',
+  'animationReady',
+  'revealHoldScheduled',
+  'GACHA_SUMMON_ANIMATION_DURATION_SECONDS',
+  'GACHA_SUMMON_RARITY_REVEAL_HOLD_SECONDS',
+]) {
+  if (gameRoot.includes(token)) {
+    console.error(`legacy summon animation flow token must be removed in ${gameRootPath}: ${token}`);
+    ok = false;
+  }
+}
+
 try {
   sceneMeta = JSON.parse(sceneMetaText);
 } catch (error) {
@@ -2813,6 +3051,15 @@ const requiredGachaConfigTokens = [
   'GACHA_ABYSS_FALLBACK_SPINE_SKIN',
   'GACHA_ABYSS_FALLBACK_SPINE_INTRO_ANIMATION',
   'GACHA_ABYSS_FALLBACK_SPINE_IDLE_ANIMATION',
+  'GACHA_SUMMON_VIDEO_NORMAL_RESOURCE',
+  "video/gacha/call1",
+  'GACHA_SUMMON_VIDEO_RARE_RESOURCE',
+  "video/gacha/call2",
+  'GACHA_SUMMON_AUDIO_RESOURCE',
+  "audio/gacha/call",
+  'GACHA_SUMMON_VIDEO_ASPECT_WIDTH',
+  'GACHA_SUMMON_VIDEO_ASPECT_HEIGHT',
+  'GACHA_SUMMON_VIDEO_FALLBACK_SECONDS',
   'export interface GachaMockResultItem',
   'export interface GachaRevealStep',
   'GACHA_MOCK_RESULT_ONCE',
@@ -2828,6 +3075,25 @@ const requiredGachaConfigTokens = [
 for (const token of requiredGachaConfigTokens) {
   if (!gachaSceneConfig.includes(token)) {
     console.error(`missing gacha local mock config token in ${gachaSceneConfigPath}: ${token}`);
+    ok = false;
+  }
+}
+
+for (const token of [
+  'GACHA_SUMMON_ANIMATION_DURATION_SECONDS',
+  'GACHA_SUMMON_SPINE_RESOURCE',
+  'GACHA_SUMMON_SPINE_UUID',
+  'GACHA_SUMMON_SPINE_SKIN',
+  'GACHA_SUMMON_SPINE_ANIMATION',
+  'GACHA_SUMMON_RARITY_REVEAL_HOLD_SECONDS',
+  'GACHA_SUMMON_ANIMATION_ASSETS',
+  'ui/gacha/summon/RecruitBG',
+  'ui/gacha/summon/Headhunting_bg',
+  'PrivateEquip_MagicCircle',
+  'Recruit_take4',
+]) {
+  if (gachaSceneConfig.includes(token)) {
+    console.error(`legacy summon animation config token must be removed in ${gachaSceneConfigPath}: ${token}`);
     ok = false;
   }
 }
@@ -3023,6 +3289,39 @@ const requiredGachaRendererTokens = [
   'GACHA_REVEAL_STEPS',
   'renderRevealScene(layout: UiLayout, mode: GachaPreviewResultMode): void',
   'renderResultScene(layout: UiLayout, mode: GachaPreviewResultMode, state: GachaSceneState): void',
+  'VideoClip',
+  'VideoPlayer',
+  'AudioClip',
+  'AudioSource',
+  'finishGachaSummonVideoScene(): void',
+  'renderSummonVideoScene(layout: UiLayout, mode: GachaPreviewResultMode, rarity: GachaRarity | null): void',
+  'GachaSummonVideoSceneRoot',
+  'renderSummonVideoContent(root, layout, scale, mode, rarity)',
+  'GachaSummonVideoPlayer',
+  'private resolveSummonVideoResource(rarity: GachaRarity | null): string',
+  "return rarity === 'SSR' || rarity === 'UR' ? GACHA_SUMMON_VIDEO_RARE_RESOURCE : GACHA_SUMMON_VIDEO_NORMAL_RESOURCE;",
+  'GACHA_SUMMON_VIDEO_NORMAL_RESOURCE',
+  'GACHA_SUMMON_VIDEO_RARE_RESOURCE',
+  'GACHA_SUMMON_AUDIO_RESOURCE',
+  'GACHA_SUMMON_VIDEO_ASPECT_WIDTH',
+  'GACHA_SUMMON_VIDEO_ASPECT_HEIGHT',
+  'GACHA_SUMMON_VIDEO_FALLBACK_SECONDS',
+  'const videoCoverSize = this.resolveSummonVideoCoverSize(layout);',
+  'layout.height * videoAspect',
+  'layout.width / videoAspect',
+  'private resolveSummonVideoCoverSize(layout: UiLayout): Size',
+  'const videoAspect = GACHA_SUMMON_VIDEO_ASPECT_WIDTH / GACHA_SUMMON_VIDEO_ASPECT_HEIGHT;',
+  'resources.load(videoResource, VideoClip',
+  'VideoPlayer.ResourceType.LOCAL',
+  'videoPlayer.keepAspectRatio = true;',
+  'videoPlayer.clip = clip',
+  'videoPlayer.play()',
+  'VideoPlayer.EventType.COMPLETED',
+  'VideoPlayer.EventType.ERROR',
+  'resources.load(GACHA_SUMMON_AUDIO_RESOURCE, AudioClip',
+  'const audioSource = audioNode.addComponent(AudioSource);',
+  'audioSource.play();',
+  'this.host.finishGachaSummonVideoScene();',
   'private renderActionModal(parent: Node, layout: UiLayout, scale: number, state: GachaSceneState): void',
   'GachaActionModalOverlay_',
   'overlay.on(Button.EventType.CLICK, () => this.host.closeGachaActionScene(), this)',
@@ -3115,6 +3414,27 @@ for (const token of requiredGachaRendererTokens) {
   }
 }
 
+for (const token of [
+  'private gachaPreviewSummonRarity: GachaRarity | null = null;',
+  'openGachaRarityPreviewScene',
+  'closeGachaRarityPreviewScene',
+  'GachaSummonPreviewSSRButton',
+  'GachaSummonPreviewURButton',
+]) {
+  if (gameRoot.includes(token) || gachaSceneRenderer.includes(token)) {
+    console.error(`legacy local SSR/UR summon preview token must be removed from the video flow: ${token}`);
+    ok = false;
+  }
+}
+
+assertMethodExcludes(
+  gachaSceneRendererPath,
+  gachaSceneRenderer,
+  'private renderSummonVideoContent(parent: Node, layout: UiLayout, scale: number, mode: GachaPreviewResultMode, rarity: GachaRarity | null): void',
+  ['this.api.gacha.draw', 'createGachaRequestId', 'requestId', '/api/player/gacha/draw'],
+  'summon video renderer must stay presentation-only',
+);
+
 const forbiddenGachaRendererTokens = [
   'GachaAbyssAtmosphere',
   'graphics.fillColor = rgba(0, 0, 0, 132)',
@@ -3136,6 +3456,35 @@ const forbiddenGachaRendererTokens = [
   'request("POST"',
   'skeleton.node.isValid',
   'fallback.isValid',
+  'rgba(160, 16, 22, 38)',
+  'veilGraphics.circle(0, 0, Math.min(layout.safeWidth, layout.safeHeight) * 0.32)',
+  'GACHA_SUMMON_ANIMATION_ASSETS.fullBackground',
+  'GachaSummonRecruitBackground',
+  'GACHA_SUMMON_ANIMATION_ASSETS',
+  'GACHA_SUMMON_SPINE_RESOURCE',
+  'GACHA_SUMMON_SPINE_UUID',
+  'Recruit_take4',
+  'renderSummonAnimationScene',
+  'renderSummonAnimationContent',
+  'renderSummonSpineAnimation',
+  'ensureSummonSpineData',
+  'hideSummonSpineSquareBackground',
+  'renderSummonRarityLightBurst',
+  'loadSummonTextureSprite',
+  'loadSummonCoverTextureSprite',
+  'GachaSummonAnimationVeil',
+  'GachaSummonFullScreenBackground',
+  'GachaSummonRarityGoldBurst',
+  'GachaSummonRarityUrBurst',
+  'GachaSummonRole_ally',
+  'GachaSummonMagicCircle',
+  'GachaSummonPreviewSSRButton',
+  'GachaSummonPreviewURButton',
+  'renderSummonPreviewButton',
+  'Headhunting_bg',
+  'RecruitBG',
+  'PrivateEquip_MagicCircle',
+  'videoPlayer.keepAspectRatio = false;',
 ];
 
 for (const token of forbiddenGachaRendererTokens) {

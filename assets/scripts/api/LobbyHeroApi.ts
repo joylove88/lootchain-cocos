@@ -14,7 +14,18 @@ const MAX_TEXT_LENGTH = 96;
 const MAX_RESOURCE_PATH_LENGTH = 192;
 const HERO_ASSET_FALLBACKS: Record<string, HeroAssetFallback> = {
   // 只读展示兜底：当前公司/家里本地服务未重启时，英雄列表可能暂时不带资源字段。
-  R_PATROL_01: { portraitAsset: 'act_1001', spineAsset: 'npc_1001' },
+  R_PATROL_01: { portraitAsset: 'act_1001', spineAsset: 'npc_1001', cardBackgroundAsset: 'ui/hero-roster/card_background/npc_1001' },
+  R_ACOLY_02: { portraitAsset: 'act_1012', spineAsset: 'npc_1012', cardBackgroundAsset: 'ui/hero-roster/card_background/npc_1012' },
+  R_SCOUT_03: { portraitAsset: 'act_1004', spineAsset: 'npc_1004', cardBackgroundAsset: 'ui/hero-roster/card_background/npc_1004' },
+  R_CULT_05: { portraitAsset: 'act_1008', spineAsset: 'npc_1008', cardBackgroundAsset: 'ui/hero-roster/card_background/npc_1008' },
+  R_RANGER_06: { portraitAsset: 'act_1016', spineAsset: 'npc_1016', cardBackgroundAsset: 'ui/hero-roster/card_background/npc_1016' },
+  R_GUARD_07: { portraitAsset: 'act_1003', spineAsset: 'npc_1003', cardBackgroundAsset: 'ui/hero-roster/card_background/npc_1003' },
+  SR_PRIEST_01: { portraitAsset: 'act_21006', spineAsset: 'npc_21006', cardBackgroundAsset: 'ui/hero-roster/card_background/npc_21006' },
+  SR_PALADIN_02: { portraitAsset: 'act_1002', spineAsset: 'npc_1002', cardBackgroundAsset: 'ui/hero-roster/card_background/npc_1002' },
+  SR_WITCH_03: { portraitAsset: 'act_1028', spineAsset: 'npc_1028', cardBackgroundAsset: 'ui/hero-roster/card_background/npc_1028' },
+  SR_BLADE_04: { portraitAsset: 'act_1038', spineAsset: 'npc_1038', cardBackgroundAsset: 'ui/hero-roster/card_background/npc_1038' },
+  SR_SNIPER_05: { portraitAsset: 'act_1037', spineAsset: 'npc_1037', cardBackgroundAsset: 'ui/hero-roster/card_background/npc_1037' },
+  SR_ABYSS_06: { portraitAsset: 'act_1036', spineAsset: 'npc_1036', cardBackgroundAsset: 'ui/hero-roster/card_background/npc_1036' },
   UR_ARTHAS: { portraitAsset: 'IshmaelA', spineAsset: 'IshmaelA', cardBackgroundAsset: 'ui/hero-roster/card_background/IshmaelA_Illust', spineUuid: '3e12af42-2d0f-4cb0-bb36-fd12425a0407' },
   UR_ATLAS: { portraitAsset: 'Lucrecia', spineAsset: 'Lucrecia', cardBackgroundAsset: 'ui/hero-roster/card_background/Lucrecia_Illust', spineUuid: '3af1df8e-5c10-4a4f-a8f7-2b49f5924988' },
   UR_AURELIA: { portraitAsset: 'Belladonna', spineAsset: 'Belladonna', cardBackgroundAsset: 'ui/hero-roster/card_background/Belladonna_Illust', spineUuid: '0b593cca-d1f8-4495-b6bf-2ed043f2d765' },
